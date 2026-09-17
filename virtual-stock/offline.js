@@ -31,7 +31,10 @@ function setCentralError(error){
  centralMessage=error&&error.message==='unknown action'?'Apps Script ยังเป็นเวอร์ชันเก่า กรุณา Deploy เวอร์ชันใหม่':(error&&error.message)||'ติดต่อฐานข้อมูลกลางไม่ได้';
 }
 const validStockData=value=>!!value&&Array.isArray(value.drugs)&&Array.isArray(value.daily)&&Array.isArray(value.refills)&&Array.isArray(value.coverage);
-function normalize(){db.nextRefill=Math.max(0,...db.refills.map(x=>Number(x.id)||0))+1;db.imports=db.imports||[]}
+function normalize(){
+ db.nextRefill=Math.max(0,...db.refills.map(x=>Number(x.id)||0))+1;db.imports=db.imports||[];db.settings=db.settings||{safety:20,target:7};
+ if(!db.settings.start){let latest=db.daily.map(x=>x[0]).sort().at(-1);db.settings.start=latest?add(latest,1):iso(new Date())}
+}
 async function pullCentral(force=false){
  if(!enabled())return;
  if(!force&&Date.now()-lastPull<5000)return;
@@ -73,12 +76,13 @@ function metric(asof){
   let rs=(refills.get(d.id)||[]).sort((a,b)=>a.day.localeCompare(b.day)||a.id-b.id), eventDays=[...new Set(rs.map(x=>x.day))].sort(), byDay={};
   for(let r of rs)if(r.normalized!==0)byDay[r.day]=(byDay[r.day]||0)+(+r.qty);
   let recentDays=eventDays.slice(-4), intervals=recentDays.slice(1).map((x,i)=>days(recentDays[i],x)), avgInterval=avg(intervals), qtyDays=Object.keys(byDay).sort(), recentQty=qtyDays.slice(-3).map(x=>byDay[x]), avgRefill=avg(recentQty), coverageDays=avgRefill!==null&&rate>0?avgRefill/rate:null;
-  let orderCycle=(rate>0||avgInterval!==null)?(avgInterval>0?avgInterval:+db.settings.target):null, candidates=rate>0?[orderCycle,coverageDays].filter(x=>x>0):[], cycle=candidates.length?Math.min(...candidates):null;
-  let expected=eventDays.length&&cycle!==null?add(eventDays.at(-1),Math.max(1,Math.ceil(cycle))):(rate>0?asof:null), until=expected?days(asof,expected):null;
-  let status=!eventDays.length&&rate>0?'first_order':cycle===null?'no_usage':until<=0?'urgent':until<=2?'today':until<=3?'near':'ok';
+  let orderCycle=(rate>0||avgInterval!==null)?(avgInterval>0?avgInterval:+db.settings.target):null;
+  let liveDays=eventDays.filter(x=>x>=db.settings.start),lastLive=liveDays.at(-1)||null,lastLiveQty=lastLive?(byDay[lastLive]??null):null,currentCoverage=lastLiveQty!==null&&rate>0?lastLiveQty/rate:null,candidates=rate>0?[orderCycle,currentCoverage].filter(x=>x>0):[],cycle=candidates.length?Math.min(...candidates):null;
+  let expected=lastLive&&cycle!==null?add(lastLive,Math.max(1,Math.ceil(cycle))):(rate>0?asof:null),until=expected?days(asof,expected):null;
+  let status=rate<=0?'no_usage':!lastLive?'first_order':cycle===null?'no_usage':until<=0?'urgent':until<=2?'today':until<=3?'near':'ok';
   let base=rate>0?rate*orderCycle:null, recommendedUnits=base===null?null:Math.ceil(base-1e-10), recommendedPacks=base!==null&&d.pack_set?Math.ceil(base/d.pack-1e-10):null;
   if(rate>0&&!d.pack_set)status='no_pack';
-  Object.assign(d,{status,recommended:recommendedUnits,recommended_units:recommendedUnits,recommended_packs:recommendedPacks,avg7:avgs[0],avg30:avgs[1],rate,last_refill:eventDays.at(-1)||null,last_refill_qty:eventDays.length?(byDay[eventDays.at(-1)]??null):null,avg_refill:avgRefill,avg_interval:avgInterval,coverage_days:coverageDays,cycle_days:cycle,order_cycle_days:orderCycle,expected,days_until:until,refill_count:eventDays.length});rows.push(d);
+  Object.assign(d,{status,recommended:recommendedUnits,recommended_units:recommendedUnits,recommended_packs:recommendedPacks,avg7:avgs[0],avg30:avgs[1],rate,last_refill:eventDays.at(-1)||null,last_refill_qty:eventDays.length?(byDay[eventDays.at(-1)]??null):null,last_live_refill:lastLive,last_live_refill_qty:lastLiveQty,avg_refill:avgRefill,avg_interval:avgInterval,coverage_days:coverageDays,current_coverage_days:currentCoverage,cycle_days:cycle,order_cycle_days:orderCycle,expected,days_until:until,refill_count:eventDays.length,live_refill_count:liveDays.length});rows.push(d);
  }
  let enriched=db.refills.slice().sort((a,b)=>b.day.localeCompare(a.day)||b.id-a.id).map(r=>{let d=db.drugs.find(x=>x.id===r.drug);return {...r,name:d.name,unit:d.unit}});
  let miss=n=>range(add(asof,-n+1),asof).filter(x=>!covered.has(x)).length;
@@ -112,7 +116,7 @@ async function previewRefills(file){await load();let rows=await fileRows(file),h
 async function api(path,data){await load();let route=path.split('?')[0],asof=new URL(path,location.origin).searchParams.get('date')||new Date().toISOString().slice(0,10);
  if(route.endsWith('/api/state')){await pullCentral();return metric(asof)}
  let previous=JSON.parse(JSON.stringify(db));
- if(route.endsWith('/api/settings')){db.settings.safety=+data.safety;db.settings.target=+data.target}
+ if(route.endsWith('/api/settings')){db.settings.safety=+data.safety;db.settings.target=+data.target;if(data.start)db.settings.start=dateValue(data.start)}
  else if(route.endsWith('/api/packs')){for(let [k,v] of Object.entries(data)){if(!k.startsWith('pack_')||v==='')continue;let id=+k.slice(5),pack=+v,d=db.drugs.find(x=>x.id===id);d.pack=pack;d.pack_set=1;for(let r of db.refills)if(r.drug===id&&r.source_qty!=null&&['box','pack','กล่อง'].includes(String(r.source_unit).toLowerCase()))Object.assign(r,{qty:r.source_qty*pack,packs:r.source_qty,pack_size:pack,normalized:1})}}
  else if(route.endsWith('/api/refill')){let d=db.drugs.find(x=>x.id===+data.drug),packs=+data.packs;if(!d?.pack_set)throw Error('กรุณาตั้งขนาดบรรจุต่อแพ็คก่อน');db.refills.push({id:db.nextRefill++,drug:d.id,day:data.day,qty:packs*d.pack,note:data.note||'',created:new Date().toISOString(),voided:0,packs,pack_size:d.pack,source_qty:null,source_unit:null,source_file:null,normalized:1})}
  else if(route.endsWith('/api/void-refill')){let r=db.refills.find(x=>x.id===+data.id);if(!r)throw Error('ไม่พบรายการ');r.voided=1}
