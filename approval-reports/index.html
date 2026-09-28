@@ -1143,7 +1143,10 @@ async function checkNotify(){
   const today=todayISO();
   const tm=new Date();tm.setDate(tm.getDate()+1);
   const tomorrow=tm.getFullYear()+'-'+String(tm.getMonth()+1).padStart(2,'0')+'-'+String(tm.getDate()).padStart(2,'0');
-  const nowHour=new Date().getHours();
+  const nowDate=new Date();
+  const nowHour=nowDate.getHours();
+  const nowMinute=nowHour*60+nowDate.getMinutes();
+  const canD1=nowMinute>=13*60+30&&nowMinute<17*60; /* แจ้งล่วงหน้ารอบ 13.30 น. และชดเชยได้ถึง 16.59 น. */
   const canD0=nowHour>=8&&nowHour<12;   /* แจ้งเตือนรอบวันนัดจริง เฉพาะช่วง 08.00-11.59 น. */
   const d0WindowPassed=nowHour>=12;     /* หลังเที่ยงไม่ยิงย้อนหลังของวันเดียวกัน */
   let changed=false;
@@ -1151,8 +1154,8 @@ async function checkNotify(){
     if(p.status!=='active'||!p.appt)continue;
     const info='👤 '+p.name+' (HN '+(p.hn||'-')+')\n💊 '+DRUGNAME[p.drug]+'\n📞 '+(p.phone||'-')+'\n🧑‍⚕️ '+(p.doctor||'-');
     const doseDoneToday=doseReceivedOnDate(p,today);
-    if(p.appt===tomorrow&&p.ntfD1!==p.appt){
-      if(await sendTG(N.chatPharm||N.chatNurse,'💊 เตรียมยาล่วงหน้า — พรุ่งนี้มีนัดฉีดยา\n📅 '+thDateFull(p.appt)+'\n'+info)){p.ntfD1=p.appt;changed=true;}
+    if(p.appt===tomorrow&&canD1&&p.ntfD1!==p.appt){
+      if(await sendTG(N.chatPharm||N.chatNurse,'💊 เตรียมยาล่วงหน้า — พรุ่งนี้มีนัดฉีดยา (แจ้งเตือนรอบ 13.30 น.)\n📅 '+thDateFull(p.appt)+'\n'+info)){p.ntfD1=p.appt;changed=true;}
     }
     if(p.appt===today&&doseDoneToday&&p.ntfD0!==p.appt){
       p.ntfD0=p.appt;
@@ -1167,8 +1170,8 @@ async function checkNotify(){
     if(p.appt2){
       const lbl=p.appt2Label||'นัดเพิ่มเติม';
       const remind=p.appt?'\n\n⚠️ กรุณาย้ำผู้ป่วยเรื่อง "นัดฉีดยา" วันที่ '+thDateFull(p.appt)+' ด้วย (ระยะห่างนัดนาน ผู้ป่วยอาจลืม)':'';
-      if(p.appt2===tomorrow&&p.ntf2D1!==p.appt2){
-        if(await sendWithPharm(N.chatNurse,'📋 พรุ่งนี้ผู้ป่วยมีนัด: '+lbl+'\n📅 '+thDateFull(p.appt2)+'\n'+info+remind)){p.ntf2D1=p.appt2;changed=true;}
+      if(p.appt2===tomorrow&&canD1&&p.ntf2D1!==p.appt2){
+        if(await sendWithPharm(N.chatNurse,'📋 พรุ่งนี้ผู้ป่วยมีนัด: '+lbl+' (แจ้งเตือนรอบ 13.30 น.)\n📅 '+thDateFull(p.appt2)+'\n'+info+remind)){p.ntf2D1=p.appt2;changed=true;}
       }
       if(p.appt2===today&&canD0&&p.ntf2D0!==p.appt2){
         if(await sendWithPharm(N.chatNurse,'📋 วันนี้ผู้ป่วยมีนัด: '+lbl+' (แจ้งเตือนรอบ 08.00 น.)\n📅 '+thDateFull(p.appt2)+'\n'+info+remind)){p.ntf2D0=p.appt2;changed=true;}
@@ -1638,13 +1641,13 @@ function vManual(){
     <tr><th>เหตุการณ์</th><th>เวลา</th><th>กลุ่มหลัก</th></tr>
     <tr><td>🆕 เพิ่มเคสใหม่เข้าระบบ</td><td>ทันที</td><td>เภสัชกร</td></tr>
     <tr><td>✅ เคสอนุมัติ → พยาบาลโทรนัด</td><td>ทันทีที่กดอนุมัติ</td><td>พยาบาล</td></tr>
-    <tr><td>💊 นัดฉีดยา → เตรียมยาล่วงหน้า</td><td>ก่อนนัด 1 วัน + วันนัดจริงเฉพาะช่วง 08.00-11.59 น.</td><td>เภสัชกร</td></tr>
-    <tr><td>📋 นัดเพิ่มเติม + ย้ำผู้ป่วยเรื่องนัดฉีดยา</td><td>ก่อนนัด 1 วัน + วันนัดจริงเฉพาะช่วง 08.00-11.59 น.</td><td>พยาบาล</td></tr>
+    <tr><td>💊 นัดฉีดยา → เตรียมยาล่วงหน้า</td><td>ก่อนนัด 1 วัน เวลา 13.30 น. + วันนัดจริงเฉพาะช่วง 08.00-11.59 น.</td><td>เภสัชกร</td></tr>
+    <tr><td>📋 นัดเพิ่มเติม + ย้ำผู้ป่วยเรื่องนัดฉีดยา</td><td>ก่อนนัด 1 วัน เวลา 13.30 น. + วันนัดจริงเฉพาะช่วง 08.00-11.59 น.</td><td>พยาบาล</td></tr>
     <tr><td>⚠️ ยาเหลืออายุ ≤ 60 วัน</td><td>ครั้งเดียวต่อ Lot</td><td>สต๊อกยา</td></tr>
   </table></div>
   ${ok('📌 <b>กลุ่มเภสัชกรได้รับสำเนาทุกเรื่อง</b> กลุ่มอื่นเห็นเฉพาะงานตัวเอง · ทุกข้อความส่งครั้งเดียวไม่ซ้ำ')}
   ${warn('⏰ วันนัดจริงจะไม่ยิงย้อนหลังหลังเที่ยง เพื่อลดปัญหาเปิดเครื่องตอนเย็นแล้วแจ้งเตือนของวันนี้ซ้ำ · ถ้าบันทึก "รับยาแล้ว" ในวันนัด ระบบจะกันการแจ้งซ้ำของวันนั้น')}
-  ${warn('การแจ้งเตือน Telegram ยังทำงานจากเครื่องที่เปิดเว็บอยู่ แนะนำคอมเคาน์เตอร์พยาบาลเปิดระบบไว้ช่วงเช้าเพื่อให้เตือนรอบ 08.00 น. ตรงเวลา')}`)}
+  ${warn('การแจ้งเตือน Telegram ทำงานจากเครื่องที่เปิดเว็บอยู่ แนะนำเปิดระบบค้างไว้เพื่อให้เตือนรอบ 08.00 น. และรอบล่วงหน้า 13.30 น. ตรงเวลา หากเพิ่งเปิดระบบหลัง 13.30 น. ระบบจะชดเชยการแจ้งล่วงหน้าได้ถึง 16.59 น.')}`)}
 
   ${sec('13. ตั้งค่าระบบ (เฉพาะผู้ดูแล)',`
   <ul>
@@ -1700,7 +1703,7 @@ function vManual(){
     <tr><td>ไฟล์แนบเปิดแล้วขอสิทธิ์ Google Drive</td><td>คัดลอก Apps Script เวอร์ชันล่าสุดไป Deploy ใหม่ เพื่อให้ไฟล์ใหม่ตั้งสิทธิ์ “ใครมีลิงก์เปิดดูได้” อัตโนมัติ · ไฟล์เก่าให้กด ${k('เปลี่ยน')} หรือ ${k('☁️ อัปขึ้นกลาง')} แล้วแนบใหม่</td></tr>
     <tr><td>ไฟล์แนบ PDF ของเคสเปิดไม่ได้จากเครื่องอื่น</td><td>เคสนั้นยังไม่มีลิงก์ไฟล์กลาง ให้เจ้าหน้าที่เลือก PDF ใหม่ 1 ครั้ง ระบบจะอัปขึ้น Drive กลางและบันทึกลิงก์กับเคส</td></tr>
     <tr><td>เมื่อวานแนบ PDF แล้ว วันนี้เหมือนหาย</td><td>มักเกิดจากเครื่องที่ยังใช้ข้อมูลเก่าบันทึกทับก่อนซิงก์กลางสำเร็จ · อัปเดต Apps Script ล่าสุดแล้ว Deploy ใหม่ ระบบจะรักษา <b>pdfUrl/pdfName</b> เดิมไว้ถ้าฐานกลางเคยมีลิงก์</td></tr>
-    <tr><td>Telegram ไม่แจ้งเตือน</td><td>ตั้งค่า → 📨 ทดสอบ · เช็ค Token / Chat ID (เลขติดลบ) · บอทต้องอยู่ในกลุ่ม · วันนัดจริงส่งเฉพาะ 08.00-11.59 น.</td></tr>
+    <tr><td>Telegram ไม่แจ้งเตือน</td><td>ตั้งค่า → 📨 ทดสอบ · เช็ค Token / Chat ID (เลขติดลบ) · บอทต้องอยู่ในกลุ่ม · แจ้งล่วงหน้าส่ง 13.30-16.59 น. และวันนัดจริงส่ง 08.00-11.59 น.</td></tr>
     <tr><td>ตอนเย็นยังแจ้งเตือนนัดของวันนี้</td><td>อัปเดตเว็บเป็นเวอร์ชันล่าสุด · ระบบใหม่จะไม่ยิงย้อนหลังหลัง 12.00 น. และถ้าบันทึกรับยาแล้วจะกันส่งซ้ำ</td></tr>
     <tr><td>หน้าตา/ฟีเจอร์ไม่ตรงคู่มือ</td><td>ใช้เวอร์ชันเก่า — อัปเดตตามข้อ 15 แล้ว Ctrl+F5</td></tr>
     <tr><td>กดปุ่มแล้วเงียบ / ขึ้นแถบ ⚠ error ล่างจอ</td><td>แคปหน้าจอข้อความ error (มีเลขบรรทัด) ส่งผู้ดูแลระบบ</td></tr>
@@ -2184,7 +2187,7 @@ function out(o){
     <b>🔔 แจ้งเตือนผ่าน Telegram</b>
     <p style="color:var(--muted);font-size:12.5px;margin:4px 0 10px">
       ✅ เคสอนุมัติแล้ว → กลุ่มพยาบาล · 💊 นัดฉีดยา → กลุ่มเภสัชกร · 📋 นัดเพิ่มเติม (เช่น นัดมารับยา) → กลุ่มพยาบาล พร้อมข้อความย้ำนัดฉีดยา · ⚠️ ยาใกล้หมดอายุ → กลุ่มสต๊อกยา<br>
-      <b>กลุ่มเภสัชกรได้รับสำเนาทุกเรื่อง</b> · แจ้งล่วงหน้า 1 วัน + วันนัดจริงอีกรอบเวลา 08.00 น. · ส่งครั้งเดียวไม่ซ้ำ</p>
+      <b>กลุ่มเภสัชกรได้รับสำเนาทุกเรื่อง</b> · แจ้งล่วงหน้า 1 วัน เวลา 13.30 น. + วันนัดจริงอีกรอบเวลา 08.00 น. · ส่งครั้งเดียวไม่ซ้ำ</p>
     <div class="frm">
       <div class="full"><label>Bot Token (จาก @BotFather)</label>
         <input value="${esc(db.notify.token||'')}" onchange="setNotify('token',this.value)" placeholder="เช่น 123456789:AAxxxxxxxxxxxxxxxxxxxxxxxx"></div>
@@ -3142,6 +3145,12 @@ setInterval(checkNotify,3600000);        /* และทุก 1 ชั่วโ
   const next=new Date(now.getFullYear(),now.getMonth(),now.getDate(),8,0,30);
   if(now>=next)next.setDate(next.getDate()+1);
   setTimeout(function(){checkNotify();scheduleMorning();},next-now);
+})();
+(function scheduleAdvance(){             /* ยิงแจ้งเตือนล่วงหน้ารอบ 13.30 น. ตรงถ้าเปิดหน้าค้างไว้ */
+  const now=new Date();
+  const next=new Date(now.getFullYear(),now.getMonth(),now.getDate(),13,30,5);
+  if(now>=next)next.setDate(next.getDate()+1);
+  setTimeout(function(){checkNotify();scheduleAdvance();},next-now);
 })();
 (function(){
   const M=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
