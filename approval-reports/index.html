@@ -1072,10 +1072,15 @@ function pushSync(){
     }
   },800);
 }
-function copyScript(){
+async function copyScript(){
   const t=document.getElementById('gscode');
+  try{
+    const r=await fetch('../apps-script-backend.gs',{cache:'no-store'});
+    if(!r.ok)throw new Error('load failed');
+    t.value=await r.text();
+  }catch(e){}
   t.select();t.setSelectionRange(0,999999);
-  try{document.execCommand('copy');toast('✓ คัดลอกโค้ดแล้ว นำไปวางใน Apps Script');}
+  try{document.execCommand('copy');toast('✓ คัดลอกโค้ดล่าสุดแล้ว นำไปวางใน Apps Script');}
   catch(e){alert('คัดลอกอัตโนมัติไม่ได้ กรุณาเลือกข้อความแล้วกด Ctrl+C');}
 }
 
