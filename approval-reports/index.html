@@ -1109,6 +1109,76 @@ async function sendWithPharm(chat,text){
   if(N.chatPharm&&N.chatPharm!==chat)ok=(await sendTG(N.chatPharm,text))||ok;
   return ok;
 }
+/* จองสิทธิ์ส่งบนฐานข้อมูลกลางก่อนยิง Telegram กันหลายเครื่องส่งซ้ำ */
+async function claimNotification(p,marker,appt){
+  if(p[marker]===appt)return 0;
+  const old=p[marker];
+  p[marker]=appt;
+  if(!SYNCURL||syncState!=='on'||!initialSyncDone){
+    localStorage.setItem(KEY,JSON.stringify(db));
+    return 1;
+  }
+  clearTimeout(pushTimer);
+  syncBusy=true;
+  try{
+    const res=await apiSave();
+    if(res&&res.err==='stale'&&res.data){
+      db=res.data;ensureDefaults();
+      localStorage.setItem(KEY,JSON.stringify(db));
+      syncVer=res.ver||syncVer;
+      render();
+      return -1;
+    }
+    if(!res||!res.ok)throw new Error((res&&res.err)||'claim failed');
+    syncVer=res.ver||syncVer;
+    localStorage.setItem(KEY,JSON.stringify(db));
+    return 1;
+  }catch(e){
+    if(old===undefined)delete p[marker];else p[marker]=old;
+    return -1;
+  }finally{syncBusy=false;}
+}
+async function sendClaimedNotification(p,marker,appt,chat,text){
+  if(!chat||p[marker]===appt)return 0;
+  const claim=await claimNotification(p,marker,appt);
+  if(claim<=0)return claim;
+  if(await sendTG(chat,text))return 1;
+  delete p[marker];
+  localStorage.setItem(KEY,JSON.stringify(db));
+  if(SYNCURL&&syncState==='on')pushSync();
+  return 0;
+}
+/* นัดฉีดยาต้องถึงทั้งกลุ่มนัดผู้ป่วยและกลุ่มเภสัชกร โดยจำผลแยกแต่ละกลุ่ม */
+async function sendAppointmentGroups(p,key,appt,text,legacyBoth){
+  const N=db.notify||{};
+  const nurseKey=key+'Nurse',pharmKey=key+'Pharm';
+  let changed=false;
+  /* ย้ายธงจากรุ่นเดิม: รุ่นเดิมส่ง chatPharm ก่อน ถ้าไม่ได้ตั้งจึงส่ง chatNurse */
+  if(p[key]===appt){
+    if(legacyBoth&&N.chatNurse&&p[nurseKey]!==appt){p[nurseKey]=appt;changed=true;}
+    if(N.chatPharm&&p[pharmKey]!==appt){p[pharmKey]=appt;changed=true;}
+    else if(!N.chatPharm&&N.chatNurse&&p[nurseKey]!==appt){p[nurseKey]=appt;changed=true;}
+    if(N.chatPharm&&N.chatPharm===N.chatNurse&&p[nurseKey]!==appt){p[nurseKey]=appt;changed=true;}
+  }
+  if(N.chatNurse&&p[nurseKey]!==appt){
+    const result=await sendClaimedNotification(p,nurseKey,appt,N.chatNurse,text);
+    if(result<0)return changed;
+    if(result>0)changed=true;
+  }
+  if(N.chatPharm){
+    if(N.chatPharm===N.chatNurse&&p[nurseKey]===appt&&p[pharmKey]!==appt){
+      p[pharmKey]=appt;changed=true;
+    }else if(N.chatPharm!==N.chatNurse&&p[pharmKey]!==appt){
+      const result=await sendClaimedNotification(p,pharmKey,appt,N.chatPharm,text);
+      if(result<0)return changed;
+      if(result>0)changed=true;
+    }
+  }
+  const nurseDone=!N.chatNurse||p[nurseKey]===appt;
+  const pharmDone=!N.chatPharm||p[pharmKey]===appt;
+  if((N.chatNurse||N.chatPharm)&&nurseDone&&pharmDone&&p[key]!==appt){p[key]=appt;changed=true;}
+  return changed;
+}
 function notifyNewCase(p){
   const N=db.notify||{};
   if(!N.token)return;
@@ -1154,14 +1224,14 @@ async function checkNotify(){
     if(p.status!=='active'||!p.appt)continue;
     const info='👤 '+p.name+' (HN '+(p.hn||'-')+')\n💊 '+DRUGNAME[p.drug]+'\n📞 '+(p.phone||'-')+'\n🧑‍⚕️ '+(p.doctor||'-');
     const doseDoneToday=doseReceivedOnDate(p,today);
-    if(p.appt===tomorrow&&canD1&&p.ntfD1!==p.appt){
-      if(await sendTG(N.chatPharm||N.chatNurse,'💊 เตรียมยาล่วงหน้า — พรุ่งนี้มีนัดฉีดยา (แจ้งเตือนรอบ 13.30 น.)\n📅 '+thDateFull(p.appt)+'\n'+info)){p.ntfD1=p.appt;changed=true;}
+    if(p.appt===tomorrow&&canD1){
+      if(await sendAppointmentGroups(p,'ntfD1',p.appt,'💊 เตรียมยาล่วงหน้า — พรุ่งนี้มีนัดฉีดยา (แจ้งเตือนรอบ 13.30 น.)\n📅 '+thDateFull(p.appt)+'\n'+info))changed=true;
     }
     if(p.appt===today&&doseDoneToday&&p.ntfD0!==p.appt){
       p.ntfD0=p.appt;
       changed=true;
-    }else if(p.appt===today&&canD0&&p.ntfD0!==p.appt){
-      if(await sendTG(N.chatPharm||N.chatNurse,'📌 วันนี้มีนัดฉีดยา (แจ้งเตือนรอบ 08.00 น.)\n📅 '+thDateFull(p.appt)+'\n'+info)){p.ntfD0=p.appt;changed=true;}
+    }else if(p.appt===today&&canD0){
+      if(await sendAppointmentGroups(p,'ntfD0',p.appt,'📌 วันนี้มีนัดฉีดยา (แจ้งเตือนรอบ 08.00 น.)\n📅 '+thDateFull(p.appt)+'\n'+info))changed=true;
     }else if(p.appt===today&&d0WindowPassed&&p.ntfD0!==p.appt){
       p.ntfD0=p.appt;
       changed=true;
@@ -1170,11 +1240,11 @@ async function checkNotify(){
     if(p.appt2){
       const lbl=p.appt2Label||'นัดเพิ่มเติม';
       const remind=p.appt?'\n\n⚠️ กรุณาย้ำผู้ป่วยเรื่อง "นัดฉีดยา" วันที่ '+thDateFull(p.appt)+' ด้วย (ระยะห่างนัดนาน ผู้ป่วยอาจลืม)':'';
-      if(p.appt2===tomorrow&&canD1&&p.ntf2D1!==p.appt2){
-        if(await sendWithPharm(N.chatNurse,'📋 พรุ่งนี้ผู้ป่วยมีนัด: '+lbl+' (แจ้งเตือนรอบ 13.30 น.)\n📅 '+thDateFull(p.appt2)+'\n'+info+remind)){p.ntf2D1=p.appt2;changed=true;}
+      if(p.appt2===tomorrow&&canD1){
+        if(await sendAppointmentGroups(p,'ntf2D1',p.appt2,'📋 พรุ่งนี้ผู้ป่วยมีนัด: '+lbl+' (แจ้งเตือนรอบ 13.30 น.)\n📅 '+thDateFull(p.appt2)+'\n'+info+remind,true))changed=true;
       }
-      if(p.appt2===today&&canD0&&p.ntf2D0!==p.appt2){
-        if(await sendWithPharm(N.chatNurse,'📋 วันนี้ผู้ป่วยมีนัด: '+lbl+' (แจ้งเตือนรอบ 08.00 น.)\n📅 '+thDateFull(p.appt2)+'\n'+info+remind)){p.ntf2D0=p.appt2;changed=true;}
+      if(p.appt2===today&&canD0){
+        if(await sendAppointmentGroups(p,'ntf2D0',p.appt2,'📋 วันนี้ผู้ป่วยมีนัด: '+lbl+' (แจ้งเตือนรอบ 08.00 น.)\n📅 '+thDateFull(p.appt2)+'\n'+info+remind,true))changed=true;
       }else if(p.appt2===today&&d0WindowPassed&&p.ntf2D0!==p.appt2){
         p.ntf2D0=p.appt2;
         changed=true;
@@ -1641,7 +1711,7 @@ function vManual(){
     <tr><th>เหตุการณ์</th><th>เวลา</th><th>กลุ่มหลัก</th></tr>
     <tr><td>🆕 เพิ่มเคสใหม่เข้าระบบ</td><td>ทันที</td><td>เภสัชกร</td></tr>
     <tr><td>✅ เคสอนุมัติ → พยาบาลโทรนัด</td><td>ทันทีที่กดอนุมัติ</td><td>พยาบาล</td></tr>
-    <tr><td>💊 นัดฉีดยา → เตรียมยาล่วงหน้า</td><td>ก่อนนัด 1 วัน เวลา 13.30 น. + วันนัดจริงเฉพาะช่วง 08.00-11.59 น.</td><td>เภสัชกร</td></tr>
+    <tr><td>💊 นัดฉีดยา → เตรียมยาล่วงหน้า</td><td>ก่อนนัด 1 วัน เวลา 13.30 น. + วันนัดจริงเฉพาะช่วง 08.00-11.59 น.</td><td>นัดผู้ป่วย + เภสัชกร</td></tr>
     <tr><td>📋 นัดเพิ่มเติม + ย้ำผู้ป่วยเรื่องนัดฉีดยา</td><td>ก่อนนัด 1 วัน เวลา 13.30 น. + วันนัดจริงเฉพาะช่วง 08.00-11.59 น.</td><td>พยาบาล</td></tr>
     <tr><td>⚠️ ยาเหลืออายุ ≤ 60 วัน</td><td>ครั้งเดียวต่อ Lot</td><td>สต๊อกยา</td></tr>
   </table></div>
@@ -1803,18 +1873,7 @@ function doPost(e){
     if(req.action==='refillDelete')return out(refillDelete_(req.id));
     if(req.action==='pharmacyDrugSave')return out(pharmacyDrugSave_(req.names));
     if(req.action==='stockSave')return out(stockSave_(req.data,req.baseVer));
-    if(req.action==='save'){
-      const current=load_();
-      if(req.baseVer){
-        if(current.ver){
-          if(String(req.baseVer)!==String(current.ver)){
-            return out({ok:0,err:'stale',data:current.data,ver:current.ver});
-          }
-        }
-      }
-      const ver=save_(mergeProtectedFields_(current.data,req.data));
-      return out({ok:1,ver:ver});
-    }
+    if(req.action==='save')return out(saveVersioned_(req.data,req.baseVer));
     if(req.action==='backup'){return out(backup_());}
     if(req.action==='restore'){return out(restore_(req.name));}
     if(req.action==='upload'){return out(upload_(req));}
@@ -2131,23 +2190,38 @@ function mergeProtectedFields_(oldData,newData){
   });
   return newData;
 }
-function save_(data){
+function writeData_(sh,data){
+  const s=JSON.stringify(data);
+  const CH=45000;
+  const chunks=[];
+  for(let i=0;i&lt;s.length;i+=CH)chunks.push([s.substr(i,CH)]);
+  const ver=new Date().getTime();
+  sh.clearContents();
+  sh.getRange(1,1).setValue(chunks.length);
+  sh.getRange(1,2).setValue(ver);
+  sh.getRange(2,1,chunks.length,1).setValues(chunks);
+  mirror_(data);
+  PropertiesService.getScriptProperties().setProperty('DATA_CHANGED','1');
+  return ver;
+}
+function saveVersioned_(data,baseVer){
   const lock=LockService.getScriptLock();
   lock.waitLock(10000);
   try{
     const sh=sheet_();
-    const s=JSON.stringify(data);
-    const CH=45000;
-    const chunks=[];
-    for(let i=0;i&lt;s.length;i+=CH)chunks.push([s.substr(i,CH)]);
-    const ver=new Date().getTime();
-    sh.clearContents();
-    sh.getRange(1,1).setValue(chunks.length);
-    sh.getRange(1,2).setValue(ver);
-    sh.getRange(2,1,chunks.length,1).setValues(chunks);
-    mirror_(data);
-    PropertiesService.getScriptProperties().setProperty('DATA_CHANGED','1');
-    return ver;
+    const current=load_();
+    if(baseVer&amp;&amp;current.ver&amp;&amp;String(baseVer)!==String(current.ver)){
+      return {ok:0,err:'stale',data:current.data,ver:current.ver};
+    }
+    const ver=writeData_(sh,mergeProtectedFields_(current.data,data));
+    return {ok:1,ver:ver};
+  }finally{lock.releaseLock();}
+}
+function save_(data){
+  const lock=LockService.getScriptLock();
+  lock.waitLock(10000);
+  try{
+    return writeData_(sheet_(),data);
   }finally{lock.releaseLock();}
 }
 function mirror_(data){
@@ -2186,7 +2260,7 @@ function out(o){
   <div class="card">
     <b>🔔 แจ้งเตือนผ่าน Telegram</b>
     <p style="color:var(--muted);font-size:12.5px;margin:4px 0 10px">
-      ✅ เคสอนุมัติแล้ว → กลุ่มพยาบาล · 💊 นัดฉีดยา → กลุ่มเภสัชกร · 📋 นัดเพิ่มเติม (เช่น นัดมารับยา) → กลุ่มพยาบาล พร้อมข้อความย้ำนัดฉีดยา · ⚠️ ยาใกล้หมดอายุ → กลุ่มสต๊อกยา<br>
+      ✅ เคสอนุมัติแล้ว → กลุ่มพยาบาล · 💊 นัดฉีดยา → กลุ่มนัดผู้ป่วยและกลุ่มเภสัชกร · 📋 นัดเพิ่มเติม (เช่น นัดมารับยา) → กลุ่มพยาบาล พร้อมข้อความย้ำนัดฉีดยา · ⚠️ ยาใกล้หมดอายุ → กลุ่มสต๊อกยา<br>
       <b>กลุ่มเภสัชกรได้รับสำเนาทุกเรื่อง</b> · แจ้งล่วงหน้า 1 วัน เวลา 13.30 น. + วันนัดจริงอีกรอบเวลา 08.00 น. · ส่งครั้งเดียวไม่ซ้ำ</p>
     <div class="frm">
       <div class="full"><label>Bot Token (จาก @BotFather)</label>
