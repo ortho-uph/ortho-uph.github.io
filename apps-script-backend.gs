@@ -132,13 +132,13 @@ function tkaLogin_(password){
   const token=Utilities.getUuid().replace(/-/g,'')+Utilities.getUuid().replace(/-/g,'');
   const now=new Date().toISOString();user.lastLoginAt=now;
   if(!user.bootstrap)tkaUsersSave_(users);
-  cache.put('TKA_SESSION_'+token,JSON.stringify({id:user.id,name:user.name,role:user.role,bootstrap:!!user.bootstrap}),21600);
+  cache.put('TKA_SESSION_'+token,JSON.stringify({id:user.id,name:user.name,role:user.role,bootstrap:!!user.bootstrap,lastSeen:new Date().getTime()}),900);
   tkaAudit_(user,'LOGIN','',user.bootstrap?'เข้าสู่ระบบด้วยรหัสผู้ดูแลเดิมเพื่อเริ่มตั้งค่า':'เข้าสู่ระบบสำเร็จ');
   return {ok:1,session:token,expiresIn:21600,user:tkaPublicUser_(user),bootstrap:!!user.bootstrap};
 }
 function tkaSession_(token){
   if(!token)return null;const cache=CacheService.getScriptCache(),key='TKA_SESSION_'+String(token),raw=cache.get(key);if(!raw)return null;
-  try{const actor=JSON.parse(raw);cache.put(key,raw,21600);return actor;}catch(e){return null;}
+  try{const actor=JSON.parse(raw),now=new Date().getTime();if(!actor.lastSeen||now-Number(actor.lastSeen)>600000){cache.remove(key);return null;}actor.lastSeen=now;cache.put(key,JSON.stringify(actor),900);return actor;}catch(e){cache.remove(key);return null;}
 }
 function tkaLogout_(token){const actor=tkaSession_(token);if(actor)tkaAudit_(actor,'LOGOUT','', 'ออกจากระบบ');if(token)CacheService.getScriptCache().remove('TKA_SESSION_'+String(token));return {ok:1};}
 function tkaCanEdit_(actor){return actor&&['admin','pharmacist'].indexOf(actor.role)>=0;}
