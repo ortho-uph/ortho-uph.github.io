@@ -94,10 +94,11 @@ function tkaHandle_(req){
   const actor=tkaSession_(req.session);
   if(!actor)return {ok:0,err:'session_expired'};
   if(req.action==='tkaMe')return {ok:1,user:tkaPublicUser_(actor)};
-  if(req.action==='tkaList')return {ok:1,items:tkaCaseLoad_().filter(function(x){return !x.archivedAt;})};
+  if(req.action==='tkaList')return {ok:1,items:tkaCaseLoad_()};
   if(req.action==='tkaCreate')return tkaCaseCreate_(actor,req.item);
   if(req.action==='tkaUpdate')return tkaCaseUpdate_(actor,req.id,req.item);
   if(req.action==='tkaArchive')return tkaCaseArchive_(actor,req.id);
+  if(req.action==='tkaRestore')return tkaCaseRestore_(actor,req.id);
   if(req.action==='tkaAuditList')return tkaAuditList_(actor);
   if(req.action==='tkaUserList')return tkaUserList_(actor);
   if(req.action==='tkaUserCreate')return tkaUserCreate_(actor,req.user);
@@ -173,6 +174,10 @@ function tkaCaseUpdate_(actor,id,input){
 function tkaCaseArchive_(actor,id){
   if(!tkaIsAdmin_(actor))return {ok:0,err:'forbidden'};const lock=LockService.getScriptLock();lock.waitLock(10000);
   try{const sh=tkaCaseSheet_(),items=tkaCaseLoad_(),at=items.map(function(x){return x.id;}).indexOf(String(id||''));if(at<0)return {ok:0,err:'not_found'};const o=items[at];o.archivedAt=new Date().toISOString();o.updatedAt=o.archivedAt;o.updatedBy=actor.id;o.updatedByName=actor.name;sh.getRange(at+2,1,1,TKA_CASE_FIELDS.length).setValues([tkaCaseRow_(o)]);tkaAudit_(actor,'CASE_ARCHIVE',o.id,'เก็บเคสเข้าคลังโดยไม่ลบข้อมูล');return {ok:1};}finally{lock.releaseLock();}
+}
+function tkaCaseRestore_(actor,id){
+  if(!tkaIsAdmin_(actor))return {ok:0,err:'forbidden'};const lock=LockService.getScriptLock();lock.waitLock(10000);
+  try{const sh=tkaCaseSheet_(),items=tkaCaseLoad_(),at=items.map(function(x){return x.id;}).indexOf(String(id||''));if(at<0)return {ok:0,err:'not_found'};const o=items[at];o.archivedAt='';o.updatedAt=new Date().toISOString();o.updatedBy=actor.id;o.updatedByName=actor.name;sh.getRange(at+2,1,1,TKA_CASE_FIELDS.length).setValues([tkaCaseRow_(o)]);tkaAudit_(actor,'CASE_RESTORE',o.id,'นำเคสกลับจากคลัง');return {ok:1};}finally{lock.releaseLock();}
 }
 function tkaAuditSheet_(){const ss=SpreadsheetApp.getActiveSpreadsheet();let sh=ss.getSheetByName('TKA_Audit');if(!sh)sh=ss.insertSheet('TKA_Audit');if(sh.getLastRow()===0)sh.appendRow(['at','actorId','actorName','role','action','caseId','summary']);return sh;}
 function tkaAudit_(actor,action,caseId,summary){try{tkaAuditSheet_().appendRow([new Date().toISOString(),actor&&actor.id||'',actor&&actor.name||'',actor&&actor.role||'',action||'',caseId||'',tkaClean_(summary,800)]);}catch(e){}}
