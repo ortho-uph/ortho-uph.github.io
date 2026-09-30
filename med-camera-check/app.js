@@ -368,16 +368,25 @@
     const expectedItem = state.expected.find(x => x.medicineId === med.id && x.checked < x.quantity);
     const passed = Boolean(expectedItem);
     if (expectedItem) expectedItem.checked++;
+    const allComplete = passed && !hasPendingExpected();
     renderExpected();
     const sideLabel = detectedSide === "front" ? "ด้านหน้า" : "ด้านหลัง";
     const reason = passed ? `ภาพ${sideLabel}ตรงกับฐานข้อมูลและอยู่ในรายการที่ต้องจ่าย` : "พบยาในฐานข้อมูล แต่ไม่ได้อยู่ในรายการหรือรายการนี้ตรวจครบแล้ว";
     $("liveDot").className = passed ? "live-dot good" : "live-dot bad";
-    setLiveMessage(passed ? "เช็คแล้ว ✓" : "ไม่ตรงรายการ", `${med.name} ${med.strength} · ${Math.round(score * 100)}%`);
-    const card = $("resultCard"); card.hidden = false; card.className = `result-card ${passed ? "pass" : "fail"}`;
-    card.innerHTML = `<div class="result-head"><div><p class="eyebrow">${passed ? "เช็คแล้ว ✓" : "คำเตือน ไม่ตรงรายการ"}</p><h3>${esc(med.name)} ${esc(med.strength)}</h3><p>${esc(reason)}</p></div><div class="score">${Math.round(score * 100)}%</div></div><p>${passed ? "บันทึกผลแล้ว นำชิ้นเดิมออกและวางชิ้น 2, 3, 4 ต่อได้ทันที" : "นำยาที่ไม่ตรงรายการออกจากกรอบ"}</p>`;
+    setLiveMessage(allComplete ? "ตรวจยาครบแล้ว ✓" : passed ? "เช็คแล้ว ✓" : "ไม่ตรงรายการ", allComplete ? "ครบตามจำนวนที่กำหนด" : `${med.name} ${med.strength} · ${Math.round(score * 100)}%`);
+    const card = $("resultCard"); card.hidden = false; card.className = `result-card ${allComplete ? "complete" : passed ? "pass" : "fail"}`;
+    card.innerHTML = `<div class="result-head"><div><p class="eyebrow">${allComplete ? "ตรวจยาครบแล้ว ✓" : passed ? "เช็คแล้ว ✓" : "คำเตือน ไม่ตรงรายการ"}</p><h3>${allComplete ? "ครบตามรายการทั้งหมด" : `${esc(med.name)} ${esc(med.strength)}`}</h3><p>${allComplete ? "จำนวนยาที่ตรวจผ่านครบตามรายการที่กำหนดแล้ว" : esc(reason)}</p></div><div class="score">${allComplete ? "ครบ" : `${Math.round(score * 100)}%`}</div></div><p>${allComplete ? "สิ้นสุดการตรวจชุดนี้ สามารถเริ่มรายการใหม่ได้" : passed ? "บันทึกผลแล้ว นำชิ้นเดิมออกและวางชิ้น 2, 3, 4 ต่อได้ทันที" : "นำยาที่ไม่ตรงรายการออกจากกรอบ"}</p>`;
     const record = { id: uid(), createdAt: new Date().toISOString(), jobCode: $("jobCode").value.trim() || "ไม่ระบุ", medicineId: med.id, medicineLabel: medicineLabel(med), score: Math.round(score * 1000) / 10, result: passed ? "pass" : "fail", reason, manual: false, mode: "realtime-one-side", detectedSide };
     await MedDB.put("history", record); await loadHistory();
-    speak(passed ? `${med.name} ${med.strength} ถูกต้อง` : `คำเตือน ${med.name} ${med.strength} ไม่ตรงรายการ`);
+    if (allComplete) {
+      stopRealtime("ตรวจยาครบแล้ว ✓");
+      $("liveDot").className = "live-dot good";
+      setLiveMessage("ตรวจยาครบแล้ว ✓", "ครบตามจำนวนที่กำหนด");
+      toast("ตรวจยาครบแล้ว ✓");
+      speak("ตรวจยาครบแล้ว");
+    } else {
+      speak(passed ? `${med.name} ${med.strength} ถูกต้อง` : `คำเตือน ${med.name} ${med.strength} ไม่ตรงรายการ`);
+    }
   }
 
   function renderRefs() {

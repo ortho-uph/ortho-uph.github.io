@@ -153,6 +153,8 @@ figure { margin: 0; }
 .quality-message.warn { color: var(--amber); }
 .result-card { margin-top: 20px; padding: 20px; border-radius: 15px; border: 2px solid; background: white; }
 .result-card.pass { border-color: #55a98e; background: #f3fbf8; }
+.result-card.complete { border-color: #19724f; background: #dff5e9; box-shadow: 0 0 0 4px rgba(25,114,79,.12), var(--shadow); }
+.result-card.complete .eyebrow, .result-card.complete .score { color: #0f5d3f; }
 .result-card.review { border-color: #e0a128; background: #fffaf0; }
 .result-card.fail { border-color: #d15a60; background: #fff5f5; }
 .result-head { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
