@@ -333,6 +333,9 @@
     feature.embedding = await MedAI.embedFromSource(video, state.zoom.check);
     const threshold = Number(localStorage.getItem("matchThreshold") || 50) / 100;
     const qualityWarnings = MedVision.qualityWarnings(feature);
+    // Slight softness varies greatly between camera models and should not stop
+    // recognition completely. Keep it visible as advice while AI continues.
+    const blockingWarnings = qualityWarnings.filter(warning => warning !== "ภาพอาจไม่คมชัด");
 
     if (state.live.resultLocked) {
       const med = state.medicines.find(m => m.id === state.live.lastMedicineId);
@@ -363,18 +366,18 @@
       return;
     }
 
-    if (qualityWarnings.length) {
+    if (blockingWarnings.length) {
       state.live.stableCount = 0; state.live.stableKey = null;
       $("stabilityMeter").firstElementChild.style.width = "0%";
-      $("qualityMessage").textContent = qualityWarnings.join(" / ");
+      $("qualityMessage").textContent = blockingWarnings.join(" / ");
       $("qualityMessage").classList.add("warn");
       setLiveMessage("ปรับตำแหน่งแผงยาแล้วรอสักครู่", "ภาพยังไม่พร้อมสำหรับการยืนยัน");
       scheduleLiveAnalysis();
       return;
     }
 
-    $("qualityMessage").textContent = "กำลังวิเคราะห์วิดีโอแบบเรียลไทม์";
-    $("qualityMessage").classList.remove("warn");
+    $("qualityMessage").textContent = qualityWarnings.length ? "ภาพไม่คมชัดเล็กน้อย — AI กำลังตรวจต่อ" : "กำลังวิเคราะห์วิดีโอแบบเรียลไทม์";
+    $("qualityMessage").classList.toggle("warn", qualityWarnings.length > 0);
 
     if (state.live.phase === "first") {
       const ranked = state.medicines.map(med => {
