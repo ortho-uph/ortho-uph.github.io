@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#185b4a">
   <title>ระบบรีเช็คยาด้วยกล้อง</title>
-  <link rel="stylesheet" href="styles.css?v=20260930h">
+  <link rel="stylesheet" href="styles.css?v=20260930i">
 </head>
 <body>
   <header class="topbar">
@@ -154,7 +154,7 @@
         <div>
           <p class="eyebrow">ฐานข้อมูลอ้างอิง</p>
           <h2>ลงทะเบียนยา</h2>
-          <p>ถ่ายอย่างน้อยด้านละ 3 ภาพ และแนะนำ 8–12 ภาพจากหลายมุม แสง และล็อตการผลิต</p>
+          <p>บันทึกข้อมูลยาไว้ก่อนได้ แล้วกลับมาแนบไฟล์หรือถ่ายรูปภายหลัง เมื่อรูปครบด้านละ 3 ภาพจึงพร้อมตรวจ</p>
         </div>
         <span id="medicineCount" class="count-pill">0 รายการ</span>
       </div>
@@ -211,7 +211,7 @@
               <div id="backReferences" class="thumb-list"></div>
             </div>
             <label class="button ghost file-button">
-              เพิ่มภาพจากไฟล์
+              แนบรูปจากไฟล์
               <input id="referenceFileInput" type="file" accept="image/*" multiple hidden>
             </label>
             <select id="fileSide" aria-label="ด้านของภาพจากไฟล์">
@@ -223,7 +223,7 @@
 
         <div class="form-actions">
           <button id="cancelEditBtn" type="button" class="button ghost" hidden>ยกเลิกแก้ไข</button>
-          <button type="submit" class="button primary">บันทึกยาและภาพอ้างอิง</button>
+          <button type="submit" class="button primary">บันทึกข้อมูลยา</button>
         </div>
       </form>
 
@@ -277,10 +277,10 @@
   <script src="vendor/tf.min.js"></script>
   <script src="vendor/mobilenet.min.js"></script>
   <script src="vendor/tesseract/tesseract.min.js"></script>
-  <script src="vision.js?v=20260930h"></script>
+  <script src="vision.js?v=20260930i"></script>
   <script src="ai.js"></script>
   <script src="ocr.js"></script>
   <script src="db.js"></script>
-  <script src="app.js?v=20260930h"></script>
+  <script src="app.js?v=20260930i"></script>
 </body>
 </html>

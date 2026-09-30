@@ -516,8 +516,8 @@
       : `<option value="">ยังไม่มีข้อมูลยา</option>`;
     $("medicineList").innerHTML = state.medicines.length ? state.medicines.map(m => `
       <article class="medicine-card">
-        <div><h3>${esc(m.name)} ${esc(m.strength)}</h3><div class="medicine-meta">${esc(m.formType)} · หน้า ${m.frontRefs.length} ภาพ · หลัง ${m.backRefs.length} ภาพ · ${isTrainable(m) ? "AI พร้อมตรวจ" : "ต้องเพิ่มภาพอย่างน้อยด้านละ 3 ภาพ"}${m.note ? " · " + esc(m.note) : ""}</div></div>
-        <div class="card-actions"><button class="button ghost" data-edit-med="${m.id}">แก้ไข</button><button class="button danger" data-delete-med="${m.id}">ลบ</button></div>
+        <div><h3>${esc(m.name)} ${esc(m.strength)}</h3><div class="medicine-meta">${esc(m.formType)} · หน้า ${m.frontRefs.length} ภาพ · หลัง ${m.backRefs.length} ภาพ · ${isTrainable(m) ? "AI พร้อมตรวจ" : "ฉบับร่าง — เพิ่มรูปภายหลังได้"}${m.note ? " · " + esc(m.note) : ""}</div></div>
+        <div class="card-actions"><button class="button ghost" data-edit-med="${m.id}">${isTrainable(m) ? "แก้ไขข้อมูล/รูป" : "เพิ่มรูปภายหลัง"}</button><button class="button danger" data-delete-med="${m.id}">ลบ</button></div>
       </article>`).join("") : `<div class="empty-state">ยังไม่มีฐานข้อมูลยา เริ่มจากลงทะเบียนยาและถ่ายภาพอ้างอิงทั้งสองด้าน</div>`;
     renderExpected();
   }
@@ -540,7 +540,6 @@
 
   async function saveMedicine(event) {
     event.preventDefault();
-    if (state.refs.front.length < 3 || state.refs.back.length < 3) return toast("ต้องมีภาพฝึกด้านหน้าและด้านหลังอย่างน้อยด้านละ 3 ภาพ");
     const id = $("medicineId").value || uid();
     const med = {
       id, name: $("medicineName").value.trim(), strength: $("medicineStrength").value.trim(),
@@ -549,7 +548,9 @@
       updatedAt: new Date().toISOString()
     };
     await MedDB.put("medicines", med);
-    resetMedicineForm(); await loadData(); toast("บันทึกข้อมูลยาแล้ว");
+    const ready = isTrainable(med);
+    resetMedicineForm(); await loadData();
+    toast(ready ? "บันทึกข้อมูลยาแล้ว พร้อมใช้ตรวจ" : "บันทึกข้อมูลยาเป็นฉบับร่างแล้ว สามารถกลับมาเพิ่มรูปภายหลังได้");
   }
 
   function resetMedicineForm() {
