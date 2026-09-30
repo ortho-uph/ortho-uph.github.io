@@ -182,7 +182,7 @@
 
   async function capture(kind, side) {
     const video = $("registerVideo");
-    if (!video.videoWidth) return toast("กล้องยังไม่พร้อม");
+    if (!video.videoWidth) return toast("กรุณากด “เปิดกล้อง” ก่อน แล้วจึงเพิ่มภาพอ้างอิง");
     if (!state.aiReady) return toast("AI กำลังโหลด กรุณารอจนมุมบนแสดง “AI พร้อม”");
     const buttons = [$("addFrontReferenceBtn"), $("addBackReferenceBtn")];
     const activeButton = side === "front" ? buttons[0] : buttons[1];
@@ -578,10 +578,11 @@
       await upgradeMedicineEmbeddings();
       await loadData();
       $("storageBadge").textContent = "AI พร้อม ข้อมูลอยู่ในเครื่องนี้";
-      if (state.streams.register) {
-        $("addFrontReferenceBtn").disabled = false;
-        $("addBackReferenceBtn").disabled = false;
-      }
+      // Keep capture actions clickable once AI is ready. If the camera has not
+      // been opened yet, capture() explains what to do instead of presenting a
+      // disabled button that looks broken.
+      $("addFrontReferenceBtn").disabled = false;
+      $("addBackReferenceBtn").disabled = false;
     } catch (error) {
       console.error(error);
       state.aiReady = false;
