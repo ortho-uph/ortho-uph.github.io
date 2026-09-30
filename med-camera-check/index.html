@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#185b4a">
   <title>ระบบรีเช็คยาด้วยกล้อง</title>
-  <link rel="stylesheet" href="styles.css?v=20260930i">
+  <link rel="stylesheet" href="styles.css?v=20260930j">
 </head>
 <body>
   <header class="topbar">
@@ -159,6 +159,12 @@
         <span id="medicineCount" class="count-pill">0 รายการ</span>
       </div>
 
+      <div class="medicine-import-bar">
+        <div><strong>นำเข้ารายชื่อยาจากไฟล์</strong><small>รองรับ CSV, TSV และ JSON คอลัมน์: ชื่อยา, ความแรง, รูปแบบยา, หมายเหตุ</small></div>
+        <button id="downloadMedicineTemplateBtn" type="button" class="button ghost">ดาวน์โหลดไฟล์ตัวอย่าง</button>
+        <label class="button secondary file-button">อัปโหลดรายชื่อยา<input id="medicineListFileInput" type="file" accept=".csv,.tsv,.txt,.json,text/csv,application/json" hidden></label>
+      </div>
+
       <form id="medicineForm" class="register-form">
         <input id="medicineId" type="hidden">
         <div class="grid three">
@@ -277,10 +283,10 @@
   <script src="vendor/tf.min.js"></script>
   <script src="vendor/mobilenet.min.js"></script>
   <script src="vendor/tesseract/tesseract.min.js"></script>
-  <script src="vision.js?v=20260930i"></script>
+  <script src="vision.js?v=20260930j"></script>
   <script src="ai.js"></script>
   <script src="ocr.js"></script>
   <script src="db.js"></script>
-  <script src="app.js?v=20260930i"></script>
+  <script src="app.js?v=20260930j"></script>
 </body>
 </html>

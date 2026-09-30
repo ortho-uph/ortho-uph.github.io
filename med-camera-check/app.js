@@ -578,6 +578,75 @@
     renderRefs(); toast(`เพิ่มภาพด้าน${side === "front" ? "หน้า" : "หลัง"}แล้ว`);
   }
 
+  function parseDelimited(text, delimiter) {
+    const rows = []; let row = [], field = "", quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      if (char === '"') {
+        if (quoted && text[i + 1] === '"') { field += '"'; i++; }
+        else quoted = !quoted;
+      } else if (char === delimiter && !quoted) { row.push(field.trim()); field = ""; }
+      else if ((char === "\n" || char === "\r") && !quoted) {
+        if (char === "\r" && text[i + 1] === "\n") i++;
+        row.push(field.trim()); field = "";
+        if (row.some(value => value)) rows.push(row);
+        row = [];
+      } else field += char;
+    }
+    row.push(field.trim());
+    if (row.some(value => value)) rows.push(row);
+    return rows;
+  }
+
+  function medicineRowsFromFile(fileName, text) {
+    if (fileName.toLowerCase().endsWith(".json")) {
+      const payload = JSON.parse(text);
+      const rows = Array.isArray(payload) ? payload : payload.medicines;
+      if (!Array.isArray(rows)) throw new Error("ไฟล์ JSON ต้องเป็นรายการยาแบบ array");
+      return rows.map(item => ({
+        name: item.name ?? item["ชื่อยา"] ?? "", strength: item.strength ?? item["ความแรง"] ?? "",
+        formType: item.formType ?? item["รูปแบบยา"] ?? "แผงยา", note: item.note ?? item["หมายเหตุ"] ?? ""
+      }));
+    }
+    const firstLine = text.replace(/^\ufeff/, "").split(/\r?\n/, 1)[0] || "";
+    const delimiter = firstLine.includes("\t") && !firstLine.includes(",") ? "\t" : ",";
+    const rows = parseDelimited(text.replace(/^\ufeff/, ""), delimiter);
+    if (!rows.length) return [];
+    const normalize = value => String(value || "").trim().toLowerCase().replace(/[\s_-]/g, "");
+    const aliases = {
+      name: ["ชื่อยา", "ชื่อสามัญ", "name", "medicine"], strength: ["ความแรง", "strength", "dose"],
+      formType: ["รูปแบบยา", "รูปแบบ", "formtype", "form", "type"], note: ["หมายเหตุ", "ลักษณะ", "note", "description"]
+    };
+    const headers = rows[0].map(normalize);
+    const hasHeader = Object.values(aliases).flat().some(alias => headers.includes(normalize(alias)));
+    const indexFor = key => aliases[key].map(alias => headers.indexOf(normalize(alias))).find(index => index >= 0) ?? -1;
+    const indexes = { name: indexFor("name"), strength: indexFor("strength"), formType: indexFor("formType"), note: indexFor("note") };
+    return rows.slice(hasHeader ? 1 : 0).map(columns => ({
+      name: columns[hasHeader ? indexes.name : 0] || "", strength: columns[hasHeader ? indexes.strength : 1] || "",
+      formType: columns[hasHeader ? indexes.formType : 2] || "แผงยา", note: columns[hasHeader ? indexes.note : 3] || ""
+    }));
+  }
+
+  async function importMedicineList(file) {
+    const rows = medicineRowsFromFile(file.name, await file.text()).filter(item => String(item.name || "").trim());
+    if (!rows.length) throw new Error("ไม่พบรายชื่อยาในไฟล์");
+    const existing = new Set(state.medicines.map(item => `${item.name}|${item.strength}`.toLocaleLowerCase("th-TH")));
+    let added = 0, skipped = 0;
+    for (const item of rows) {
+      const name = String(item.name || "").trim();
+      const strength = String(item.strength || "").trim();
+      const key = `${name}|${strength}`.toLocaleLowerCase("th-TH");
+      if (existing.has(key)) { skipped++; continue; }
+      await MedDB.put("medicines", {
+        id: uid(), name, strength, formType: String(item.formType || "แผงยา").trim(), note: String(item.note || "").trim(),
+        frontRefs: [], backRefs: [], updatedAt: new Date().toISOString()
+      });
+      existing.add(key); added++;
+    }
+    await loadData();
+    toast(`นำเข้ารายชื่อยา ${added} รายการ${skipped ? ` · ข้ามรายการซ้ำ ${skipped}` : ""}`);
+  }
+
   function addExpected() {
     const medicineId = $("expectedMedicine").value;
     const quantity = Math.max(1, Number($("expectedQty").value) || 1);
@@ -662,6 +731,8 @@
     $("medicineForm").addEventListener("submit", saveMedicine);
     $("cancelEditBtn").addEventListener("click", resetMedicineForm);
     $("referenceFileInput").addEventListener("change", e => { addFiles([...e.target.files]); e.target.value = ""; });
+    $("downloadMedicineTemplateBtn").addEventListener("click", () => download("medicine-list-template.csv", "\ufeffชื่อยา,ความแรง,รูปแบบยา,หมายเหตุ\r\nCephalexin,500 mg,แคปซูล,\r\n", "text/csv;charset=utf-8"));
+    $("medicineListFileInput").addEventListener("change", async e => { const file = e.target.files[0]; if (!file) return; try { await importMedicineList(file); } catch (error) { toast(`นำเข้าไม่สำเร็จ: ${error.message}`); } e.target.value = ""; });
     $("addExpectedBtn").addEventListener("click", addExpected);
     $("newSessionBtn").addEventListener("click", () => { stopRealtime("ล้างรายการแล้ว"); stopStream("label"); state.expected = []; state.ocrResults = []; state.queueStartedAt = new Date().toISOString(); $("jobCode").value = ""; ensureQueueCode(); $("ocrReview").hidden = true; $("ocrStatus").hidden = true; $("scanLabelBtn").disabled = true; resetLiveCycle(); renderExpected(); });
     $("thresholdRange").addEventListener("input", e => { $("thresholdValue").textContent = e.target.value + "%"; localStorage.setItem("matchThreshold", e.target.value); });

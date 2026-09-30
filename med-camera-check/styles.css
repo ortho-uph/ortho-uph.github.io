@@ -173,6 +173,9 @@ figure { margin: 0; }
 .scorebar span { display: block; height: 100%; background: var(--green-700); }
 
 .register-form { display: grid; gap: 16px; }
+.medicine-import-bar { display: grid; grid-template-columns: minmax(260px, 1fr) auto auto; gap: 10px; align-items: center; margin-bottom: 16px; padding: 14px 16px; border: 1px solid #bdd8cf; border-radius: 12px; background: var(--green-100); }
+.medicine-import-bar strong, .medicine-import-bar small { display: block; }
+.medicine-import-bar small { margin-top: 3px; color: var(--muted); font-weight: 400; }
 .reference-column { margin-bottom: 14px; }
 .reference-title { display: flex; justify-content: space-between; margin-bottom: 7px; font-size: 14px; }
 .thumb-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; min-height: 70px; }
@@ -217,6 +220,7 @@ figure { margin: 0; }
   video, .small video { height: 350px; }
   .section-heading { align-items: center; }
   .queue-complete-bar { align-items: stretch; flex-direction: column; }
+  .medicine-import-bar { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {
