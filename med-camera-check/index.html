@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#185b4a">
   <title>ระบบรีเช็คยาด้วยกล้อง</title>
-  <link rel="stylesheet" href="styles.css?v=20260930d">
+  <link rel="stylesheet" href="styles.css?v=20260930e">
 </head>
 <body>
   <header class="topbar">
@@ -30,6 +30,12 @@
       <button class="tab" data-tab="history">ประวัติ</button>
       <button class="tab" data-tab="settings">ตั้งค่า</button>
     </nav>
+
+    <div class="camera-device-bar">
+      <div><strong>กล้องที่ใช้</strong><small>เลือกกล้อง USB ที่ต้องการก่อนกดเปิดกล้อง</small></div>
+      <select id="cameraDeviceSelect" aria-label="เลือกกล้อง"><option value="">กำลังค้นหากล้อง…</option></select>
+      <button id="refreshCamerasBtn" type="button" class="button ghost">ค้นหากล้องใหม่</button>
+    </div>
 
     <section id="check" class="panel active">
       <div class="section-heading">
@@ -267,10 +273,10 @@
   <script src="vendor/tf.min.js"></script>
   <script src="vendor/mobilenet.min.js"></script>
   <script src="vendor/tesseract/tesseract.min.js"></script>
-  <script src="vision.js?v=20260930d"></script>
+  <script src="vision.js?v=20260930e"></script>
   <script src="ai.js"></script>
   <script src="ocr.js"></script>
   <script src="db.js"></script>
-  <script src="app.js?v=20260930d"></script>
+  <script src="app.js?v=20260930e"></script>
 </body>
 </html>

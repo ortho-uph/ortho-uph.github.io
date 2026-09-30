@@ -7,6 +7,7 @@
     medicines: [], history: [], expected: [],
     aiReady: false,
     streams: { label: null, check: null, register: null },
+    cameraDeviceId: localStorage.getItem("cameraDeviceId") || "",
     zoom: { label: 1.2, check: 1.5 },
     ocrResults: [],
     refs: { front: [], back: [] },
@@ -75,16 +76,49 @@
     if (video) video.srcObject = null;
   }
 
+  async function refreshCameraDevices() {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    const devices = (await navigator.mediaDevices.enumerateDevices()).filter(device => device.kind === "videoinput");
+    if (state.cameraDeviceId && !devices.some(device => device.deviceId === state.cameraDeviceId)) {
+      state.cameraDeviceId = "";
+      localStorage.removeItem("cameraDeviceId");
+    }
+    const options = [`<option value="">กล้องค่าเริ่มต้น</option>`, ...devices.map((device, index) => `<option value="${esc(device.deviceId)}">${esc(device.label || `กล้อง ${index + 1}`)}</option>`)].join("");
+    $("cameraDeviceSelect").innerHTML = options;
+    $("cameraDeviceSelect").value = state.cameraDeviceId;
+  }
+
+  function selectCamera(deviceId) {
+    state.cameraDeviceId = deviceId;
+    if (deviceId) localStorage.setItem("cameraDeviceId", deviceId);
+    else localStorage.removeItem("cameraDeviceId");
+    stopRealtime("เปลี่ยนกล้องแล้ว กรุณากดเปิดกล้องอีกครั้ง");
+    ["label", "check", "register"].forEach(stopStream);
+    $("scanLabelBtn").disabled = true;
+    $("cameraStatus").textContent = "เลือกกล้องแล้ว กดเปิดกล้อง";
+    $("cameraStatus").className = "status neutral";
+    toast("เลือกกล้องแล้ว กรุณากดเปิดกล้องอีกครั้ง");
+  }
+
   async function startCamera(kind) {
     if (!navigator.mediaDevices?.getUserMedia) return toast("เบราว์เซอร์นี้ไม่รองรับกล้อง");
     try {
       if (kind === "check") stopStream("label");
       if (kind === "label") { stopRealtime("กำลังอ่านฉลากยา"); stopStream("check"); }
       stopStream(kind);
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+      const videoConstraints = { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } };
+      if (state.cameraDeviceId) videoConstraints.deviceId = { exact: state.cameraDeviceId };
+      else videoConstraints.facingMode = { ideal: "environment" };
+      const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
       state.streams[kind] = stream;
       const video = kind === "label" ? $("labelVideo") : kind === "check" ? $("checkVideo") : $("registerVideo");
       video.srcObject = stream; await video.play();
+      const actualDeviceId = stream.getVideoTracks()[0]?.getSettings?.().deviceId;
+      if (actualDeviceId) {
+        state.cameraDeviceId = actualDeviceId;
+        localStorage.setItem("cameraDeviceId", actualDeviceId);
+      }
+      await refreshCameraDevices();
       applyZoomDisplay();
       if (kind === "label") {
         $("scanLabelBtn").disabled = false;
@@ -101,7 +135,10 @@
         if (!state.aiReady) toast("เปิดกล้องแล้ว กำลังโหลด AI กรุณารอข้อความ “AI พร้อม”");
       }
     } catch (error) {
-      toast("เปิดกล้องไม่ได้ กรุณาอนุญาตการใช้กล้องหรือใช้ปุ่มเพิ่มภาพจากไฟล์");
+      if (["NotReadableError", "AbortError"].includes(error.name)) toast("กล้องถูกโปรแกรมอื่นใช้งานอยู่ กรุณาปิด Camera Hub, Zoom หรือโปรแกรมกล้องอื่นแล้วลองใหม่");
+      else if (["NotFoundError", "OverconstrainedError"].includes(error.name)) { state.cameraDeviceId = ""; localStorage.removeItem("cameraDeviceId"); await refreshCameraDevices(); toast("ไม่พบกล้องที่เลือก กรุณากดค้นหากล้องใหม่"); }
+      else if (error.name === "NotAllowedError") toast("ยังไม่ได้อนุญาตกล้อง กรุณาอนุญาต Camera ใน Chrome");
+      else toast("เปิดกล้องไม่ได้ กรุณาเลือกกล้องใหม่หรือใช้ปุ่มเพิ่มภาพจากไฟล์");
     }
   }
 
@@ -530,6 +567,8 @@
     $("registerZoomRange").addEventListener("input", e => setZoom("check", e.target.value));
     $("openCheckCameraBtn").addEventListener("click", () => startCamera("check"));
     $("openRegisterCameraBtn").addEventListener("click", () => startCamera("register"));
+    $("cameraDeviceSelect").addEventListener("change", e => selectCamera(e.target.value));
+    $("refreshCamerasBtn").addEventListener("click", async () => { await refreshCameraDevices(); toast("อัปเดตรายชื่อกล้องแล้ว"); });
     $("startRealtimeBtn").addEventListener("click", startRealtime);
     $("stopRealtimeBtn").addEventListener("click", () => stopRealtime());
     $("addFrontReferenceBtn").addEventListener("click", () => capture("register", "front"));
@@ -578,6 +617,8 @@
     state.zoom.label = normalizeZoom(localStorage.getItem("labelCameraZoom") || 1.2);
     state.zoom.check = normalizeZoom(localStorage.getItem("medicineCameraZoom") || 1.5);
     applyZoomDisplay();
+    await refreshCameraDevices();
+    navigator.mediaDevices?.addEventListener?.("devicechange", refreshCameraDevices);
     $("speechToggle").checked = localStorage.getItem("speechEnabled") !== "0";
     $("storageBadge").textContent = "กำลังโหลดโมเดล AI";
     try {

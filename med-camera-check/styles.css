@@ -38,6 +38,9 @@ main { max-width: 1180px; margin: 0 auto; padding: 22px 24px 60px; }
 .tabs { display: flex; gap: 5px; margin-top: 20px; border-bottom: 1px solid var(--line); overflow-x: auto; }
 .tab { padding: 12px 18px; border: 0; background: transparent; color: var(--muted); border-bottom: 3px solid transparent; white-space: nowrap; }
 .tab.active { color: var(--green-800); border-bottom-color: var(--green-700); font-weight: 800; }
+.camera-device-bar { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(240px, 1.2fr) auto; gap: 12px; align-items: center; margin: 14px 0 2px; padding: 12px 14px; border: 1px solid #bdd8cf; border-radius: 12px; background: var(--green-100); }
+.camera-device-bar strong, .camera-device-bar small { display: block; }
+.camera-device-bar small { margin-top: 2px; color: var(--muted); font-weight: 400; }
 .panel { display: none; padding-top: 26px; }
 .panel.active { display: block; }
 
@@ -190,6 +193,7 @@ figure { margin: 0; }
 .toast.show { transform: translate(-50%, 0); }
 
 @media (max-width: 800px) {
+  .camera-device-bar { grid-template-columns: 1fr; }
   .storage-badge { display: none; }
   .hub-link { margin-left: auto; }
   main { padding-inline: 14px; }
