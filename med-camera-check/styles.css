@@ -99,6 +99,10 @@ input:focus, select:focus { border-color: var(--green-700); box-shadow: 0 0 0 3p
 .empty-state { padding: 26px; border: 1px dashed #aabbb5; border-radius: 12px; text-align: center; color: var(--muted); background: rgba(255,255,255,.65); }
 .empty-state.compact { margin-top: 16px; padding: 16px; }
 .expected-list { display: grid; gap: 8px; margin-top: 14px; }
+.queue-complete-bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 14px; padding: 14px 16px; border: 1px solid #bdd8cf; border-radius: 12px; background: white; }
+.queue-complete-bar strong, .queue-complete-bar small { display: block; }
+.queue-complete-bar small { margin-top: 3px; color: var(--muted); }
+.queue-complete-bar.ready { border-color: #55a98e; background: #e8f7f0; }
 .expected-item { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 11px; background: white; border: 1px solid var(--line); }
 .expected-item.done { background: var(--green-100); border-color: #9ac7b9; }
 .expected-index { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--cream); font-weight: 900; }
@@ -184,6 +188,14 @@ figure { margin: 0; }
 .history-result { font-weight: 900; }
 .history-result.pass { color: var(--green-700); }
 .history-result.fail { color: var(--red); }
+.queue-history { border: 1px solid var(--line); border-radius: 12px; background: white; overflow: hidden; }
+.queue-history summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 15px 17px; cursor: pointer; list-style: none; }
+.queue-history summary::-webkit-details-marker { display: none; }
+.queue-history summary::after { content: "ดูรายการ ▾"; color: var(--green-700); font-weight: 800; }
+.queue-history[open] summary::after { content: "ซ่อนรายการ ▴"; }
+.queue-history-body { display: grid; gap: 7px; padding: 0 17px 15px; border-top: 1px solid var(--line); }
+.queue-history-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding-top: 11px; }
+.queue-history-item span { color: var(--muted); font-size: 13px; }
 .settings-card { max-width: 760px; margin-bottom: 15px; }
 .settings-card p { color: var(--muted); line-height: 1.65; }
 .switch-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
@@ -204,6 +216,7 @@ figure { margin: 0; }
   .camera-card, .camera-card.small { min-height: 410px; }
   video, .small video { height: 350px; }
   .section-heading { align-items: center; }
+  .queue-complete-bar { align-items: stretch; flex-direction: column; }
 }
 
 @media (max-width: 480px) {

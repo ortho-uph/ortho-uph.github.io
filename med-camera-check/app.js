@@ -11,6 +11,7 @@
     zoom: { label: 1.2, check: 1.5 },
     ocrResults: [],
     refs: { front: [], back: [] },
+    queueStartedAt: new Date().toISOString(),
     live: {
       running: false, timer: null, phase: "first", stableKey: null,
       stableCount: 0, candidateId: null, firstSide: null,
@@ -248,6 +249,65 @@
     return state.expected.some(item => item.checked < item.quantity);
   }
 
+  function queueCode(number) {
+    return `Q${String(number).padStart(3, "0")}`;
+  }
+
+  function ensureQueueCode() {
+    if ($("jobCode").value.trim()) return $("jobCode").value.trim();
+    const number = Math.max(1, Number(localStorage.getItem("medQueueNumber")) || 1);
+    $("jobCode").value = queueCode(number);
+    return $("jobCode").value;
+  }
+
+  function openNextQueue() {
+    const next = Math.max(1, Number(localStorage.getItem("medQueueNumber")) || 1) + 1;
+    localStorage.setItem("medQueueNumber", String(next));
+    $("jobCode").value = queueCode(next);
+    state.queueStartedAt = new Date().toISOString();
+  }
+
+  async function completeQueue() {
+    if (!state.expected.length) return toast("ยังไม่มีรายการยาในคิวนี้");
+    const remaining = state.expected.reduce((sum, item) => sum + Math.max(0, item.quantity - item.checked), 0);
+    if (remaining > 0) return toast(`ยังตรวจยาไม่ครบ เหลืออีก ${remaining} ชิ้น`);
+    const code = ensureQueueCode();
+    const items = state.expected.map(item => {
+      const med = state.medicines.find(medicine => medicine.id === item.medicineId);
+      return {
+        medicineId: item.medicineId,
+        medicineLabel: med ? medicineLabel(med) : "ไม่พบข้อมูลยา",
+        quantity: item.quantity,
+        checked: item.checked,
+        labelQuantity: item.labelQuantity || ""
+      };
+    });
+    const checks = state.history.filter(record => record.type === "scan" && record.jobCode === code && record.createdAt >= state.queueStartedAt).map(record => ({
+      medicineId: record.medicineId, medicineLabel: record.medicineLabel, score: record.score,
+      result: record.result, detectedSide: record.detectedSide, createdAt: record.createdAt
+    }));
+    const completedAt = new Date().toISOString();
+    await MedDB.put("history", {
+      id: `queue-${uid()}`, type: "queue", jobCode: code,
+      createdAt: completedAt, startedAt: state.queueStartedAt, completedAt,
+      totalItems: items.reduce((sum, item) => sum + item.quantity, 0), items, checks,
+      result: "completed"
+    });
+    stopRealtime(`บันทึกคิว ${code} แล้ว`);
+    state.expected = [];
+    state.ocrResults = [];
+    $("ocrReview").hidden = true;
+    $("ocrStatus").hidden = true;
+    $("scanLabelBtn").disabled = true;
+    $("resultCard").hidden = true;
+    openNextQueue();
+    resetLiveCycle();
+    renderExpected();
+    await loadHistory();
+    toast(`บันทึกคิว ${code} แล้ว เปิด ${$("jobCode").value} เรียบร้อย`);
+    speak(`บันทึกคิว ${code} แล้ว เปิดคิวใหม่เรียบร้อย`);
+  }
+
   function updateRealtimeAvailability() {
     const cameraReady = Boolean(state.streams.check && $("checkVideo").videoWidth);
     $("startRealtimeBtn").disabled = !cameraReady || !hasPendingExpected() || !state.aiReady;
@@ -416,7 +476,7 @@
     setLiveMessage(allComplete ? "ตรวจยาครบแล้ว ✓" : passed ? "เช็คแล้ว ✓" : "ไม่ตรงรายการ", allComplete ? "ครบตามจำนวนที่กำหนด" : `${med.name} ${med.strength} · ${Math.round(score * 100)}%`);
     const card = $("resultCard"); card.hidden = false; card.className = `result-card ${allComplete ? "complete" : passed ? "pass" : "fail"}`;
     card.innerHTML = `<div class="result-head"><div><p class="eyebrow">${allComplete ? "ตรวจยาครบแล้ว ✓" : passed ? "เช็คแล้ว ✓" : "คำเตือน ไม่ตรงรายการ"}</p><h3>${allComplete ? "ครบตามรายการทั้งหมด" : `${esc(med.name)} ${esc(med.strength)}`}</h3><p>${allComplete ? "จำนวนยาที่ตรวจผ่านครบตามรายการที่กำหนดแล้ว" : esc(reason)}</p></div><div class="score">${allComplete ? "ครบ" : `${Math.round(score * 100)}%`}</div></div><p>${allComplete ? "สิ้นสุดการตรวจชุดนี้ สามารถเริ่มรายการใหม่ได้" : passed ? "บันทึกผลแล้ว นำชิ้นเดิมออกและวางชิ้น 2, 3, 4 ต่อได้ทันที" : "นำยาที่ไม่ตรงรายการออกจากกรอบ"}</p>`;
-    const record = { id: uid(), createdAt: new Date().toISOString(), jobCode: $("jobCode").value.trim() || "ไม่ระบุ", medicineId: med.id, medicineLabel: medicineLabel(med), score: Math.round(score * 1000) / 10, result: passed ? "pass" : "fail", reason, manual: false, mode: "realtime-one-side", detectedSide };
+    const record = { id: uid(), type: "scan", createdAt: new Date().toISOString(), jobCode: ensureQueueCode(), medicineId: med.id, medicineLabel: medicineLabel(med), score: Math.round(score * 1000) / 10, result: passed ? "pass" : "fail", reason, manual: false, mode: "realtime-one-side", detectedSide };
     await MedDB.put("history", record); await loadHistory();
     if (allComplete) {
       stopRealtime("ตรวจยาครบแล้ว ✓");
@@ -462,6 +522,11 @@
       const labelInfo = item.labelQuantity ? ` · ฉลาก ${esc(item.labelQuantity)}` : "";
       return `<div class="expected-item ${item.checked >= item.quantity ? "done" : ""}"><div class="expected-index">${item.checked >= item.quantity ? "✓" : index + 1}</div><div class="expected-name"><strong>${esc(med.name)} ${esc(med.strength)}</strong><span>${esc(med.formType)}${labelInfo}</span></div><span class="quantity">${item.checked}/${item.quantity} รายการ</span><button class="icon-button" data-remove-expected="${item.medicineId}" aria-label="นำออก">นำออก</button></div>`;
     }).join("");
+    const total = state.expected.reduce((sum, item) => sum + item.quantity, 0);
+    const checked = state.expected.reduce((sum, item) => sum + Math.min(item.checked, item.quantity), 0);
+    const ready = total > 0 && checked >= total;
+    $("queueProgressText").textContent = total ? `ตรวจแล้ว ${checked}/${total} ชิ้น${ready ? " — พร้อมปิดคิว" : ""}` : "ยังไม่มีรายการในคิว";
+    $("confirmQueueBtn").closest(".queue-complete-bar").classList.toggle("ready", ready);
     updateRealtimeAvailability();
   }
 
@@ -520,11 +585,19 @@
 
   async function loadHistory() {
     state.history = (await MedDB.all("history")).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    $("historyList").innerHTML = state.history.length ? state.history.map(h => {
+    const queues = state.history.filter(record => record.type === "queue");
+    const legacy = state.history.filter(record => !record.type);
+    const queueCards = queues.map(queue => `<details class="queue-history"><summary><div><h3>คิว ${esc(queue.jobCode)}</h3><div class="history-meta">${new Date(queue.completedAt || queue.createdAt).toLocaleString("th-TH")} · ${queue.totalItems || 0} ชิ้น · ${(queue.items || []).length} รายการยา</div></div></summary><div class="queue-history-body">${(queue.items || []).map(item => {
+      const scores = (queue.checks || []).filter(check => check.medicineId === item.medicineId && check.result === "pass").map(check => check.score);
+      const scoreText = scores.length ? ` · คะแนนสูงสุด ${Math.max(...scores)}%` : "";
+      return `<div class="queue-history-item"><div><strong>${esc(item.medicineLabel)}</strong><span>${item.labelQuantity ? `ฉลาก ${esc(item.labelQuantity)} · ` : ""}ตรวจครบ ${item.checked}/${item.quantity}${scoreText}</span></div><span class="history-result pass">ครบ ✓</span></div>`;
+    }).join("")}</div></details>`).join("");
+    const legacyCards = legacy.map(h => {
       const status = h.result === "pass" ? "ผ่าน" : h.result === "manual-pass" ? "ยืนยันโดยเภสัชกร" : h.result === "review" ? "ตรวจยืนยัน" : "ไม่ผ่าน";
       const cls = h.result === "pass" || h.result === "manual-pass" ? "pass" : "fail";
       return `<article class="history-card"><div><h3>${esc(h.medicineLabel)}</h3><div class="history-meta">งาน ${esc(h.jobCode)} · ${new Date(h.createdAt).toLocaleString("th-TH")} · คะแนน ${h.score}%</div></div><span class="history-result ${cls}">${status}</span></article>`;
-    }).join("") : `<div class="empty-state">ยังไม่มีประวัติการตรวจ</div>`;
+    }).join("");
+    $("historyList").innerHTML = queueCards + legacyCards || `<div class="empty-state">ยังไม่มีประวัติคิวที่ปิดงานแล้ว</div>`;
   }
 
   async function loadData() {
@@ -572,6 +645,7 @@
     $("openRegisterCameraBtn").addEventListener("click", () => startCamera("register"));
     $("cameraDeviceSelect").addEventListener("change", e => selectCamera(e.target.value));
     $("refreshCamerasBtn").addEventListener("click", async () => { await refreshCameraDevices(); toast("อัปเดตรายชื่อกล้องแล้ว"); });
+    $("confirmQueueBtn").addEventListener("click", completeQueue);
     $("startRealtimeBtn").addEventListener("click", startRealtime);
     $("stopRealtimeBtn").addEventListener("click", () => stopRealtime());
     $("addFrontReferenceBtn").addEventListener("click", () => capture("register", "front"));
@@ -580,16 +654,21 @@
     $("cancelEditBtn").addEventListener("click", resetMedicineForm);
     $("referenceFileInput").addEventListener("change", e => { addFiles([...e.target.files]); e.target.value = ""; });
     $("addExpectedBtn").addEventListener("click", addExpected);
-    $("newSessionBtn").addEventListener("click", () => { stopRealtime("ล้างรายการแล้ว"); stopStream("label"); state.expected = []; state.ocrResults = []; $("jobCode").value = ""; $("ocrReview").hidden = true; $("ocrStatus").hidden = true; $("scanLabelBtn").disabled = true; resetLiveCycle(); renderExpected(); });
+    $("newSessionBtn").addEventListener("click", () => { stopRealtime("ล้างรายการแล้ว"); stopStream("label"); state.expected = []; state.ocrResults = []; state.queueStartedAt = new Date().toISOString(); $("jobCode").value = ""; ensureQueueCode(); $("ocrReview").hidden = true; $("ocrStatus").hidden = true; $("scanLabelBtn").disabled = true; resetLiveCycle(); renderExpected(); });
     $("thresholdRange").addEventListener("input", e => { $("thresholdValue").textContent = e.target.value + "%"; localStorage.setItem("matchThreshold", e.target.value); });
     $("speechToggle").addEventListener("change", e => localStorage.setItem("speechEnabled", e.target.checked ? "1" : "0"));
     $("exportDbBtn").addEventListener("click", async () => download(`med-database-${new Date().toISOString().slice(0,10)}.json`, JSON.stringify(await MedDB.exportAll()), "application/json"));
     $("importDbInput").addEventListener("change", async e => { try { await MedDB.importAll(JSON.parse(await e.target.files[0].text())); await loadData(); toast("นำเข้าฐานข้อมูลแล้ว"); } catch (err) { toast(err.message); } e.target.value = ""; });
     $("exportHistoryBtn").addEventListener("click", () => {
-      const rows = [["วันที่เวลา","รหัสงาน","ยา","คะแนน","ผล","เหตุผล"], ...state.history.map(h => [h.createdAt,h.jobCode,h.medicineLabel,h.score,h.result,h.reason])];
+      const queueRows = state.history.filter(record => record.type === "queue").flatMap(queue => (queue.items || []).map(item => {
+        const scores = (queue.checks || []).filter(check => check.medicineId === item.medicineId && check.result === "pass").map(check => check.score);
+        return [queue.completedAt || queue.createdAt, queue.jobCode, item.medicineLabel, item.quantity, item.checked, scores.length ? Math.max(...scores) : "", "completed"];
+      }));
+      const legacyRows = state.history.filter(record => !record.type).map(record => [record.createdAt, record.jobCode, record.medicineLabel, 1, record.result === "pass" ? 1 : 0, record.score, record.result]);
+      const rows = [["วันที่ปิดคิว","รหัสคิว","ยา","จำนวน","ตรวจครบ","คะแนนสูงสุด","ผล"], ...queueRows, ...legacyRows];
       const csv = "\ufeff" + rows.map(row => row.map(v => `"${String(v ?? "").replaceAll('"','""')}"`).join(",")).join("\r\n"); download(`med-check-history-${new Date().toISOString().slice(0,10)}.csv`, csv, "text/csv;charset=utf-8");
     });
-    $("clearDbBtn").addEventListener("click", async () => { if (!confirm("ต้องการลบฐานข้อมูลยาและประวัติทั้งหมดในเครื่องนี้หรือไม่")) return; await MedDB.clear("medicines"); await MedDB.clear("history"); state.expected = []; await loadData(); toast("ลบข้อมูลทั้งหมดแล้ว"); });
+    $("clearDbBtn").addEventListener("click", async () => { if (!confirm("ต้องการลบฐานข้อมูลยาและประวัติทั้งหมดในเครื่องนี้หรือไม่")) return; await MedDB.clear("medicines"); await MedDB.clear("history"); localStorage.setItem("medQueueNumber", "1"); state.expected = []; $("jobCode").value = queueCode(1); await loadData(); toast("ลบข้อมูลทั้งหมดแล้ว"); });
 
     document.addEventListener("click", async e => {
       const removeRef = e.target.closest("[data-remove-ref]"); if (removeRef) { state.refs[removeRef.dataset.side] = state.refs[removeRef.dataset.side].filter(x => x.id !== removeRef.dataset.removeRef); renderRefs(); }
@@ -620,6 +699,7 @@
     state.zoom.label = normalizeZoom(localStorage.getItem("labelCameraZoom") || 1.2);
     state.zoom.check = normalizeZoom(localStorage.getItem("medicineCameraZoom") || 1.5);
     applyZoomDisplay();
+    ensureQueueCode();
     await refreshCameraDevices();
     navigator.mediaDevices?.addEventListener?.("devicechange", refreshCameraDevices);
     $("speechToggle").checked = localStorage.getItem("speechEnabled") !== "0";

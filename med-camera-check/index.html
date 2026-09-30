@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#185b4a">
   <title>ระบบรีเช็คยาด้วยกล้อง</title>
-  <link rel="stylesheet" href="styles.css?v=20260930f">
+  <link rel="stylesheet" href="styles.css?v=20260930g">
 </head>
 <body>
   <header class="topbar">
@@ -98,6 +98,10 @@
         ยังไม่มีรายการยา กรุณาลงทะเบียนยาในฐานข้อมูลก่อน แล้วเพิ่มรายการที่ต้องตรวจ
       </div>
       <div id="expectedList" class="expected-list"></div>
+      <div class="queue-complete-bar">
+        <div><strong id="queueProgressText">ยังไม่มีรายการในคิว</strong><small>ปุ่มยืนยันจะบันทึกประวัติทั้งคิวและเปิดคิวถัดไปอัตโนมัติ</small></div>
+        <button id="confirmQueueBtn" type="button" class="button primary">ยืนยันจัดยาเสร็จครบทุกตัว</button>
+      </div>
 
       <div class="divider"></div>
 
@@ -273,10 +277,10 @@
   <script src="vendor/tf.min.js"></script>
   <script src="vendor/mobilenet.min.js"></script>
   <script src="vendor/tesseract/tesseract.min.js"></script>
-  <script src="vision.js?v=20260930f"></script>
+  <script src="vision.js?v=20260930g"></script>
   <script src="ai.js"></script>
   <script src="ocr.js"></script>
   <script src="db.js"></script>
-  <script src="app.js?v=20260930f"></script>
+  <script src="app.js?v=20260930g"></script>
 </body>
 </html>
