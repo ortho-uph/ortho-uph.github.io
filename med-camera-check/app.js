@@ -448,14 +448,22 @@
       const top = ranked[0];
       if (!top) { scheduleLiveAnalysis(); return; }
       const margin = ranked[1] ? top.score - ranked[1].score : 1;
-      setLiveMessage("กำลังตรวจด้านที่วาง อย่าขยับแผงยา", `${top.med.name} ${top.med.strength} · ${Math.round(top.score * 100)}%`);
       if (top.score >= threshold && margin >= .06) {
+        $("liveDot").className = "live-dot scanning";
+        setLiveMessage("กำลังยืนยันผล อย่าขยับแผงยา", `${top.med.name} ${top.med.strength} · ${Math.round(top.score * 100)}%`);
         if (updateStability(`${top.med.id}:${top.side}`)) {
           await finalizeLiveResult(top.med, top.score, top.side);
         }
       } else {
         state.live.stableCount = 0; state.live.stableKey = null;
         $("stabilityMeter").firstElementChild.style.width = "0%";
+        $("liveDot").className = "live-dot bad";
+        const score = Math.round(top.score * 100);
+        const required = Math.round(threshold * 100);
+        const reason = top.score < threshold ? `คะแนน ${score}% ต่ำกว่าเกณฑ์ ${required}%` : "ภาพคล้ายยามากกว่าหนึ่งรายการ ยังแยกไม่ได้ชัดเจน";
+        setLiveMessage("ยังไม่ผ่าน — กรุณาตรวจซ้ำ", `${top.med.name} ${top.med.strength} · ${score}%`);
+        $("qualityMessage").textContent = reason;
+        $("qualityMessage").classList.add("warn");
       }
     }
     scheduleLiveAnalysis();
