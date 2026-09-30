@@ -45,6 +45,10 @@
           <span class="method-badge">วิธีแนะนำ</span>
           <h3>ส่องสติ๊กเกอร์เพื่อสร้างรายการอัตโนมัติ</h3>
           <p>วางสติ๊กเกอร์ทั้งหมดให้อ่านได้ในกรอบ แล้วกดอ่านฉลาก ระบบจะเทียบชื่อยาและความแรงกับฐานข้อมูล</p>
+          <label class="zoom-control">
+            <span>ซูมฉลาก <strong id="labelZoomValue">1.2×</strong></span>
+            <input id="labelZoomRange" type="range" min="1" max="2.5" step="0.1" value="1.2">
+          </label>
           <div class="privacy-note">ไม่นำชื่อผู้ป่วยหรือ HN ไปบันทึก ภาพและข้อความ OCR จะอยู่ในหน่วยความจำชั่วคราวเท่านั้น</div>
         </div>
         <div class="label-camera-wrap">
@@ -104,6 +108,10 @@
         <div class="camera-card">
           <video id="checkVideo" playsinline muted></video>
           <div class="camera-guide"><span>วางแผงยาให้อยู่ในกรอบ</span></div>
+          <label class="zoom-overlay">
+            <span>ซูมตรวจ <strong id="checkZoomValue">1.5×</strong></span>
+            <input id="checkZoomRange" type="range" min="1" max="2.5" step="0.1" value="1.5">
+          </label>
           <canvas id="checkCanvas" hidden></canvas>
           <div class="camera-actions">
             <button id="openCheckCameraBtn" class="button primary">เปิดกล้อง</button>
@@ -172,6 +180,10 @@
           <div class="camera-card small">
             <video id="registerVideo" playsinline muted></video>
             <div class="camera-guide"><span>ถ่ายให้เต็มกรอบและไม่สะท้อนแสง</span></div>
+            <label class="zoom-overlay">
+              <span>ซูมฐานภาพ <strong id="registerZoomValue">1.5×</strong></span>
+              <input id="registerZoomRange" type="range" min="1" max="2.5" step="0.1" value="1.5">
+            </label>
             <canvas id="registerCanvas" hidden></canvas>
             <div class="camera-actions">
               <button id="openRegisterCameraBtn" type="button" class="button primary">เปิดกล้อง</button>

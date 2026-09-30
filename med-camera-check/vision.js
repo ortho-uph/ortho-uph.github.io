@@ -3,28 +3,31 @@
 
   const SIZE = 48;
 
-  function canvasForImage(source, size = SIZE) {
+  function cropRect(source, zoom = 1) {
+    const sw = source.videoWidth || source.naturalWidth || source.width;
+    const sh = source.videoHeight || source.naturalHeight || source.height;
+    const targetRatio = 4 / 3;
+    let cropW = sw, cropH = sh;
+    if (sw / sh > targetRatio) cropW = sh * targetRatio;
+    else cropH = sw / targetRatio;
+    const safeZoom = Math.max(1, Math.min(2.5, Number(zoom) || 1));
+    cropW /= safeZoom;
+    cropH /= safeZoom;
+    return { sx: (sw - cropW) / 2, sy: (sh - cropH) / 2, cropW, cropH };
+  }
+
+  function canvasForImage(source, size = SIZE, zoom = 1) {
     const canvas = document.createElement("canvas");
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    const sw = source.videoWidth || source.naturalWidth || source.width;
-    const sh = source.videoHeight || source.naturalHeight || source.height;
-    const targetRatio = 4 / 3;
-    let sx = 0, sy = 0, cropW = sw, cropH = sh;
-    if (sw / sh > targetRatio) {
-      cropW = sh * targetRatio;
-      sx = (sw - cropW) / 2;
-    } else {
-      cropH = sw / targetRatio;
-      sy = (sh - cropH) / 2;
-    }
+    const { sx, sy, cropW, cropH } = cropRect(source, zoom);
     ctx.drawImage(source, sx, sy, cropW, cropH, 0, 0, size, size);
     return canvas;
   }
 
-  function featureFromSource(source) {
-    const canvas = canvasForImage(source);
+  function featureFromSource(source, zoom = 1) {
+    const canvas = canvasForImage(source, SIZE, zoom);
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     const data = ctx.getImageData(0, 0, SIZE, SIZE).data;
     const gray = new Float32Array(SIZE * SIZE);
@@ -81,7 +84,7 @@
 
     const hash = [];
     const hSize = 16;
-    const sample = canvasForImage(source, hSize + 1);
+    const sample = canvasForImage(source, hSize + 1, zoom);
     const sampleData = sample.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, hSize + 1, hSize).data;
     for (let y = 0; y < hSize; y++) {
       for (let x = 0; x < hSize; x++) {
@@ -165,13 +168,8 @@
     return warnings;
   }
 
-  function cropDataUrl(source, maxWidth = 960) {
-    const sw = source.videoWidth || source.naturalWidth || source.width;
-    const sh = source.videoHeight || source.naturalHeight || source.height;
-    const targetRatio = 4 / 3;
-    let sx = 0, sy = 0, cropW = sw, cropH = sh;
-    if (sw / sh > targetRatio) { cropW = sh * targetRatio; sx = (sw - cropW) / 2; }
-    else { cropH = sw / targetRatio; sy = (sh - cropH) / 2; }
+  function cropDataUrl(source, maxWidth = 960, zoom = 1) {
+    const { sx, sy, cropW, cropH } = cropRect(source, zoom);
     const width = Math.min(maxWidth, cropW);
     const height = Math.round(width / targetRatio);
     const canvas = document.createElement("canvas");
@@ -189,5 +187,5 @@
     });
   }
 
-  window.MedVision = { canvasForImage, featureFromSource, featureFromDataUrl, cropDataUrl, compare, bestAgainst, qualityWarnings };
+  window.MedVision = { cropRect, canvasForImage, featureFromSource, featureFromDataUrl, cropDataUrl, compare, bestAgainst, qualityWarnings };
 })();

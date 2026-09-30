@@ -34,18 +34,18 @@
     catch (error) { loading = null; throw error; }
   }
 
-  async function embedFromSource(source) {
+  async function embedFromSource(source, zoom = 1) {
     const loaded = await load();
-    const canvas = MedVision.canvasForImage(source, 224);
+    const canvas = MedVision.canvasForImage(source, 224, zoom);
     const tensor = loaded.infer(canvas, true);
     try { return normalize(await tensor.data()); }
     finally { tensor.dispose(); }
   }
 
-  function embedFromDataUrl(dataUrl) {
+  function embedFromDataUrl(dataUrl, zoom = 1) {
     return new Promise((resolve, reject) => {
       const image = new Image();
-      image.onload = () => embedFromSource(image).then(resolve, reject);
+      image.onload = () => embedFromSource(image, zoom).then(resolve, reject);
       image.onerror = () => reject(new Error("อ่านภาพอ้างอิงไม่สำเร็จ"));
       image.src = dataUrl;
     });

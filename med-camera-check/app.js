@@ -7,6 +7,7 @@
     medicines: [], history: [], expected: [],
     aiReady: false,
     streams: { label: null, check: null, register: null },
+    zoom: { label: 1.2, check: 1.5 },
     ocrResults: [],
     refs: { front: [], back: [] },
     live: {
@@ -36,6 +37,37 @@
     document.querySelectorAll(".panel").forEach(x => x.classList.toggle("active", x.id === id));
   }
 
+  function normalizeZoom(value) {
+    return Math.round(Math.max(1, Math.min(2.5, Number(value) || 1)) * 10) / 10;
+  }
+
+  function applyZoomDisplay() {
+    const labelZoom = normalizeZoom(state.zoom.label);
+    const checkZoom = normalizeZoom(state.zoom.check);
+    $("labelZoomRange").value = labelZoom;
+    $("labelZoomValue").textContent = labelZoom.toFixed(1) + "×";
+    $("checkZoomRange").value = checkZoom;
+    $("registerZoomRange").value = checkZoom;
+    $("checkZoomValue").textContent = checkZoom.toFixed(1) + "×";
+    $("registerZoomValue").textContent = checkZoom.toFixed(1) + "×";
+    $("labelVideo").style.transform = `scale(${labelZoom})`;
+    $("checkVideo").style.transform = `scale(${checkZoom})`;
+    $("registerVideo").style.transform = `scale(${checkZoom})`;
+  }
+
+  function setZoom(kind, value) {
+    const next = normalizeZoom(value);
+    if (kind === "label") {
+      state.zoom.label = next;
+      localStorage.setItem("labelCameraZoom", String(next));
+    } else {
+      state.zoom.check = next;
+      localStorage.setItem("medicineCameraZoom", String(next));
+      if (state.live.running) stopRealtime("เปลี่ยน Zoom แล้ว กรุณากดเริ่มตรวจอีกครั้ง");
+    }
+    applyZoomDisplay();
+  }
+
   function stopStream(kind) {
     if (state.streams[kind]) state.streams[kind].getTracks().forEach(track => track.stop());
     state.streams[kind] = null;
@@ -53,6 +85,7 @@
       state.streams[kind] = stream;
       const video = kind === "label" ? $("labelVideo") : kind === "check" ? $("checkVideo") : $("registerVideo");
       video.srcObject = stream; await video.play();
+      applyZoomDisplay();
       if (kind === "label") {
         $("scanLabelBtn").disabled = false;
         $("ocrStatus").hidden = false;
@@ -113,7 +146,7 @@
         } else if (progress.status) {
           setOcrStatus("กำลังเตรียม OCR…");
         }
-      });
+      }, state.zoom.label);
       renderOcrReview(result);
       if (result.matches.length) setOcrStatus(`พบรายการที่อาจตรง ${result.matches.length} รายการ กรุณาตรวจทานก่อนยืนยัน`, "success");
       else setOcrStatus("ไม่พบรายการที่จับคู่ได้ ห้ามยืนยันอัตโนมัติ กรุณาถ่ายใหม่หรือเพิ่มด้วยตนเอง", "warning");
@@ -149,9 +182,9 @@
     const video = $("registerVideo");
     if (!video.videoWidth) return toast("กล้องยังไม่พร้อม");
     if (!state.aiReady) return toast("โมเดล AI ยังไม่พร้อม");
-    const dataUrl = MedVision.cropDataUrl(video);
-    const feature = MedVision.featureFromSource(video);
-    feature.embedding = await MedAI.embedFromSource(video);
+    const dataUrl = MedVision.cropDataUrl(video, 960, state.zoom.check);
+    const feature = MedVision.featureFromSource(video, state.zoom.check);
+    feature.embedding = await MedAI.embedFromSource(video, state.zoom.check);
     const warnings = MedVision.qualityWarnings(feature);
     state.refs[side].push({ id: uid(), image: dataUrl, feature, createdAt: new Date().toISOString() });
     renderRefs();
@@ -243,8 +276,8 @@
     if (!state.live.running) return;
     const video = $("checkVideo");
     if (!video.videoWidth) { scheduleLiveAnalysis(); return; }
-    const feature = MedVision.featureFromSource(video);
-    feature.embedding = await MedAI.embedFromSource(video);
+    const feature = MedVision.featureFromSource(video, state.zoom.check);
+    feature.embedding = await MedAI.embedFromSource(video, state.zoom.check);
     const threshold = Number(localStorage.getItem("matchThreshold") || 50) / 100;
     const qualityWarnings = MedVision.qualityWarnings(feature);
 
@@ -467,6 +500,9 @@
     $("openLabelCameraBtn").addEventListener("click", () => startCamera("label"));
     $("scanLabelBtn").addEventListener("click", scanLabel);
     $("confirmOcrBtn").addEventListener("click", confirmOcrResults);
+    $("labelZoomRange").addEventListener("input", e => setZoom("label", e.target.value));
+    $("checkZoomRange").addEventListener("input", e => setZoom("check", e.target.value));
+    $("registerZoomRange").addEventListener("input", e => setZoom("check", e.target.value));
     $("openCheckCameraBtn").addEventListener("click", () => startCamera("check"));
     $("openRegisterCameraBtn").addEventListener("click", () => startCamera("register"));
     $("startRealtimeBtn").addEventListener("click", startRealtime);
@@ -505,6 +541,9 @@
       localStorage.setItem("aiThreshold50TrialMigrated", "1");
     }
     const threshold = localStorage.getItem("matchThreshold") || "50"; $("thresholdRange").value = threshold; $("thresholdValue").textContent = threshold + "%";
+    state.zoom.label = normalizeZoom(localStorage.getItem("labelCameraZoom") || 1.2);
+    state.zoom.check = normalizeZoom(localStorage.getItem("medicineCameraZoom") || 1.5);
+    applyZoomDisplay();
     $("speechToggle").checked = localStorage.getItem("speechEnabled") !== "0";
     $("storageBadge").textContent = "กำลังโหลดโมเดล AI";
     try {

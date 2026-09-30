@@ -112,15 +112,20 @@
     return matches.sort((a, b) => b.score - a.score);
   }
 
-  function preprocess(source) {
+  function preprocess(source, zoom = 1) {
     const sourceWidth = source.videoWidth || source.naturalWidth || source.width;
     const sourceHeight = source.videoHeight || source.naturalHeight || source.height;
-    const scale = Math.min(1, 1800 / sourceWidth);
+    const safeZoom = Math.max(1, Math.min(2.5, Number(zoom) || 1));
+    const cropWidth = sourceWidth / safeZoom;
+    const cropHeight = sourceHeight / safeZoom;
+    const sx = (sourceWidth - cropWidth) / 2;
+    const sy = (sourceHeight - cropHeight) / 2;
+    const scale = Math.min(1, 1800 / cropWidth);
     const canvas = document.createElement("canvas");
-    canvas.width = Math.round(sourceWidth * scale);
-    canvas.height = Math.round(sourceHeight * scale);
+    canvas.width = Math.round(cropWidth * scale);
+    canvas.height = Math.round(cropHeight * scale);
     const context = canvas.getContext("2d", { willReadFrequently: true });
-    context.drawImage(source, 0, 0, canvas.width, canvas.height);
+    context.drawImage(source, sx, sy, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
     const image = context.getImageData(0, 0, canvas.width, canvas.height);
     for (let i = 0; i < image.data.length; i += 4) {
       const gray = image.data[i] * .299 + image.data[i + 1] * .587 + image.data[i + 2] * .114;
@@ -147,9 +152,9 @@
     return workerPromise;
   }
 
-  async function recognize(source, medicines, onProgress) {
+  async function recognize(source, medicines, onProgress, zoom = 1) {
     const worker = await load(onProgress);
-    const canvas = preprocess(source);
+    const canvas = preprocess(source, zoom);
     const result = await worker.recognize(canvas, { rotateAuto: true });
     const text = result.data.text || "";
     return { text, confidence: result.data.confidence || 0, matches: matchMedicines(text, medicines) };
