@@ -184,13 +184,27 @@
     const video = $("registerVideo");
     if (!video.videoWidth) return toast("กล้องยังไม่พร้อม");
     if (!state.aiReady) return toast("AI กำลังโหลด กรุณารอจนมุมบนแสดง “AI พร้อม”");
-    const dataUrl = MedVision.cropDataUrl(video, 960, state.zoom.check);
-    const feature = MedVision.featureFromSource(video, state.zoom.check);
-    feature.embedding = await MedAI.embedFromSource(video, state.zoom.check);
-    const warnings = MedVision.qualityWarnings(feature);
-    state.refs[side].push({ id: uid(), image: dataUrl, feature, createdAt: new Date().toISOString() });
-    renderRefs();
-    toast(warnings.length ? "เพิ่มภาพแล้ว แต่ควรถ่ายใหม่: " + warnings.join(" / ") : "เพิ่มภาพอ้างอิงแล้ว");
+    const buttons = [$("addFrontReferenceBtn"), $("addBackReferenceBtn")];
+    const activeButton = side === "front" ? buttons[0] : buttons[1];
+    const originalText = activeButton.textContent;
+    buttons.forEach(button => { button.disabled = true; });
+    activeButton.textContent = "กำลังบันทึกภาพ…";
+    toast("กำลังประมวลผลภาพ กรุณาถือยาให้นิ่งสักครู่");
+    try {
+      const dataUrl = MedVision.cropDataUrl(video, 960, state.zoom.check);
+      const feature = MedVision.featureFromSource(video, state.zoom.check);
+      feature.embedding = await MedAI.embedFromSource(video, state.zoom.check);
+      const warnings = MedVision.qualityWarnings(feature);
+      state.refs[side].push({ id: uid(), image: dataUrl, feature, createdAt: new Date().toISOString() });
+      renderRefs();
+      toast(warnings.length ? "เพิ่มภาพแล้ว แต่ควรถ่ายใหม่: " + warnings.join(" / ") : "เพิ่มภาพอ้างอิงแล้ว");
+    } catch (error) {
+      console.error("Reference capture failed", error);
+      toast("ถ่ายภาพไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      activeButton.textContent = originalText;
+      buttons.forEach(button => { button.disabled = !state.aiReady; });
+    }
   }
 
   function hasPendingExpected() {

@@ -171,7 +171,7 @@
   function cropDataUrl(source, maxWidth = 960, zoom = 1) {
     const { sx, sy, cropW, cropH } = cropRect(source, zoom);
     const width = Math.min(maxWidth, cropW);
-    const height = Math.round(width / targetRatio);
+    const height = Math.round(width * cropH / cropW);
     const canvas = document.createElement("canvas");
     canvas.width = width; canvas.height = height;
     canvas.getContext("2d").drawImage(source, sx, sy, cropW, cropH, 0, 0, width, height);
