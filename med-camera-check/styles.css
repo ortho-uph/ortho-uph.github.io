@@ -34,6 +34,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 
 main { max-width: 1180px; margin: 0 auto; padding: 22px 24px 60px; }
 .notice { display: flex; gap: 12px; align-items: baseline; padding: 13px 16px; border-radius: 12px; background: var(--amber-soft); color: #5c410f; border: 1px solid #efdba8; font-size: 14px; }
+.notice-link { margin-left: auto; color: #664000; font-weight: 900; white-space: nowrap; }
 .tabs { display: flex; gap: 5px; margin-top: 20px; border-bottom: 1px solid var(--line); overflow-x: auto; }
 .tab { padding: 12px 18px; border: 0; background: transparent; color: var(--muted); border-bottom: 3px solid transparent; white-space: nowrap; }
 .tab.active { color: var(--green-800); border-bottom-color: var(--green-700); font-weight: 800; }

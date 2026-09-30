@@ -96,7 +96,9 @@
         $("startRealtimeBtn").disabled = !hasPendingExpected() || !state.aiReady;
         if (hasPendingExpected() && state.aiReady) startRealtime();
       } else {
-        $("addFrontReferenceBtn").disabled = false; $("addBackReferenceBtn").disabled = false;
+        $("addFrontReferenceBtn").disabled = !state.aiReady;
+        $("addBackReferenceBtn").disabled = !state.aiReady;
+        if (!state.aiReady) toast("เปิดกล้องแล้ว กำลังโหลด AI กรุณารอข้อความ “AI พร้อม”");
       }
     } catch (error) {
       toast("เปิดกล้องไม่ได้ กรุณาอนุญาตการใช้กล้องหรือใช้ปุ่มเพิ่มภาพจากไฟล์");
@@ -181,7 +183,7 @@
   async function capture(kind, side) {
     const video = $("registerVideo");
     if (!video.videoWidth) return toast("กล้องยังไม่พร้อม");
-    if (!state.aiReady) return toast("โมเดล AI ยังไม่พร้อม");
+    if (!state.aiReady) return toast("AI กำลังโหลด กรุณารอจนมุมบนแสดง “AI พร้อม”");
     const dataUrl = MedVision.cropDataUrl(video, 960, state.zoom.check);
     const feature = MedVision.featureFromSource(video, state.zoom.check);
     feature.embedding = await MedAI.embedFromSource(video, state.zoom.check);
@@ -536,6 +538,15 @@
 
   async function init() {
     bindEvents(); await MedDB.open();
+    if (location.protocol === "file:") {
+      await loadData();
+      $("storageBadge").textContent = "เปิดผิดวิธี — AI ไม่ทำงาน";
+      const notice = document.querySelector(".notice");
+      notice.innerHTML = `<strong>กรุณาเปิดผ่านเว็บไซต์</strong><span>การเปิด index.html โดยตรงทำให้กล้องและโมเดล AI ถูกบล็อก</span><a class="notice-link" href="https://ortho-uph.github.io/med-camera-check/">เปิดระบบที่ถูกต้อง →</a>`;
+      renderRefs(); resetLiveCycle(); updateRealtimeAvailability();
+      toast("กรุณาใช้เว็บไซต์ห้องยา ห้ามเปิดไฟล์ index.html โดยตรง");
+      return;
+    }
     if (!localStorage.getItem("aiThreshold50TrialMigrated")) {
       localStorage.setItem("matchThreshold", "50");
       localStorage.setItem("aiThreshold50TrialMigrated", "1");
@@ -553,6 +564,10 @@
       await upgradeMedicineEmbeddings();
       await loadData();
       $("storageBadge").textContent = "AI พร้อม ข้อมูลอยู่ในเครื่องนี้";
+      if (state.streams.register) {
+        $("addFrontReferenceBtn").disabled = false;
+        $("addBackReferenceBtn").disabled = false;
+      }
     } catch (error) {
       console.error(error);
       state.aiReady = false;
