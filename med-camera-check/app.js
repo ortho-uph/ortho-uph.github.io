@@ -358,7 +358,7 @@
       <article class="medicine-card">
         <div><h3>${esc(m.name)} ${esc(m.strength)}</h3><div class="medicine-meta">${esc(m.formType)} · หน้า ${(m.frontRefs || []).length} ภาพ · หลัง ${(m.backRefs || []).length} ภาพ · ${isTrainable(m) ? "AI พร้อมตรวจ" : "ฉบับร่าง — เพิ่มด้านใดด้านหนึ่งให้ครบ 3 ภาพ"}${m.pronunciation ? " · อ่านว่า “" + esc(m.pronunciation) + "”" : ""}${m.note ? " · " + esc(m.note) : ""}</div></div>
         <div class="card-actions"><button class="button ghost" data-edit-med="${m.id}">${isTrainable(m) ? "แก้ไขข้อมูล/รูป" : "เพิ่มรูปภายหลัง"}</button><button class="button danger" data-delete-med="${m.id}">ลบ</button></div>
-      </article>`).join("") : `<div class="empty-state">ยังไม่มีฐานข้อมูลยา เริ่มจากลงทะเบียนยาและถ่ายภาพอ้างอิงทั้งสองด้าน</div>`;
+      </article>`).join("") : `<div class="empty-state">ยังไม่มีฐานข้อมูลยา เริ่มจากลงทะเบียนยาและเพิ่มภาพอ้างอิงด้านหน้า หรือด้านหลัง อย่างน้อย 3 ภาพ</div>`;
     updateRealtimeAvailability();
   }
 
