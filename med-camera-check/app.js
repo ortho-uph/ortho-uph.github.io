@@ -348,7 +348,7 @@
     $("medicineCount").textContent = `${state.medicines.length} รายการ`;
     $("medicineList").innerHTML = state.medicines.length ? state.medicines.map(m => `
       <article class="medicine-card">
-        <div><h3>${esc(m.name)} ${esc(m.strength)}</h3><div class="medicine-meta">${esc(m.formType)} · หน้า ${m.frontRefs.length} ภาพ · หลัง ${m.backRefs.length} ภาพ · ${isTrainable(m) ? "AI พร้อมตรวจ" : "ฉบับร่าง — เพิ่มรูปภายหลังได้"}${m.note ? " · " + esc(m.note) : ""}</div></div>
+        <div><h3>${esc(m.name)} ${esc(m.strength)}</h3><div class="medicine-meta">${esc(m.formType)} · หน้า ${m.frontRefs.length} ภาพ · หลัง ${m.backRefs.length} ภาพ · ${isTrainable(m) ? "AI พร้อมตรวจ" : "ฉบับร่าง — เพิ่มรูปภายหลังได้"}${m.pronunciation ? " · อ่านว่า “" + esc(m.pronunciation) + "”" : ""}${m.note ? " · " + esc(m.note) : ""}</div></div>
         <div class="card-actions"><button class="button ghost" data-edit-med="${m.id}">${isTrainable(m) ? "แก้ไขข้อมูล/รูป" : "เพิ่มรูปภายหลัง"}</button><button class="button danger" data-delete-med="${m.id}">ลบ</button></div>
       </article>`).join("") : `<div class="empty-state">ยังไม่มีฐานข้อมูลยา เริ่มจากลงทะเบียนยาและถ่ายภาพอ้างอิงทั้งสองด้าน</div>`;
     updateRealtimeAvailability();
@@ -359,6 +359,7 @@
     const id = $("medicineId").value || uid();
     const med = {
       id, name: $("medicineName").value.trim(), strength: $("medicineStrength").value.trim(),
+      pronunciation: $("medicinePronunciation").value.trim(),
       formType: $("medicineFormType").value, note: $("medicineNote").value.trim(),
       frontRefs: state.refs.front, backRefs: state.refs.back,
       updatedAt: new Date().toISOString()
@@ -377,6 +378,7 @@
   function editMedicine(id) {
     const med = state.medicines.find(m => m.id === id); if (!med) return;
     $("medicineId").value = med.id; $("medicineName").value = med.name; $("medicineStrength").value = med.strength;
+    $("medicinePronunciation").value = med.pronunciation || "";
     $("medicineFormType").value = med.formType; $("medicineNote").value = med.note || "";
     state.refs = { front: structuredClone(med.frontRefs), back: structuredClone(med.backRefs) };
     $("cancelEditBtn").hidden = false; renderRefs(); switchTab("register"); window.scrollTo({ top: 0, behavior: "smooth" });
@@ -421,6 +423,7 @@
       if (!Array.isArray(rows)) throw new Error("ไฟล์ JSON ต้องเป็นรายการยาแบบ array");
       return rows.map(item => ({
         name: item.name ?? item["ชื่อยา"] ?? "", strength: item.strength ?? item["ความแรง"] ?? "",
+        pronunciation: item.pronunciation ?? item["คำอ่านภาษาไทย"] ?? item["คำอ่าน"] ?? "",
         formType: item.formType ?? item["รูปแบบยา"] ?? "แผงยา", note: item.note ?? item["หมายเหตุ"] ?? ""
       }));
     }
@@ -431,14 +434,16 @@
     const normalize = value => String(value || "").trim().toLowerCase().replace(/[\s_-]/g, "");
     const aliases = {
       name: ["ชื่อยา", "ชื่อสามัญ", "name", "medicine"], strength: ["ความแรง", "strength", "dose"],
+      pronunciation: ["คำอ่านภาษาไทย", "คำอ่าน", "pronunciation", "thai pronunciation"],
       formType: ["รูปแบบยา", "รูปแบบ", "formtype", "form", "type"], note: ["หมายเหตุ", "ลักษณะ", "note", "description"]
     };
     const headers = rows[0].map(normalize);
     const hasHeader = Object.values(aliases).flat().some(alias => headers.includes(normalize(alias)));
     const indexFor = key => aliases[key].map(alias => headers.indexOf(normalize(alias))).find(index => index >= 0) ?? -1;
-    const indexes = { name: indexFor("name"), strength: indexFor("strength"), formType: indexFor("formType"), note: indexFor("note") };
+    const indexes = { name: indexFor("name"), strength: indexFor("strength"), pronunciation: indexFor("pronunciation"), formType: indexFor("formType"), note: indexFor("note") };
     return rows.slice(hasHeader ? 1 : 0).map(columns => ({
       name: columns[hasHeader ? indexes.name : 0] || "", strength: columns[hasHeader ? indexes.strength : 1] || "",
+      pronunciation: hasHeader ? columns[indexes.pronunciation] || "" : "",
       formType: columns[hasHeader ? indexes.formType : 2] || "แผงยา", note: columns[hasHeader ? indexes.note : 3] || ""
     }));
   }
@@ -454,18 +459,13 @@
       const key = `${name}|${strength}`.toLocaleLowerCase("th-TH");
       if (existing.has(key)) { skipped++; continue; }
       await MedDB.put("medicines", {
-        id: uid(), name, strength, formType: String(item.formType || "แผงยา").trim(), note: String(item.note || "").trim(),
+        id: uid(), name, strength, pronunciation: String(item.pronunciation || "").trim(), formType: String(item.formType || "แผงยา").trim(), note: String(item.note || "").trim(),
         frontRefs: [], backRefs: [], updatedAt: new Date().toISOString()
       });
       existing.add(key); added++;
     }
     await loadData();
     toast(`นำเข้ารายชื่อยา ${added} รายการ${skipped ? ` · ข้ามรายการซ้ำ ${skipped}` : ""}`);
-  }
-
-  function getThaiVoice() {
-    if (!window.speechSynthesis) return null;
-    return speechSynthesis.getVoices().find(voice => /^th(?:-|_)/i.test(voice.lang)) || null;
   }
 
   function strengthForThaiSpeech(value) {
@@ -480,29 +480,25 @@
       .trim();
   }
 
-  function speak(text, force = false) {
-    if ((!force && !$("speechToggle").checked) || !window.speechSynthesis) return;
-    speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "th-TH";
-    utterance.rate = 0.9;
-    const thaiVoice = getThaiVoice();
-    if (thaiVoice) utterance.voice = thaiVoice;
-    speechSynthesis.speak(utterance);
+  async function speak(text, force = false) {
+    if (!force && !$("speechToggle").checked) return;
+    try {
+      await ThaiSpeech.speak(text);
+    } catch (error) {
+      console.error("Thai speech failed", error);
+      toast("เสียงไทยยังไม่พร้อม กรุณาตรวจอินเทอร์เน็ตแล้วกดทดสอบเสียงอีกครั้ง");
+    }
   }
 
   function speakMedicine(medicine, force = false) {
-    speak(`${medicine.name} ${strengthForThaiSpeech(medicine.strength)}`.trim(), force);
+    const spokenName = String(medicine.pronunciation || medicine.name || "").trim();
+    speak(`${spokenName} ${strengthForThaiSpeech(medicine.strength)}`.trim(), force);
   }
 
-  function updateSpeechVoiceStatus() {
-    const status = $("speechVoiceStatus");
-    if (!window.speechSynthesis) {
-      status.textContent = "เบราว์เซอร์นี้ไม่รองรับการอ่านออกเสียง";
-      return;
-    }
-    const voice = getThaiVoice();
-    status.textContent = voice ? `พร้อมใช้เสียงไทย: ${voice.name}` : "ไม่พบเสียงไทยในเครื่อง ระบบจะขอใช้เสียงไทยจากเบราว์เซอร์";
+  function updateSpeechVoiceStatus(event) {
+    $("speechVoiceStatus").textContent = event.message;
+    $("speechVoiceStatus").classList.toggle("error", event.status === "error");
+    $("speechVoiceStatus").classList.toggle("ready", event.status === "ready");
   }
 
   async function loadHistory() {
@@ -559,21 +555,32 @@
     document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => switchTab(tab.dataset.tab)));
     $("checkZoomRange").addEventListener("input", e => setZoom("check", e.target.value));
     $("registerZoomRange").addEventListener("input", e => setZoom("check", e.target.value));
-    $("openCheckCameraBtn").addEventListener("click", () => startCamera("check"));
+    $("openCheckCameraBtn").addEventListener("click", () => {
+      ThaiSpeech.unlock().catch(() => {});
+      ThaiSpeech.prepare().catch(error => console.error("Thai speech load failed", error));
+      startCamera("check");
+    });
     $("openRegisterCameraBtn").addEventListener("click", () => startCamera("register"));
     $("cameraDeviceSelect").addEventListener("change", e => selectCamera(e.target.value));
     $("refreshCamerasBtn").addEventListener("click", async () => { await refreshCameraDevices(); toast("อัปเดตรายชื่อกล้องแล้ว"); });
-    $("startRealtimeBtn").addEventListener("click", startRealtime);
+    $("startRealtimeBtn").addEventListener("click", () => {
+      ThaiSpeech.unlock().catch(() => {});
+      startRealtime();
+    });
     $("stopRealtimeBtn").addEventListener("click", () => stopRealtime());
     $("addFrontReferenceBtn").addEventListener("click", () => capture("register", "front"));
     $("addBackReferenceBtn").addEventListener("click", () => capture("register", "back"));
     $("medicineForm").addEventListener("submit", saveMedicine);
     $("cancelEditBtn").addEventListener("click", resetMedicineForm);
     $("referenceFileInput").addEventListener("change", e => { addFiles([...e.target.files]); e.target.value = ""; });
-    $("downloadMedicineTemplateBtn").addEventListener("click", () => download("medicine-list-template.csv", "\ufeffชื่อยา,ความแรง,รูปแบบยา,หมายเหตุ\r\nCephalexin,500 mg,แคปซูล,\r\n", "text/csv;charset=utf-8"));
+    $("downloadMedicineTemplateBtn").addEventListener("click", () => download("medicine-list-template.csv", "\ufeffชื่อยา,ความแรง,คำอ่านภาษาไทย,รูปแบบยา,หมายเหตุ\r\nCephalexin,500 mg,เซฟาเล็กซิน,แคปซูล,\r\n", "text/csv;charset=utf-8"));
     $("medicineListFileInput").addEventListener("change", async e => { const file = e.target.files[0]; if (!file) return; try { await importMedicineList(file); } catch (error) { toast(`นำเข้าไม่สำเร็จ: ${error.message}`); } e.target.value = ""; });
     $("thresholdRange").addEventListener("input", e => { $("thresholdValue").textContent = e.target.value + "%"; localStorage.setItem("matchThreshold", e.target.value); });
-    $("speechToggle").addEventListener("change", e => localStorage.setItem("speechEnabled", e.target.checked ? "1" : "0"));
+    $("speechToggle").addEventListener("change", e => {
+      localStorage.setItem("speechEnabled", e.target.checked ? "1" : "0");
+      if (e.target.checked) ThaiSpeech.prepare().catch(error => console.error("Thai speech load failed", error));
+      else ThaiSpeech.stop();
+    });
     $("testSpeechBtn").addEventListener("click", () => {
       const sample = state.medicines.find(isTrainable) || { name: "พาราเซตามอล", strength: "500 mg" };
       speakMedicine(sample, true);
@@ -597,7 +604,7 @@
       const del = e.target.closest("[data-delete-med]"); if (del && confirm("ลบรายการยานี้ออกจากฐานข้อมูลหรือไม่")) { await MedDB.remove("medicines", del.dataset.deleteMed); await loadData(); }
     });
 
-    window.addEventListener("beforeunload", () => { clearTimeout(state.live.timer); Object.values(state.streams).filter(Boolean).forEach(s => s.getTracks().forEach(t => t.stop())); });
+    window.addEventListener("beforeunload", () => { clearTimeout(state.live.timer); ThaiSpeech.stop(); Object.values(state.streams).filter(Boolean).forEach(s => s.getTracks().forEach(t => t.stop())); });
   }
 
   async function init() {
@@ -621,8 +628,8 @@
     await refreshCameraDevices();
     navigator.mediaDevices?.addEventListener?.("devicechange", refreshCameraDevices);
     $("speechToggle").checked = localStorage.getItem("speechEnabled") !== "0";
-    updateSpeechVoiceStatus();
-    window.speechSynthesis?.addEventListener?.("voiceschanged", updateSpeechVoiceStatus);
+    ThaiSpeech.subscribe(updateSpeechVoiceStatus);
+    updateSpeechVoiceStatus({ status: "idle", message: "เสียงไทยของระบบจะโหลดอัตโนมัติ ไม่ต้องติดตั้งเสียงใน Windows" });
     $("storageBadge").textContent = "กำลังโหลดโมเดล AI";
     try {
       await MedAI.load();
@@ -636,6 +643,7 @@
       // disabled button that looks broken.
       $("addFrontReferenceBtn").disabled = false;
       $("addBackReferenceBtn").disabled = false;
+      if ($("speechToggle").checked) ThaiSpeech.prepare().catch(error => console.error("Thai speech load failed", error));
     } catch (error) {
       console.error(error);
       state.aiReady = false;

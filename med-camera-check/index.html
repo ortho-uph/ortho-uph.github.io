@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#185b4a">
   <title>ระบบรีเช็คยาด้วยกล้อง</title>
-  <link rel="stylesheet" href="styles.css?v=20261002k">
+  <link rel="stylesheet" href="styles.css?v=20261002l">
 </head>
 <body>
   <header class="topbar">
@@ -93,7 +93,7 @@
       </div>
 
       <div class="medicine-import-bar">
-        <div><strong>นำเข้ารายชื่อยาจากไฟล์</strong><small>รองรับ CSV, TSV และ JSON คอลัมน์: ชื่อยา, ความแรง, รูปแบบยา, หมายเหตุ</small></div>
+        <div><strong>นำเข้ารายชื่อยาจากไฟล์</strong><small>รองรับ CSV, TSV และ JSON คอลัมน์: ชื่อยา, ความแรง, คำอ่านภาษาไทย, รูปแบบยา, หมายเหตุ</small></div>
         <button id="downloadMedicineTemplateBtn" type="button" class="button ghost">ดาวน์โหลดไฟล์ตัวอย่าง</button>
         <label class="button secondary file-button">อัปโหลดรายชื่อยา<input id="medicineListFileInput" type="file" accept=".csv,.tsv,.txt,.json,text/csv,application/json" hidden></label>
       </div>
@@ -120,6 +120,10 @@
             </select>
           </label>
         </div>
+        <label class="field">
+          <span>คำอ่านภาษาไทย <small>ช่วยให้อ่านชื่อยาภาษาอังกฤษได้ถูกต้อง</small></span>
+          <input id="medicinePronunciation" placeholder="เช่น เซฟาเล็กซิน">
+        </label>
         <label class="field">
           <span>ลักษณะช่วยจำหรือคำเตือน</span>
           <input id="medicineNote" placeholder="เช่น แผงสีเงิน ตัวอักษรสีน้ำเงิน ระวังสับสนกับ...">
@@ -201,8 +205,9 @@
         </label>
         <div class="button-row speech-test-row">
           <button id="testSpeechBtn" type="button" class="button secondary">ทดสอบเสียงไทย</button>
-          <span id="speechVoiceStatus" class="speech-voice-status">กำลังตรวจสอบเสียงภาษาไทย…</span>
+          <span id="speechVoiceStatus" class="speech-voice-status">กำลังเตรียมเสียงภาษาไทยของระบบ…</span>
         </div>
+        <p class="speech-license">เสียงสร้างในเบราว์เซอร์ด้วย <a href="https://github.com/echogarden-project/espeak-ng-emscripten" target="_blank" rel="noopener">eSpeak NG (GPL-3.0)</a> ไม่ต้องติดตั้งชุดเสียงใน Windows และไม่ส่งชื่อยาออกไปยังบริการภายนอก การเปิดครั้งแรกจะดาวน์โหลดไฟล์เสียงประมาณ 24 MB</p>
       </div>
 
       <div class="settings-card danger-zone">
@@ -219,9 +224,10 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="vendor/tf.min.js"></script>
   <script src="vendor/mobilenet.min.js"></script>
-  <script src="vision.js?v=20261002k"></script>
+  <script src="vision.js?v=20261002l"></script>
   <script src="ai.js"></script>
   <script src="db.js"></script>
-  <script src="app.js?v=20261002k"></script>
+  <script src="thai-speech.js?v=20261002l"></script>
+  <script src="app.js?v=20261002l"></script>
 </body>
 </html>
