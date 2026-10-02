@@ -157,7 +157,12 @@
 
   function updateRealtimeAvailability() {
     const cameraReady = Boolean(state.streams.check && $("checkVideo").videoWidth);
-    $("startRealtimeBtn").disabled = !cameraReady || !hasTrainableMedicines() || !state.aiReady;
+    const hasReadyMedicine = hasTrainableMedicines();
+    $("startRealtimeBtn").disabled = !cameraReady || !state.aiReady;
+    $("startRealtimeBtn").textContent = hasReadyMedicine ? "เริ่มตรวจอัตโนมัติ" : "เพิ่มภาพอ้างอิงก่อน";
+    if (cameraReady && !hasReadyMedicine && !state.live.running) {
+      setLiveMessage("กล้องพร้อม แต่ยังไม่มียาที่พร้อมตรวจ", "ลงทะเบียนยาและเพิ่มภาพด้านใดด้านหนึ่งอย่างน้อย 3 ภาพ");
+    }
     if (!hasTrainableMedicines() && state.live.running) stopRealtime("ยังไม่มียาที่มีภาพอ้างอิงครบ");
   }
 
@@ -201,7 +206,10 @@
     if (state.live.running) return;
     if (!state.streams.check || !$("checkVideo").videoWidth) return toast("กรุณาเปิดกล้องก่อน");
     if (!state.aiReady) return toast("โมเดล AI ยังโหลดไม่เสร็จ");
-    if (!hasTrainableMedicines()) return toast("กรุณาลงทะเบียนยาและเพิ่มภาพอ้างอิงก่อน");
+    if (!hasTrainableMedicines()) {
+      switchTab("register");
+      return toast("ยังไม่มียาพร้อมตรวจ เพิ่มภาพด้านหน้า หรือด้านหลัง อย่างน้อย 3 ภาพ");
+    }
     state.live.running = true;
     $("startRealtimeBtn").hidden = true;
     $("stopRealtimeBtn").hidden = false;
@@ -342,13 +350,13 @@
   }
 
   function medicineLabel(med) { return `${med.name} ${med.strength} (${med.formType})`; }
-  function isTrainable(med) { return (med.frontRefs?.length || 0) >= 3 && (med.backRefs?.length || 0) >= 3; }
+  function isTrainable(med) { return (med.frontRefs?.length || 0) >= 3 || (med.backRefs?.length || 0) >= 3; }
 
   function renderMedicines() {
     $("medicineCount").textContent = `${state.medicines.length} รายการ`;
     $("medicineList").innerHTML = state.medicines.length ? state.medicines.map(m => `
       <article class="medicine-card">
-        <div><h3>${esc(m.name)} ${esc(m.strength)}</h3><div class="medicine-meta">${esc(m.formType)} · หน้า ${m.frontRefs.length} ภาพ · หลัง ${m.backRefs.length} ภาพ · ${isTrainable(m) ? "AI พร้อมตรวจ" : "ฉบับร่าง — เพิ่มรูปภายหลังได้"}${m.pronunciation ? " · อ่านว่า “" + esc(m.pronunciation) + "”" : ""}${m.note ? " · " + esc(m.note) : ""}</div></div>
+        <div><h3>${esc(m.name)} ${esc(m.strength)}</h3><div class="medicine-meta">${esc(m.formType)} · หน้า ${(m.frontRefs || []).length} ภาพ · หลัง ${(m.backRefs || []).length} ภาพ · ${isTrainable(m) ? "AI พร้อมตรวจ" : "ฉบับร่าง — เพิ่มด้านใดด้านหนึ่งให้ครบ 3 ภาพ"}${m.pronunciation ? " · อ่านว่า “" + esc(m.pronunciation) + "”" : ""}${m.note ? " · " + esc(m.note) : ""}</div></div>
         <div class="card-actions"><button class="button ghost" data-edit-med="${m.id}">${isTrainable(m) ? "แก้ไขข้อมูล/รูป" : "เพิ่มรูปภายหลัง"}</button><button class="button danger" data-delete-med="${m.id}">ลบ</button></div>
       </article>`).join("") : `<div class="empty-state">ยังไม่มีฐานข้อมูลยา เริ่มจากลงทะเบียนยาและถ่ายภาพอ้างอิงทั้งสองด้าน</div>`;
     updateRealtimeAvailability();
