@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#185b4a">
   <title>ระบบรีเช็คยาด้วยกล้อง</title>
-  <link rel="stylesheet" href="styles.css?v=20260930j">
+  <link rel="stylesheet" href="styles.css?v=20261002k">
 </head>
 <body>
   <header class="topbar">
@@ -21,7 +21,7 @@
   <main>
     <section class="notice" aria-label="หลักการตรวจสอบ">
       <strong>ระบบตรวจเช็คการจัดยา</strong>
-      <span>ระบบจะยืนยันเฉพาะยาที่ตรงฐานข้อมูล อยู่ในรายการของคิว และผ่านเกณฑ์ต่อเนื่องหลายเฟรม รายการที่ไม่ผ่านจะถูกปฏิเสธและต้องตรวจซ้ำ</span>
+      <span>วางแผงยาที่ลงทะเบียนไว้หน้ากล้อง ระบบจะตรวจแบบเรียลไทม์และอ่านชื่อยากับขนาดยาเป็นภาษาไทยเมื่อยืนยันผลแล้ว</span>
     </section>
 
     <nav class="tabs" aria-label="เมนูหลัก">
@@ -41,75 +41,8 @@
       <div class="section-heading">
         <div>
           <p class="eyebrow">ขั้นตอน 1</p>
-          <h2>สร้างรายการยาที่ต้องตรวจ</h2>
-        </div>
-        <button id="newSessionBtn" class="button ghost">ล้างรายการ</button>
-      </div>
-
-      <div class="label-scan-card">
-        <div class="label-scan-copy">
-          <span class="method-badge">วิธีแนะนำ</span>
-          <h3>ส่องสติ๊กเกอร์เพื่อสร้างรายการอัตโนมัติ</h3>
-          <p>วางสติ๊กเกอร์ทั้งหมดให้อ่านได้ในกรอบ แล้วกดอ่านฉลาก ระบบจะเทียบชื่อยาและความแรงกับฐานข้อมูล</p>
-          <label class="zoom-control">
-            <span>ซูมฉลาก <strong id="labelZoomValue">1.2×</strong></span>
-            <input id="labelZoomRange" type="range" min="1" max="2.5" step="0.1" value="1.2">
-          </label>
-          <div class="privacy-note">ไม่นำชื่อผู้ป่วยหรือ HN ไปบันทึก ภาพและข้อความ OCR จะอยู่ในหน่วยความจำชั่วคราวเท่านั้น</div>
-        </div>
-        <div class="label-camera-wrap">
-          <video id="labelVideo" playsinline muted></video>
-          <div class="label-guide"><span>จัดฉลากให้ตรงและเต็มกรอบ</span></div>
-          <div class="camera-actions label-actions">
-            <button id="openLabelCameraBtn" class="button primary">เปิดกล้องอ่านฉลาก</button>
-            <button id="scanLabelBtn" class="button secondary" disabled>อ่านสติ๊กเกอร์</button>
-          </div>
-        </div>
-      </div>
-
-      <div id="ocrStatus" class="ocr-status" hidden></div>
-      <div id="ocrReview" class="ocr-review" hidden>
-        <div class="ocr-review-head">
-          <div><strong>ตรวจทานรายการที่อ่านได้</strong><p>ติ๊กเฉพาะรายการที่ถูกต้องก่อนนำไปตรวจแผงยา</p></div>
-          <button id="confirmOcrBtn" class="button primary">ยืนยันรายการ</button>
-        </div>
-        <div id="ocrResultList" class="ocr-result-list"></div>
-        <details class="ocr-raw"><summary>ดูข้อความที่ OCR อ่านได้</summary><pre id="ocrRawText"></pre></details>
-      </div>
-
-      <div class="manual-heading"><span>หรือเพิ่ม/แก้ไขรายการด้วยตนเอง</span></div>
-
-      <div class="grid two">
-        <label class="field">
-          <span>เลขคิวหรือรหัสงาน <small>ไม่ใช้ HN หรือชื่อผู้ป่วย</small></span>
-          <input id="jobCode" autocomplete="off" placeholder="เช่น 30-B">
-        </label>
-        <label class="field">
-          <span>เลือกรายการยาจากฐานข้อมูล</span>
-          <div class="inline-control">
-            <select id="expectedMedicine"></select>
-            <input id="expectedQty" type="number" min="1" max="99" value="1" aria-label="จำนวนแผง">
-            <button id="addExpectedBtn" class="button secondary">เพิ่ม</button>
-          </div>
-        </label>
-      </div>
-
-      <div id="expectedEmpty" class="empty-state compact">
-        ยังไม่มีรายการยา กรุณาลงทะเบียนยาในฐานข้อมูลก่อน แล้วเพิ่มรายการที่ต้องตรวจ
-      </div>
-      <div id="expectedList" class="expected-list"></div>
-      <div class="queue-complete-bar">
-        <div><strong id="queueProgressText">ยังไม่มีรายการในคิว</strong><small>ปุ่มยืนยันจะบันทึกประวัติทั้งคิวและเปิดคิวถัดไปอัตโนมัติ</small></div>
-        <button id="confirmQueueBtn" type="button" class="button primary">ยืนยันจัดยาเสร็จครบทุกตัว</button>
-      </div>
-
-      <div class="divider"></div>
-
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">ขั้นตอน 2</p>
           <h2>ตรวจแผงยาแบบวิดีโอเรียลไทม์</h2>
-          <p>วางด้านหน้าหรือด้านหลังก็ได้ ระบบจะยืนยันด้านเดียวและพร้อมรับชิ้นถัดไปอัตโนมัติ</p>
+          <p>ไม่ต้องสร้างรายการล่วงหน้า วางด้านหน้าหรือด้านหลังของยาในฐานข้อมูลได้เลย</p>
         </div>
         <span id="cameraStatus" class="status neutral">ยังไม่เปิดกล้อง</span>
       </div>
@@ -142,7 +75,7 @@
           </div>
           <div id="liveCandidate" class="live-candidate">ยังไม่พบแผงยา</div>
           <div id="stabilityMeter" class="stability-meter"><span></span></div>
-          <div id="qualityMessage" class="quality-message">ระบบจะยืนยันเมื่อผลตรงกันต่อเนื่องหลายเฟรม</div>
+          <div id="qualityMessage" class="quality-message">เมื่อผลตรงกันต่อเนื่อง ระบบจะอ่านชื่อยาและขนาดยา</div>
         </aside>
       </div>
 
@@ -264,8 +197,12 @@
         <p>ขณะนี้ตั้งไว้ 50% เพื่อการทดลองเท่านั้น ค่านี้มีโอกาสรับแผงยาที่คล้ายกันผิดสูง ต้องทดสอบกับยาจริงทุกกลุ่มและปรับสูงขึ้นก่อนใช้งานจริง</p>
         <label class="switch-row">
           <input id="speechToggle" type="checkbox" checked>
-          <span>อ่านชื่อยาและผลตรวจออกเสียง</span>
+          <span>อ่านชื่อยาและขนาดยาเป็นภาษาไทย</span>
         </label>
+        <div class="button-row speech-test-row">
+          <button id="testSpeechBtn" type="button" class="button secondary">ทดสอบเสียงไทย</button>
+          <span id="speechVoiceStatus" class="speech-voice-status">กำลังตรวจสอบเสียงภาษาไทย…</span>
+        </div>
       </div>
 
       <div class="settings-card danger-zone">
@@ -282,11 +219,9 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="vendor/tf.min.js"></script>
   <script src="vendor/mobilenet.min.js"></script>
-  <script src="vendor/tesseract/tesseract.min.js"></script>
-  <script src="vision.js?v=20260930j"></script>
+  <script src="vision.js?v=20261002k"></script>
   <script src="ai.js"></script>
-  <script src="ocr.js"></script>
   <script src="db.js"></script>
-  <script src="app.js?v=20260930j"></script>
+  <script src="app.js?v=20261002k"></script>
 </body>
 </html>

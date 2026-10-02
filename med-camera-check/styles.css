@@ -203,6 +203,8 @@ figure { margin: 0; }
 .settings-card p { color: var(--muted); line-height: 1.65; }
 .switch-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
 .switch-row input { width: 20px; min-height: 20px; }
+.speech-test-row { align-items: center; justify-content: flex-start; margin-top: 14px; }
+.speech-voice-status { color: var(--muted); font-size: .9rem; line-height: 1.5; }
 .danger-zone { border-color: #eed0d1; }
 .toast { position: fixed; left: 50%; bottom: 22px; z-index: 30; transform: translate(-50%, 140%); max-width: min(560px, calc(100vw - 32px)); padding: 12px 16px; border-radius: 10px; background: #17211f; color: white; box-shadow: var(--shadow); transition: transform .25s; }
 .toast.show { transform: translate(-50%, 0); }

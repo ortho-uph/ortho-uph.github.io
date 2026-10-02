@@ -4,14 +4,12 @@
   const $ = id => document.getElementById(id);
   const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(16).slice(2));
   const state = {
-    medicines: [], history: [], expected: [],
+    medicines: [], history: [],
     aiReady: false,
-    streams: { label: null, check: null, register: null },
+    streams: { check: null, register: null },
     cameraDeviceId: localStorage.getItem("cameraDeviceId") || "",
-    zoom: { label: 1.2, check: 1.5 },
-    ocrResults: [],
+    zoom: { check: 1.5 },
     refs: { front: [], back: [] },
-    queueStartedAt: new Date().toISOString(),
     live: {
       running: false, timer: null, phase: "first", stableKey: null,
       stableCount: 0, candidateId: null, firstSide: null,
@@ -44,36 +42,27 @@
   }
 
   function applyZoomDisplay() {
-    const labelZoom = normalizeZoom(state.zoom.label);
     const checkZoom = normalizeZoom(state.zoom.check);
-    $("labelZoomRange").value = labelZoom;
-    $("labelZoomValue").textContent = labelZoom.toFixed(1) + "×";
     $("checkZoomRange").value = checkZoom;
     $("registerZoomRange").value = checkZoom;
     $("checkZoomValue").textContent = checkZoom.toFixed(1) + "×";
     $("registerZoomValue").textContent = checkZoom.toFixed(1) + "×";
-    $("labelVideo").style.transform = `scale(${labelZoom})`;
     $("checkVideo").style.transform = `scale(${checkZoom})`;
     $("registerVideo").style.transform = `scale(${checkZoom})`;
   }
 
   function setZoom(kind, value) {
     const next = normalizeZoom(value);
-    if (kind === "label") {
-      state.zoom.label = next;
-      localStorage.setItem("labelCameraZoom", String(next));
-    } else {
-      state.zoom.check = next;
-      localStorage.setItem("medicineCameraZoom", String(next));
-      if (state.live.running) stopRealtime("เปลี่ยน Zoom แล้ว กรุณากดเริ่มตรวจอีกครั้ง");
-    }
+    state.zoom.check = next;
+    localStorage.setItem("medicineCameraZoom", String(next));
+    if (state.live.running) stopRealtime("เปลี่ยน Zoom แล้ว กรุณากดเริ่มตรวจอีกครั้ง");
     applyZoomDisplay();
   }
 
   function stopStream(kind) {
     if (state.streams[kind]) state.streams[kind].getTracks().forEach(track => track.stop());
     state.streams[kind] = null;
-    const video = kind === "label" ? $("labelVideo") : kind === "check" ? $("checkVideo") : $("registerVideo");
+    const video = kind === "check" ? $("checkVideo") : $("registerVideo");
     if (video) video.srcObject = null;
   }
 
@@ -94,8 +83,7 @@
     if (deviceId) localStorage.setItem("cameraDeviceId", deviceId);
     else localStorage.removeItem("cameraDeviceId");
     stopRealtime("เปลี่ยนกล้องแล้ว กรุณากดเปิดกล้องอีกครั้ง");
-    ["label", "check", "register"].forEach(stopStream);
-    $("scanLabelBtn").disabled = true;
+    ["check", "register"].forEach(stopStream);
     $("cameraStatus").textContent = "เลือกกล้องแล้ว กดเปิดกล้อง";
     $("cameraStatus").className = "status neutral";
     toast("เลือกกล้องแล้ว กรุณากดเปิดกล้องอีกครั้ง");
@@ -104,15 +92,13 @@
   async function startCamera(kind) {
     if (!navigator.mediaDevices?.getUserMedia) return toast("เบราว์เซอร์นี้ไม่รองรับกล้อง");
     try {
-      if (kind === "check") stopStream("label");
-      if (kind === "label") { stopRealtime("กำลังอ่านฉลากยา"); stopStream("check"); }
       stopStream(kind);
       const videoConstraints = { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } };
       if (state.cameraDeviceId) videoConstraints.deviceId = { exact: state.cameraDeviceId };
       else videoConstraints.facingMode = { ideal: "environment" };
       const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
       state.streams[kind] = stream;
-      const video = kind === "label" ? $("labelVideo") : kind === "check" ? $("checkVideo") : $("registerVideo");
+      const video = kind === "check" ? $("checkVideo") : $("registerVideo");
       video.srcObject = stream; await video.play();
       const actualDeviceId = stream.getVideoTracks()[0]?.getSettings?.().deviceId;
       if (actualDeviceId) {
@@ -121,15 +107,10 @@
       }
       await refreshCameraDevices();
       applyZoomDisplay();
-      if (kind === "label") {
-        $("scanLabelBtn").disabled = false;
-        $("ocrStatus").hidden = false;
-        $("ocrStatus").className = "ocr-status ready";
-        $("ocrStatus").textContent = "กล้องพร้อม จัดฉลากให้คมชัดแล้วกดอ่านสติ๊กเกอร์";
-      } else if (kind === "check") {
+      if (kind === "check") {
         $("cameraStatus").textContent = "กล้องพร้อมใช้งาน"; $("cameraStatus").className = "status good";
-        $("startRealtimeBtn").disabled = !hasPendingExpected() || !state.aiReady;
-        if (hasPendingExpected() && state.aiReady) startRealtime();
+        updateRealtimeAvailability();
+        if (hasTrainableMedicines() && state.aiReady) startRealtime();
       } else {
         $("addFrontReferenceBtn").disabled = !state.aiReady;
         $("addBackReferenceBtn").disabled = !state.aiReady;
@@ -141,81 +122,6 @@
       else if (error.name === "NotAllowedError") toast("ยังไม่ได้อนุญาตกล้อง กรุณาอนุญาต Camera ใน Chrome");
       else toast("เปิดกล้องไม่ได้ กรุณาเลือกกล้องใหม่หรือใช้ปุ่มเพิ่มภาพจากไฟล์");
     }
-  }
-
-  function setOcrStatus(message, mode = "working") {
-    const element = $("ocrStatus");
-    element.hidden = false;
-    element.className = `ocr-status ${mode}`;
-    element.textContent = message;
-  }
-
-  function renderOcrReview(result) {
-    state.ocrResults = result.matches;
-    $("ocrReview").hidden = false;
-    $("ocrRawText").textContent = result.text || "(ไม่อ่านข้อความได้)";
-    if (!result.matches.length) {
-      $("ocrResultList").innerHTML = `<div class="empty-state compact">ยังจับคู่กับฐานข้อมูลไม่ได้ กรุณาจัดฉลากให้ตรงและถ่ายใหม่ หรือเพิ่มรายการด้วยตนเอง</div>`;
-      $("confirmOcrBtn").disabled = true;
-      return;
-    }
-    $("confirmOcrBtn").disabled = false;
-    $("ocrResultList").innerHTML = result.matches.map((match, index) => {
-      const med = state.medicines.find(item => item.id === match.medicineId);
-      if (!med) return "";
-      const trainable = isTrainable(med);
-      return `<label class="ocr-result ${trainable ? "" : "not-ready"}">
-        <input type="checkbox" data-ocr-index="${index}" ${trainable ? "checked" : "disabled"}>
-        <span class="ocr-result-main"><strong>${esc(med.name)} ${esc(med.strength)}</strong><small>${match.quantityText ? `ฉลากระบุ ${esc(match.quantityText)} · ` : ""}${trainable ? "พร้อมตรวจแผงยา" : "ภาพอ้างอิงยังไม่ครบด้านละ 3 ภาพ"}</small></span>
-        <span class="ocr-score">${Math.round(match.score * 100)}%</span>
-      </label>`;
-    }).join("");
-  }
-
-  async function scanLabel() {
-    const video = $("labelVideo");
-    if (!video.videoWidth) return toast("กล้องอ่านฉลากยังไม่พร้อม");
-    if (!state.medicines.length) return toast("กรุณาลงทะเบียนยาในฐานข้อมูลก่อน");
-    $("scanLabelBtn").disabled = true;
-    $("ocrReview").hidden = true;
-    setOcrStatus("กำลังเตรียมตัวอ่าน OCR ในเครื่อง…");
-    try {
-      const result = await MedOCR.recognize(video, state.medicines, progress => {
-        if (progress.status === "recognizing text") {
-          setOcrStatus(`กำลังอ่านข้อความ ${Math.round((progress.progress || 0) * 100)}%`);
-        } else if (progress.status) {
-          setOcrStatus("กำลังเตรียม OCR…");
-        }
-      }, state.zoom.label);
-      renderOcrReview(result);
-      if (result.matches.length) setOcrStatus(`พบรายการที่อาจตรง ${result.matches.length} รายการ กรุณาตรวจทานก่อนยืนยัน`, "success");
-      else setOcrStatus("ไม่พบรายการที่จับคู่ได้ ห้ามยืนยันอัตโนมัติ กรุณาถ่ายใหม่หรือเพิ่มด้วยตนเอง", "warning");
-    } catch (error) {
-      console.error(error);
-      setOcrStatus("อ่านฉลากไม่สำเร็จ กรุณาตรวจว่าเปิดโปรแกรมผ่าน start.bat แล้วลองใหม่", "error");
-    } finally {
-      $("scanLabelBtn").disabled = false;
-    }
-  }
-
-  function confirmOcrResults() {
-    const selected = [...document.querySelectorAll("[data-ocr-index]:checked")]
-      .map(input => state.ocrResults[Number(input.dataset.ocrIndex)])
-      .filter(Boolean);
-    if (!selected.length) return toast("กรุณาเลือกรายการที่ตรวจทานแล้วอย่างน้อย 1 รายการ");
-    for (const match of selected) {
-      const existing = state.expected.find(item => item.medicineId === match.medicineId);
-      if (existing) {
-        if (!existing.labelQuantity && match.quantityText) existing.labelQuantity = match.quantityText;
-      } else {
-        state.expected.push({ medicineId: match.medicineId, quantity: 1, checked: 0, labelQuantity: match.quantityText || "", source: "label-ocr" });
-      }
-    }
-    stopStream("label");
-    $("scanLabelBtn").disabled = true;
-    renderExpected();
-    setOcrStatus(`ยืนยันแล้ว ${selected.length} รายการ พร้อมเปิดกล้องตรวจแผงยา`, "success");
-    toast("เพิ่มรายการจากสติ๊กเกอร์แล้ว กรุณาเปิดกล้องตรวจแผงยา");
   }
 
   async function capture(kind, side) {
@@ -245,73 +151,14 @@
     }
   }
 
-  function hasPendingExpected() {
-    return state.expected.some(item => item.checked < item.quantity);
-  }
-
-  function queueCode(number) {
-    return `Q${String(number).padStart(3, "0")}`;
-  }
-
-  function ensureQueueCode() {
-    if ($("jobCode").value.trim()) return $("jobCode").value.trim();
-    const number = Math.max(1, Number(localStorage.getItem("medQueueNumber")) || 1);
-    $("jobCode").value = queueCode(number);
-    return $("jobCode").value;
-  }
-
-  function openNextQueue() {
-    const next = Math.max(1, Number(localStorage.getItem("medQueueNumber")) || 1) + 1;
-    localStorage.setItem("medQueueNumber", String(next));
-    $("jobCode").value = queueCode(next);
-    state.queueStartedAt = new Date().toISOString();
-  }
-
-  async function completeQueue() {
-    if (!state.expected.length) return toast("ยังไม่มีรายการยาในคิวนี้");
-    const remaining = state.expected.reduce((sum, item) => sum + Math.max(0, item.quantity - item.checked), 0);
-    if (remaining > 0) return toast(`ยังตรวจยาไม่ครบ เหลืออีก ${remaining} ชิ้น`);
-    const code = ensureQueueCode();
-    const items = state.expected.map(item => {
-      const med = state.medicines.find(medicine => medicine.id === item.medicineId);
-      return {
-        medicineId: item.medicineId,
-        medicineLabel: med ? medicineLabel(med) : "ไม่พบข้อมูลยา",
-        quantity: item.quantity,
-        checked: item.checked,
-        labelQuantity: item.labelQuantity || ""
-      };
-    });
-    const checks = state.history.filter(record => record.type === "scan" && record.jobCode === code && record.createdAt >= state.queueStartedAt).map(record => ({
-      medicineId: record.medicineId, medicineLabel: record.medicineLabel, score: record.score,
-      result: record.result, detectedSide: record.detectedSide, createdAt: record.createdAt
-    }));
-    const completedAt = new Date().toISOString();
-    await MedDB.put("history", {
-      id: `queue-${uid()}`, type: "queue", jobCode: code,
-      createdAt: completedAt, startedAt: state.queueStartedAt, completedAt,
-      totalItems: items.reduce((sum, item) => sum + item.quantity, 0), items, checks,
-      result: "completed"
-    });
-    stopRealtime(`บันทึกคิว ${code} แล้ว`);
-    state.expected = [];
-    state.ocrResults = [];
-    $("ocrReview").hidden = true;
-    $("ocrStatus").hidden = true;
-    $("scanLabelBtn").disabled = true;
-    $("resultCard").hidden = true;
-    openNextQueue();
-    resetLiveCycle();
-    renderExpected();
-    await loadHistory();
-    toast(`บันทึกคิว ${code} แล้ว เปิด ${$("jobCode").value} เรียบร้อย`);
-    speak(`บันทึกคิว ${code} แล้ว เปิดคิวใหม่เรียบร้อย`);
+  function hasTrainableMedicines() {
+    return state.medicines.some(isTrainable);
   }
 
   function updateRealtimeAvailability() {
     const cameraReady = Boolean(state.streams.check && $("checkVideo").videoWidth);
-    $("startRealtimeBtn").disabled = !cameraReady || !hasPendingExpected() || !state.aiReady;
-    if (!hasPendingExpected() && state.live.running) stopRealtime("ตรวจครบทุกรายการแล้ว");
+    $("startRealtimeBtn").disabled = !cameraReady || !hasTrainableMedicines() || !state.aiReady;
+    if (!hasTrainableMedicines() && state.live.running) stopRealtime("ยังไม่มียาที่มีภาพอ้างอิงครบ");
   }
 
   function setLiveMessage(message, candidate = "") {
@@ -354,7 +201,7 @@
     if (state.live.running) return;
     if (!state.streams.check || !$("checkVideo").videoWidth) return toast("กรุณาเปิดกล้องก่อน");
     if (!state.aiReady) return toast("โมเดล AI ยังโหลดไม่เสร็จ");
-    if (!hasPendingExpected()) return toast("กรุณาเพิ่มรายการยาที่ต้องตรวจก่อน");
+    if (!hasTrainableMedicines()) return toast("กรุณาลงทะเบียนยาและเพิ่มภาพอ้างอิงก่อน");
     state.live.running = true;
     $("startRealtimeBtn").hidden = true;
     $("stopRealtimeBtn").hidden = false;
@@ -440,7 +287,7 @@
     $("qualityMessage").classList.toggle("warn", qualityWarnings.length > 0);
 
     if (state.live.phase === "first") {
-      const ranked = state.medicines.map(med => {
+      const ranked = state.medicines.filter(isTrainable).map(med => {
         const front = MedVision.bestAgainst(feature, med.frontRefs);
         const back = MedVision.bestAgainst(feature, med.backRefs);
         return { med, front, back, side: front >= back ? "front" : "back", score: Math.max(front, back) };
@@ -473,28 +320,16 @@
     state.live.phase = "complete"; state.live.resultLocked = true; state.live.lastMedicineId = med.id;
     state.live.stableCount = 0; state.live.stableKey = null; state.live.removalCount = 0;
     renderLiveProgress();
-    const expectedItem = state.expected.find(x => x.medicineId === med.id && x.checked < x.quantity);
-    const passed = Boolean(expectedItem);
-    if (expectedItem) expectedItem.checked++;
-    const allComplete = passed && !hasPendingExpected();
-    renderExpected();
     const sideLabel = detectedSide === "front" ? "ด้านหน้า" : "ด้านหลัง";
-    const reason = passed ? `ภาพ${sideLabel}ตรงกับฐานข้อมูลและอยู่ในรายการที่ต้องจ่าย` : "พบยาในฐานข้อมูล แต่ไม่ได้อยู่ในรายการหรือรายการนี้ตรวจครบแล้ว";
-    $("liveDot").className = passed ? "live-dot good" : "live-dot bad";
-    setLiveMessage(allComplete ? "ตรวจยาครบแล้ว ✓" : passed ? "เช็คแล้ว ✓" : "ไม่ตรงรายการ", allComplete ? "ครบตามจำนวนที่กำหนด" : `${med.name} ${med.strength} · ${Math.round(score * 100)}%`);
-    const card = $("resultCard"); card.hidden = false; card.className = `result-card ${allComplete ? "complete" : passed ? "pass" : "fail"}`;
-    card.innerHTML = `<div class="result-head"><div><p class="eyebrow">${allComplete ? "ตรวจยาครบแล้ว ✓" : passed ? "เช็คแล้ว ✓" : "คำเตือน ไม่ตรงรายการ"}</p><h3>${allComplete ? "ครบตามรายการทั้งหมด" : `${esc(med.name)} ${esc(med.strength)}`}</h3><p>${allComplete ? "จำนวนยาที่ตรวจผ่านครบตามรายการที่กำหนดแล้ว" : esc(reason)}</p></div><div class="score">${allComplete ? "ครบ" : `${Math.round(score * 100)}%`}</div></div><p>${allComplete ? "สิ้นสุดการตรวจชุดนี้ สามารถเริ่มรายการใหม่ได้" : passed ? "บันทึกผลแล้ว นำชิ้นเดิมออกและวางชิ้น 2, 3, 4 ต่อได้ทันที" : "นำยาที่ไม่ตรงรายการออกจากกรอบ"}</p>`;
-    const record = { id: uid(), type: "scan", createdAt: new Date().toISOString(), jobCode: ensureQueueCode(), medicineId: med.id, medicineLabel: medicineLabel(med), score: Math.round(score * 1000) / 10, result: passed ? "pass" : "fail", reason, manual: false, mode: "realtime-one-side", detectedSide };
+    const reason = `ภาพ${sideLabel}ตรงกับฐานข้อมูลยา`;
+    $("liveDot").className = "live-dot good";
+    setLiveMessage("เช็คแล้ว ✓", `${med.name} ${med.strength} · ${Math.round(score * 100)}%`);
+    const card = $("resultCard"); card.hidden = false; card.className = "result-card pass";
+    card.innerHTML = `<div class="result-head"><div><p class="eyebrow">เช็คแล้ว ✓</p><h3>${esc(med.name)} ${esc(med.strength)}</h3><p>${esc(reason)}</p></div><div class="score">${Math.round(score * 100)}%</div></div><p>ระบบอ่านชื่อและขนาดยาแล้ว นำชิ้นเดิมออกและวางชิ้นถัดไปได้ทันที</p>`;
+    const record = { id: uid(), type: "scan", createdAt: new Date().toISOString(), medicineId: med.id, medicineLabel: medicineLabel(med), score: Math.round(score * 1000) / 10, result: "pass", reason, manual: false, mode: "realtime-one-side", detectedSide };
     await MedDB.put("history", record); await loadHistory();
-    if (allComplete) {
-      stopRealtime("ตรวจยาครบแล้ว ✓");
-      $("liveDot").className = "live-dot good";
-      setLiveMessage("ตรวจยาครบแล้ว ✓", "ครบตามจำนวนที่กำหนด");
-      toast("ตรวจยาครบแล้ว ✓");
-      speak("ตรวจยาครบแล้ว");
-    } else {
-      speak(passed ? `${med.name} ${med.strength} ถูกต้อง` : `คำเตือน ${med.name} ${med.strength} ไม่ตรงรายการ`);
-    }
+    toast(`เช็คแล้ว: ${med.name} ${med.strength}`);
+    speakMedicine(med);
   }
 
   function renderRefs() {
@@ -511,30 +346,11 @@
 
   function renderMedicines() {
     $("medicineCount").textContent = `${state.medicines.length} รายการ`;
-    $("expectedMedicine").innerHTML = state.medicines.length
-      ? `<option value="">เลือกรายการยา</option>` + state.medicines.map(m => `<option value="${m.id}" ${isTrainable(m) ? "" : "disabled"}>${esc(medicineLabel(m))}${isTrainable(m) ? "" : " — ภาพฝึกยังไม่ครบ"}</option>`).join("")
-      : `<option value="">ยังไม่มีข้อมูลยา</option>`;
     $("medicineList").innerHTML = state.medicines.length ? state.medicines.map(m => `
       <article class="medicine-card">
         <div><h3>${esc(m.name)} ${esc(m.strength)}</h3><div class="medicine-meta">${esc(m.formType)} · หน้า ${m.frontRefs.length} ภาพ · หลัง ${m.backRefs.length} ภาพ · ${isTrainable(m) ? "AI พร้อมตรวจ" : "ฉบับร่าง — เพิ่มรูปภายหลังได้"}${m.note ? " · " + esc(m.note) : ""}</div></div>
         <div class="card-actions"><button class="button ghost" data-edit-med="${m.id}">${isTrainable(m) ? "แก้ไขข้อมูล/รูป" : "เพิ่มรูปภายหลัง"}</button><button class="button danger" data-delete-med="${m.id}">ลบ</button></div>
       </article>`).join("") : `<div class="empty-state">ยังไม่มีฐานข้อมูลยา เริ่มจากลงทะเบียนยาและถ่ายภาพอ้างอิงทั้งสองด้าน</div>`;
-    renderExpected();
-  }
-
-  function renderExpected() {
-    $("expectedEmpty").hidden = state.expected.length > 0;
-    $("expectedList").innerHTML = state.expected.map((item, index) => {
-      const med = state.medicines.find(m => m.id === item.medicineId);
-      if (!med) return "";
-      const labelInfo = item.labelQuantity ? ` · ฉลาก ${esc(item.labelQuantity)}` : "";
-      return `<div class="expected-item ${item.checked >= item.quantity ? "done" : ""}"><div class="expected-index">${item.checked >= item.quantity ? "✓" : index + 1}</div><div class="expected-name"><strong>${esc(med.name)} ${esc(med.strength)}</strong><span>${esc(med.formType)}${labelInfo}</span></div><span class="quantity">${item.checked}/${item.quantity} รายการ</span><button class="icon-button" data-remove-expected="${item.medicineId}" aria-label="นำออก">นำออก</button></div>`;
-    }).join("");
-    const total = state.expected.reduce((sum, item) => sum + item.quantity, 0);
-    const checked = state.expected.reduce((sum, item) => sum + Math.min(item.checked, item.quantity), 0);
-    const ready = total > 0 && checked >= total;
-    $("queueProgressText").textContent = total ? `ตรวจแล้ว ${checked}/${total} ชิ้น${ready ? " — พร้อมปิดคิว" : ""}` : "ยังไม่มีรายการในคิว";
-    $("confirmQueueBtn").closest(".queue-complete-bar").classList.toggle("ready", ready);
     updateRealtimeAvailability();
   }
 
@@ -647,35 +463,63 @@
     toast(`นำเข้ารายชื่อยา ${added} รายการ${skipped ? ` · ข้ามรายการซ้ำ ${skipped}` : ""}`);
   }
 
-  function addExpected() {
-    const medicineId = $("expectedMedicine").value;
-    const quantity = Math.max(1, Number($("expectedQty").value) || 1);
-    if (!medicineId) return toast("กรุณาเลือกรายการยา");
-    const existing = state.expected.find(x => x.medicineId === medicineId);
-    if (existing) existing.quantity += quantity; else state.expected.push({ medicineId, quantity, checked: 0 });
-    renderExpected();
+  function getThaiVoice() {
+    if (!window.speechSynthesis) return null;
+    return speechSynthesis.getVoices().find(voice => /^th(?:-|_)/i.test(voice.lang)) || null;
   }
 
-  function speak(text) {
-    if (!$("speechToggle").checked || !window.speechSynthesis) return;
-    speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(text); utterance.lang = "th-TH"; speechSynthesis.speak(utterance);
+  function strengthForThaiSpeech(value) {
+    return String(value || "")
+      .replace(/\s*(mcg|ug|µg)\b/gi, " ไมโครกรัม")
+      .replace(/\s*mg\b/gi, " มิลลิกรัม")
+      .replace(/\s*ml\b/gi, " มิลลิลิตร")
+      .replace(/\s*IU\b/gi, " ไอ ยู")
+      .replace(/\s*g\b/gi, " กรัม")
+      .replace(/%/g, " เปอร์เซ็นต์")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function speak(text, force = false) {
+    if ((!force && !$("speechToggle").checked) || !window.speechSynthesis) return;
+    speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "th-TH";
+    utterance.rate = 0.9;
+    const thaiVoice = getThaiVoice();
+    if (thaiVoice) utterance.voice = thaiVoice;
+    speechSynthesis.speak(utterance);
+  }
+
+  function speakMedicine(medicine, force = false) {
+    speak(`${medicine.name} ${strengthForThaiSpeech(medicine.strength)}`.trim(), force);
+  }
+
+  function updateSpeechVoiceStatus() {
+    const status = $("speechVoiceStatus");
+    if (!window.speechSynthesis) {
+      status.textContent = "เบราว์เซอร์นี้ไม่รองรับการอ่านออกเสียง";
+      return;
+    }
+    const voice = getThaiVoice();
+    status.textContent = voice ? `พร้อมใช้เสียงไทย: ${voice.name}` : "ไม่พบเสียงไทยในเครื่อง ระบบจะขอใช้เสียงไทยจากเบราว์เซอร์";
   }
 
   async function loadHistory() {
     state.history = (await MedDB.all("history")).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const queues = state.history.filter(record => record.type === "queue");
-    const legacy = state.history.filter(record => !record.type);
+    const scans = state.history.filter(record => record.type === "scan" || !record.type);
     const queueCards = queues.map(queue => `<details class="queue-history"><summary><div><h3>คิว ${esc(queue.jobCode)}</h3><div class="history-meta">${new Date(queue.completedAt || queue.createdAt).toLocaleString("th-TH")} · ${queue.totalItems || 0} ชิ้น · ${(queue.items || []).length} รายการยา</div></div></summary><div class="queue-history-body">${(queue.items || []).map(item => {
       const scores = (queue.checks || []).filter(check => check.medicineId === item.medicineId && check.result === "pass").map(check => check.score);
       const scoreText = scores.length ? ` · คะแนนสูงสุด ${Math.max(...scores)}%` : "";
       return `<div class="queue-history-item"><div><strong>${esc(item.medicineLabel)}</strong><span>${item.labelQuantity ? `ฉลาก ${esc(item.labelQuantity)} · ` : ""}ตรวจครบ ${item.checked}/${item.quantity}${scoreText}</span></div><span class="history-result pass">ครบ ✓</span></div>`;
     }).join("")}</div></details>`).join("");
-    const legacyCards = legacy.map(h => {
-      const status = h.result === "pass" ? "ผ่าน" : h.result === "manual-pass" ? "ยืนยันโดยเภสัชกร" : h.result === "review" ? "ตรวจยืนยัน" : "ไม่ผ่าน";
+    const scanCards = scans.map(h => {
+      const status = h.result === "pass" ? "ตรวจพบ ✓" : h.result === "manual-pass" ? "ยืนยันโดยเภสัชกร" : h.result === "review" ? "ตรวจยืนยัน" : "ไม่ผ่าน";
       const cls = h.result === "pass" || h.result === "manual-pass" ? "pass" : "fail";
-      return `<article class="history-card"><div><h3>${esc(h.medicineLabel)}</h3><div class="history-meta">งาน ${esc(h.jobCode)} · ${new Date(h.createdAt).toLocaleString("th-TH")} · คะแนน ${h.score}%</div></div><span class="history-result ${cls}">${status}</span></article>`;
+      return `<article class="history-card"><div><h3>${esc(h.medicineLabel)}</h3><div class="history-meta">${new Date(h.createdAt).toLocaleString("th-TH")} · คะแนน ${h.score}%</div></div><span class="history-result ${cls}">${status}</span></article>`;
     }).join("");
-    $("historyList").innerHTML = queueCards + legacyCards || `<div class="empty-state">ยังไม่มีประวัติคิวที่ปิดงานแล้ว</div>`;
+    $("historyList").innerHTML = scanCards + queueCards || `<div class="empty-state">ยังไม่มีประวัติการตรวจยา</div>`;
   }
 
   async function loadData() {
@@ -713,17 +557,12 @@
 
   function bindEvents() {
     document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => switchTab(tab.dataset.tab)));
-    $("openLabelCameraBtn").addEventListener("click", () => startCamera("label"));
-    $("scanLabelBtn").addEventListener("click", scanLabel);
-    $("confirmOcrBtn").addEventListener("click", confirmOcrResults);
-    $("labelZoomRange").addEventListener("input", e => setZoom("label", e.target.value));
     $("checkZoomRange").addEventListener("input", e => setZoom("check", e.target.value));
     $("registerZoomRange").addEventListener("input", e => setZoom("check", e.target.value));
     $("openCheckCameraBtn").addEventListener("click", () => startCamera("check"));
     $("openRegisterCameraBtn").addEventListener("click", () => startCamera("register"));
     $("cameraDeviceSelect").addEventListener("change", e => selectCamera(e.target.value));
     $("refreshCamerasBtn").addEventListener("click", async () => { await refreshCameraDevices(); toast("อัปเดตรายชื่อกล้องแล้ว"); });
-    $("confirmQueueBtn").addEventListener("click", completeQueue);
     $("startRealtimeBtn").addEventListener("click", startRealtime);
     $("stopRealtimeBtn").addEventListener("click", () => stopRealtime());
     $("addFrontReferenceBtn").addEventListener("click", () => capture("register", "front"));
@@ -733,10 +572,12 @@
     $("referenceFileInput").addEventListener("change", e => { addFiles([...e.target.files]); e.target.value = ""; });
     $("downloadMedicineTemplateBtn").addEventListener("click", () => download("medicine-list-template.csv", "\ufeffชื่อยา,ความแรง,รูปแบบยา,หมายเหตุ\r\nCephalexin,500 mg,แคปซูล,\r\n", "text/csv;charset=utf-8"));
     $("medicineListFileInput").addEventListener("change", async e => { const file = e.target.files[0]; if (!file) return; try { await importMedicineList(file); } catch (error) { toast(`นำเข้าไม่สำเร็จ: ${error.message}`); } e.target.value = ""; });
-    $("addExpectedBtn").addEventListener("click", addExpected);
-    $("newSessionBtn").addEventListener("click", () => { stopRealtime("ล้างรายการแล้ว"); stopStream("label"); state.expected = []; state.ocrResults = []; state.queueStartedAt = new Date().toISOString(); $("jobCode").value = ""; ensureQueueCode(); $("ocrReview").hidden = true; $("ocrStatus").hidden = true; $("scanLabelBtn").disabled = true; resetLiveCycle(); renderExpected(); });
     $("thresholdRange").addEventListener("input", e => { $("thresholdValue").textContent = e.target.value + "%"; localStorage.setItem("matchThreshold", e.target.value); });
     $("speechToggle").addEventListener("change", e => localStorage.setItem("speechEnabled", e.target.checked ? "1" : "0"));
+    $("testSpeechBtn").addEventListener("click", () => {
+      const sample = state.medicines.find(isTrainable) || { name: "พาราเซตามอล", strength: "500 mg" };
+      speakMedicine(sample, true);
+    });
     $("exportDbBtn").addEventListener("click", async () => download(`med-database-${new Date().toISOString().slice(0,10)}.json`, JSON.stringify(await MedDB.exportAll()), "application/json"));
     $("importDbInput").addEventListener("change", async e => { try { await MedDB.importAll(JSON.parse(await e.target.files[0].text())); await loadData(); toast("นำเข้าฐานข้อมูลแล้ว"); } catch (err) { toast(err.message); } e.target.value = ""; });
     $("exportHistoryBtn").addEventListener("click", () => {
@@ -744,17 +585,16 @@
         const scores = (queue.checks || []).filter(check => check.medicineId === item.medicineId && check.result === "pass").map(check => check.score);
         return [queue.completedAt || queue.createdAt, queue.jobCode, item.medicineLabel, item.quantity, item.checked, scores.length ? Math.max(...scores) : "", "completed"];
       }));
-      const legacyRows = state.history.filter(record => !record.type).map(record => [record.createdAt, record.jobCode, record.medicineLabel, 1, record.result === "pass" ? 1 : 0, record.score, record.result]);
-      const rows = [["วันที่ปิดคิว","รหัสคิว","ยา","จำนวน","ตรวจครบ","คะแนนสูงสุด","ผล"], ...queueRows, ...legacyRows];
+      const scanRows = state.history.filter(record => record.type === "scan" || !record.type).map(record => [record.createdAt, record.medicineLabel, record.score, record.result]);
+      const rows = [["วันที่ตรวจ","ยา","คะแนน","ผล"], ...scanRows, ...queueRows.map(row => [row[0], row[2], row[5], row[6]])];
       const csv = "\ufeff" + rows.map(row => row.map(v => `"${String(v ?? "").replaceAll('"','""')}"`).join(",")).join("\r\n"); download(`med-check-history-${new Date().toISOString().slice(0,10)}.csv`, csv, "text/csv;charset=utf-8");
     });
-    $("clearDbBtn").addEventListener("click", async () => { if (!confirm("ต้องการลบฐานข้อมูลยาและประวัติทั้งหมดในเครื่องนี้หรือไม่")) return; await MedDB.clear("medicines"); await MedDB.clear("history"); localStorage.setItem("medQueueNumber", "1"); state.expected = []; $("jobCode").value = queueCode(1); await loadData(); toast("ลบข้อมูลทั้งหมดแล้ว"); });
+    $("clearDbBtn").addEventListener("click", async () => { if (!confirm("ต้องการลบฐานข้อมูลยาและประวัติทั้งหมดในเครื่องนี้หรือไม่")) return; await MedDB.clear("medicines"); await MedDB.clear("history"); await loadData(); toast("ลบข้อมูลทั้งหมดแล้ว"); });
 
     document.addEventListener("click", async e => {
       const removeRef = e.target.closest("[data-remove-ref]"); if (removeRef) { state.refs[removeRef.dataset.side] = state.refs[removeRef.dataset.side].filter(x => x.id !== removeRef.dataset.removeRef); renderRefs(); }
       const edit = e.target.closest("[data-edit-med]"); if (edit) editMedicine(edit.dataset.editMed);
-      const del = e.target.closest("[data-delete-med]"); if (del && confirm("ลบรายการยานี้ออกจากฐานข้อมูลหรือไม่")) { await MedDB.remove("medicines", del.dataset.deleteMed); state.expected = state.expected.filter(x => x.medicineId !== del.dataset.deleteMed); await loadData(); }
-      const removeExpected = e.target.closest("[data-remove-expected]"); if (removeExpected) { state.expected = state.expected.filter(x => x.medicineId !== removeExpected.dataset.removeExpected); renderExpected(); }
+      const del = e.target.closest("[data-delete-med]"); if (del && confirm("ลบรายการยานี้ออกจากฐานข้อมูลหรือไม่")) { await MedDB.remove("medicines", del.dataset.deleteMed); await loadData(); }
     });
 
     window.addEventListener("beforeunload", () => { clearTimeout(state.live.timer); Object.values(state.streams).filter(Boolean).forEach(s => s.getTracks().forEach(t => t.stop())); });
@@ -776,13 +616,13 @@
       localStorage.setItem("aiThreshold50TrialMigrated", "1");
     }
     const threshold = localStorage.getItem("matchThreshold") || "50"; $("thresholdRange").value = threshold; $("thresholdValue").textContent = threshold + "%";
-    state.zoom.label = normalizeZoom(localStorage.getItem("labelCameraZoom") || 1.2);
     state.zoom.check = normalizeZoom(localStorage.getItem("medicineCameraZoom") || 1.5);
     applyZoomDisplay();
-    ensureQueueCode();
     await refreshCameraDevices();
     navigator.mediaDevices?.addEventListener?.("devicechange", refreshCameraDevices);
     $("speechToggle").checked = localStorage.getItem("speechEnabled") !== "0";
+    updateSpeechVoiceStatus();
+    window.speechSynthesis?.addEventListener?.("voiceschanged", updateSpeechVoiceStatus);
     $("storageBadge").textContent = "กำลังโหลดโมเดล AI";
     try {
       await MedAI.load();
