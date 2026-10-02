@@ -468,14 +468,47 @@
     toast(`นำเข้ารายชื่อยา ${added} รายการ${skipped ? ` · ข้ามรายการซ้ำ ${skipped}` : ""}`);
   }
 
+  function integerToThaiWords(value) {
+    const digits = ["ศูนย์", "หนึ่ง", "สอง", "สาม", "สี่", "ห้า", "หก", "เจ็ด", "แปด", "เก้า"];
+    const places = ["", "สิบ", "ร้อย", "พัน", "หมื่น", "แสน"];
+    const number = String(value).replace(/^0+(?=\d)/, "");
+    if (!number || Number(number) === 0) return digits[0];
+    if (number.length > 6) {
+      const head = number.slice(0, -6);
+      const tail = number.slice(-6);
+      return `${integerToThaiWords(head)}ล้าน${Number(tail) ? integerToThaiWords(tail) : ""}`;
+    }
+    return [...number].map((char, index) => {
+      const digit = Number(char);
+      if (!digit) return "";
+      const place = number.length - index - 1;
+      if (place === 1 && digit === 1) return "สิบ";
+      if (place === 1 && digit === 2) return "ยี่สิบ";
+      if (place === 0 && digit === 1 && number.length > 1) return "เอ็ด";
+      return digits[digit] + places[place];
+    }).join("");
+  }
+
+  function numberToThaiWords(value) {
+    const [integer, decimal] = String(value).split(".");
+    const whole = integerToThaiWords(integer);
+    if (!decimal) return whole;
+    const digits = ["ศูนย์", "หนึ่ง", "สอง", "สาม", "สี่", "ห้า", "หก", "เจ็ด", "แปด", "เก้า"];
+    return `${whole}จุด${[...decimal].map(digit => digits[Number(digit)]).join("")}`;
+  }
+
   function strengthForThaiSpeech(value) {
     return String(value || "")
+      .replace(/[๐-๙]/g, digit => String("๐๑๒๓๔๕๖๗๘๙".indexOf(digit)))
+      .replace(/(\d),(?=\d{3}(?:\D|$))/g, "$1")
+      .replace(/\d+(?:\.\d+)?/g, numberToThaiWords)
       .replace(/\s*(mcg|ug|µg)\b/gi, " ไมโครกรัม")
       .replace(/\s*mg\b/gi, " มิลลิกรัม")
       .replace(/\s*ml\b/gi, " มิลลิลิตร")
       .replace(/\s*IU\b/gi, " ไอ ยู")
       .replace(/\s*g\b/gi, " กรัม")
       .replace(/%/g, " เปอร์เซ็นต์")
+      .replace(/\//g, " ต่อ ")
       .replace(/\s+/g, " ")
       .trim();
   }
@@ -629,7 +662,7 @@
     navigator.mediaDevices?.addEventListener?.("devicechange", refreshCameraDevices);
     $("speechToggle").checked = localStorage.getItem("speechEnabled") !== "0";
     ThaiSpeech.subscribe(updateSpeechVoiceStatus);
-    updateSpeechVoiceStatus({ status: "idle", message: "เสียงไทยของระบบจะโหลดอัตโนมัติ ไม่ต้องติดตั้งเสียงใน Windows" });
+    updateSpeechVoiceStatus({ status: "idle", message: "เสียง AI ภาษาไทยจะโหลดอัตโนมัติ ไม่ต้องติดตั้งเสียงใน Windows" });
     $("storageBadge").textContent = "กำลังโหลดโมเดล AI";
     try {
       await MedAI.load();
