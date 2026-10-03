@@ -11,8 +11,11 @@
   let hooks = null, running = null, pushTimer = null, timer = null;
   let status = { level: "off", message: "ยังไม่ได้เชื่อมต่อฐานข้อมูลกลาง (ข้อมูลอยู่ในเครื่องนี้เท่านั้น)" };
 
-  const cfg = () => ({ url: localStorage.getItem(URL_KEY) || "", key: localStorage.getItem(SECRET_KEY) || "" });
-  const isConfigured = () => Boolean(cfg().url && cfg().key);
+  // ฐานข้อมูลกลางของห้องยา — ใส่ไว้ในโค้ดเลย เปิดเครื่องไหนก็เชื่อมต่อเอง ไม่ต้องกรอกอะไร
+  const DEFAULT_URL = "https://script.google.com/macros/s/AKfycbzUKhCbOxQFX2UM_sCUyb__yIjfkKbp1LAalEQ3tzw0nlNYFru5hETGOYVg2NaySma2GQ/exec";
+  const OFF_KEY = "medSyncOff";
+  const cfg = () => ({ url: localStorage.getItem(URL_KEY) || DEFAULT_URL, key: localStorage.getItem(SECRET_KEY) || "" });
+  const isConfigured = () => Boolean(cfg().url) && localStorage.getItem(OFF_KEY) !== "1";
 
   function setStatus(level, message) { status = { level, message }; listeners.forEach(fn => { try { fn(status); } catch (e) { console.error(e); } }); }
   function subscribe(fn) { listeners.add(fn); fn(status); }
@@ -148,13 +151,16 @@
     url = String(url || "").trim(); key = String(key || "").trim();
     if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url)) throw new Error("URL ต้องเป็นลิงก์เว็บแอป Apps Script ที่ลงท้ายด้วย /exec");
     await request("ping", {}, { url, key });
-    localStorage.setItem(URL_KEY, url); localStorage.setItem(SECRET_KEY, key);
+    localStorage.removeItem(OFF_KEY);
+    localStorage.setItem(URL_KEY, url);
+    if (key) localStorage.setItem(SECRET_KEY, key); else localStorage.removeItem(SECRET_KEY);
     start();
     return syncNow("connect");
   }
 
   function disconnect() {
     localStorage.removeItem(URL_KEY); localStorage.removeItem(SECRET_KEY);
+    localStorage.setItem(OFF_KEY, "1");
     clearInterval(timer); timer = null;
     setStatus("off", "ยกเลิกการเชื่อมต่อแล้ว (ข้อมูลอยู่ในเครื่องนี้เท่านั้น)");
   }

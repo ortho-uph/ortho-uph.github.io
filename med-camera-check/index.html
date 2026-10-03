@@ -228,11 +228,11 @@
         </div>
 
         <div class="card">
-          <h2>ฐานข้อมูลกลาง <small class="hint-inline">ใช้หลายเครื่อง</small></h2>
+          <h2>ฐานข้อมูลกลาง <small class="hint-inline">เชื่อมต่ออัตโนมัติทุกเครื่อง</small></h2>
           <p id="syncStatus" class="voice-status">ยังไม่ได้เชื่อมต่อ</p>
           <div id="syncForm">
             <label class="field">URL เว็บแอป Apps Script<input id="syncUrl" placeholder="https://script.google.com/macros/s/…/exec"></label>
-            <label class="field">รหัสลับ (SYNC_KEY)<input id="syncKey" type="password" autocomplete="off"></label>
+            <label class="field">รหัสลับ (SYNC_KEY) <small>ถ้าไม่ได้ตั้งไว้ เว้นว่างได้</small><input id="syncKey" type="password" autocomplete="off"></label>
             <button id="syncConnectBtn" type="button" class="button primary">เชื่อมต่อ</button>
           </div>
           <div id="syncConnected" class="stack" hidden>
@@ -244,7 +244,7 @@
             <ol>
               <li>สร้าง Google Sheet ใหม่ 1 ไฟล์ (ใช้บัญชี Google ของห้องยา)</li>
               <li>เมนู ส่วนขยาย → Apps Script → วางโค้ดจากไฟล์ <code>apps-script-med-camera.gs</code> → บันทึก</li>
-              <li>⚙ การตั้งค่าโปรเจ็กต์ → พร็อพเพอร์ตี้ของสคริปต์ → เพิ่ม <code>SYNC_KEY</code> = รหัสลับที่ตั้งเอง</li>
+              <li>(ไม่บังคับ) ⚙ การตั้งค่าโปรเจ็กต์ → พร็อพเพอร์ตี้ของสคริปต์ → เพิ่ม <code>SYNC_KEY</code> = รหัสลับที่ตั้งเอง</li>
               <li>ทำให้ใช้งานได้ → เว็บแอป · เรียกใช้ในฐานะ “ฉัน” · ผู้มีสิทธิ์ “ทุกคน” → คัดลอก URL</li>
               <li>วาง URL และรหัสลับที่นี่ กดเชื่อมต่อ — ทำที่ทุกเครื่อง เครื่องแรกจะส่งข้อมูลยาเดิมขึ้นไปให้อัตโนมัติ</li>
             </ol>
@@ -286,7 +286,7 @@
   <script src="ocr.js?v=20261003v2"></script>
   <script src="barcode.js?v=20261003v2"></script>
   <script src="drug-names-th.js?v=20261003v3"></script>
-  <script src="sync.js?v=20261003v5"></script>
+  <script src="sync.js?v=20261003v7"></script>
   <script src="speech.js?v=20261003v2"></script>
   <script src="app.js?v=20261003v5"></script>
 </body>
