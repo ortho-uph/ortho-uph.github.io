@@ -7,6 +7,10 @@
   "use strict";
 
   const WORDS = {
+    // เพิ่มเติม: ยากระดูกและข้อ (3 ต.ค. 2026)
+    glucosamine: "กลูโคซามีน", chondroitin: "คอนดรอยติน", diacerein: "ไดอะเซอรีน", risedronate: "ริเซโดรเนต",
+    calcitriol: "แคลซิไตรออล", alfacalcidol: "อัลฟาแคลซิดอล", baclofen: "แบคโลเฟน", duloxetine: "ดูล็อกซิทีน",
+    oxycodone: "ออกซีโคโดน", tizanidine: "ทิซานิดีน", parecoxib: "พาเรค็อกซิบ", ketorolac: "คีโตโรแลค", cefazolin: "เซฟาโซลิน",
     // ยาแก้ปวด ลดไข้ ต้านอักเสบ
     paracetamol: "พาราเซตามอล", acetaminophen: "อะเซตามิโนเฟน", ibuprofen: "ไอบูโพรเฟน",
     naproxen: "นาพรอกเซน", diclofenac: "ไดโคลฟีแนค", mefenamic: "เมเฟนามิก", celecoxib: "เซเลค็อกซิบ",

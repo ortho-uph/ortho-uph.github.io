@@ -2,31 +2,265 @@
 <html lang="th">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ระบบจัดการห้องยา | โรงพยาบาลมหาวิทยาลัยพะเยา</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    :root{--purple:#562787;--deep:#241342;--ink:#263149;--muted:#6b7280;--line:#ddd6eb;--bg:#f5f6fb}*{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:Sarabun,Tahoma,sans-serif;color:var(--ink);background:linear-gradient(#ffffff24,#ffffff24),url('welcome-background.png') center/cover fixed no-repeat}main{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:72px 0}.brand{display:inline-flex;align-items:center;gap:9px;padding:8px 13px;border:1px solid #ffffffaa;border-radius:999px;background:#f8f3ffcc;color:var(--purple);font-size:14px;font-weight:700;letter-spacing:.06em;box-shadow:0 8px 24px #5a388514}.brand i{display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:var(--purple);color:#fff;font-style:normal}h1{max-width:720px;margin:22px 0 10px;font-size:clamp(31px,5vw,46px);line-height:1.18;color:var(--deep);text-shadow:0 2px 12px #fff}.org{margin:0;color:#4d5570;font-size:20px;line-height:1.55}.hint{margin:31px 0 18px;color:#555d70;font-size:16px}.systems{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}.system{display:flex;align-items:center;gap:16px;min-height:145px;padding:25px;border:2px solid transparent;border-radius:23px;color:inherit;text-decoration:none;box-shadow:0 14px 34px #29305618;backdrop-filter:blur(8px);transition:.18s ease}.system:hover{transform:translateY(-4px);box-shadow:0 19px 38px #30205a22}.icon{display:grid;place-items:center;flex:none;width:54px;height:54px;border-radius:17px;color:#fff;font-size:25px}.system strong{display:block;font-size:21px;line-height:1.25}.system small{display:block;margin-top:6px;color:#5f687a;font-size:15px;line-height:1.35}.system b{margin-left:auto;white-space:nowrap;font-size:14px}.system-wait{background:#fff8e8f2;border-color:#efc66d}.system-wait .icon{background:linear-gradient(140deg,#e9a51f,#bd7200)}.system-wait b{color:#9a5b00}.system-wait:hover{border-color:#d99a19}.system-refill{background:#edf6fff2;border-color:#8dc4ec}.system-refill .icon{background:linear-gradient(140deg,#318ed0,#17649f)}.system-refill b{color:#17649f}.system-refill:hover{border-color:#438fc6}.system-report{background:#effaf3f2;border-color:#87cda2}.system-report .icon{background:linear-gradient(140deg,#35a268,#187848)}.system-report b{color:#187848}.system-report:hover{border-color:#3b9d62}.system-stock{background:#eaf8f7f2;border-color:#78c9c2}.system-stock .icon{background:linear-gradient(140deg,#11978e,#006f70)}.system-stock b{color:#006f70}.system-stock:hover{border-color:#159c94}.system-tka{background:#f2effff2;border-color:#a99ae8}.system-tka .icon{background:linear-gradient(140deg,#7157ca,#463199)}.system-tka b{color:#5139a6}.system-tka:hover{border-color:#7862cc}.system-ai{background:#edf9f5f2;border-color:#77cbb0}.system-ai .icon{background:linear-gradient(140deg,#23886d,#0c5c4d)}.system-ai b{color:#116853}.system-ai:hover{border-color:#299977}.foot{margin-top:38px;color:#656c7d;font-size:13px}@media(max-width:980px){.systems{grid-template-columns:1fr 1fr}}@media(max-width:680px){body{background-position:center top}main{padding:45px 0}.systems{grid-template-columns:1fr}.system{min-height:120px;padding:20px}.system strong{font-size:19px}.system b{display:none}.org{font-size:18px}}
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#123d34">
+  <title>ระบบรีเช็คยาด้วยกล้อง</title>
+  <link rel="icon" href="../favicon.png">
+  <link rel="stylesheet" href="styles.css?v=20261003v2">
 </head>
 <body>
+  <header class="topbar">
+    <div class="brand-mark" aria-hidden="true">Rx</div>
+    <div class="brand-text">
+      <h1>ระบบรีเช็คยาด้วยกล้อง</h1>
+      <p>วางยาหน้ากล้อง ระบบจะจำยาแล้วอ่านชื่อเป็นภาษาไทย</p>
+    </div>
+    <div class="engine-chips" aria-label="สถานะระบบ">
+      <span id="chipBarcode" class="chip">บาร์โค้ด</span>
+      <span id="chipImage" class="chip">จำภาพ</span>
+      <span id="chipOcr" class="chip">อ่านตัวอักษร</span>
+      <span id="chipVoice" class="chip">เสียง</span>
+    </div>
+    <a class="hub-link" href="../">← หน้าระบบห้องยา</a>
+  </header>
+
+  <div id="voiceBanner" class="voice-banner" hidden>
+    <div>
+      <strong>ยังไม่ได้ใช้เสียง AI ภาษาไทย</strong>
+      <span id="voiceBannerText">เปิดเว็บนี้ใน Microsoft Edge เพื่อให้อ่านชื่อยาด้วยเสียง AI ที่เป็นธรรมชาติ</span>
+    </div>
+    <button id="copyLinkBtn" type="button" class="button light">คัดลอกลิงก์ไปเปิดใน Edge</button>
+  </div>
+
   <main>
-    <div class="brand"><i>✚</i> PHARMACY HUB</div>
-    <h1>ยินดีต้อนรับสู่ระบบจัดการยา</h1>
-    <p class="org">ศูนย์ศัลยกรรมกระดูกและข้อ<br>โรงพยาบาลมหาวิทยาลัยพะเยา</p>
-    <p class="hint">เลือกห้องระบบที่ต้องการใช้งาน</p>
-    <section class="systems" aria-label="เลือกระบบ">
-      <a class="system system-wait" href="./pharmacy-status/"><span class="icon">⌁</span><span><strong>ระบบแจ้งสถานะรอยา</strong><small>สร้างใบแจ้ง, QR และติดตามสถานะยา</small></span><b>เริ่มใช้งาน →</b></a>
-      <a class="system system-refill" href="./refill-medication/"><span class="icon">↻</span><span><strong>ระบบจัดการยารีฟิว</strong><small>สร้างรายการ ติดตาม และจัดการยารีฟิว</small></span><b>เริ่มใช้งาน →</b></a>
-      <a class="system system-report" href="./approval-reports/"><span class="icon">⌁</span><span><strong>ระบบรายงานยาที่ต้องอนุมัติ</strong><small>สำหรับศูนย์ศัลยกรรมกระดูกและข้อ</small></span><b>เริ่มใช้งาน →</b></a>
-      <a class="system system-stock" href="./virtual-stock/"><span class="icon">▦</span><span><strong>ระบบแจ้งเตือนเบิกยา</strong><small>คาดการณ์รอบเบิกจากยอดใช้จริงและประวัติเบิก</small></span><b>เริ่มใช้งาน →</b></a>
-      <a class="system system-tka" href="./tka-cases/"><span class="icon">T</span><span><strong>ระบบบริหารเคสผ่าตัด TKA</strong><small>จัดการผู้ป่วย แผนยา การทำงานไต และติดตามรอบผ่าตัด</small></span><b>เริ่มใช้งาน →</b></a>
-      <a class="system system-ai" href="./med-camera-check/?v=20260930j"><span class="icon">AI</span><span><strong>ระบบรีเช็คยาด้วยกล้อง AI</strong><small>อ่านสติ๊กเกอร์และตรวจแผงยาด้านใดด้านหนึ่งแบบเรียลไทม์</small></span><b>เริ่มใช้งาน →</b></a>
+    <nav class="tabs" aria-label="เมนูหลัก">
+      <button class="tab active" data-tab="check">ตรวจยา</button>
+      <button class="tab" data-tab="register">ฐานข้อมูลยา <span id="medicineCount" class="tab-count">0</span></button>
+      <button class="tab" data-tab="history">ประวัติ</button>
+      <button class="tab" data-tab="settings">ตั้งค่า</button>
+    </nav>
+
+    <!-- ===================== ตรวจยา ===================== -->
+    <section id="check" class="panel active">
+      <div class="check-grid">
+        <div class="camera-card">
+          <div class="video-wrap" id="checkVideoWrap">
+            <video id="checkVideo" playsinline muted></video>
+            <div class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+            <div id="cameraPlaceholder" class="camera-placeholder">
+              <p>กดปุ่ม “เปิดกล้องและเริ่มตรวจ”</p>
+              <small>วางยาครั้งละ 1 ชนิด ให้ชื่อยาหรือบาร์โค้ดหันเข้ากล้อง</small>
+            </div>
+            <div id="flash" class="flash" aria-hidden="true"></div>
+          </div>
+          <div class="camera-controls">
+            <button id="startBtn" type="button" class="button primary big">เปิดกล้องและเริ่มตรวจ</button>
+            <button id="stopBtn" type="button" class="button ghost" hidden>หยุดตรวจ</button>
+            <button id="recalibrateBtn" type="button" class="button ghost" hidden title="ใช้เมื่อย้ายกล้องหรือแสงเปลี่ยน">จำพื้นหลังใหม่</button>
+            <label class="zoom-control">ซูม <input id="zoomRange" type="range" min="1" max="2.5" step="0.1" value="1.5"> <output id="zoomValue">1.5×</output></label>
+          </div>
+          <div class="sensor-row" aria-label="สิ่งที่กล้องเห็นตอนนี้">
+            <div><span>บาร์โค้ด</span><strong id="seeBarcode">–</strong></div>
+            <div><span>ภาพใกล้เคียง</span><strong id="seeImage">–</strong></div>
+            <div><span>ตัวอักษร</span><strong id="seeOcr">–</strong></div>
+          </div>
+        </div>
+
+        <div class="result-col">
+          <article id="resultCard" class="result-card idle" aria-live="polite">
+            <div class="result-status"><span id="resultDot" class="dot"></span><span id="resultStatus">ยังไม่เริ่มตรวจ</span></div>
+            <h2 id="resultName" class="result-name">—</h2>
+            <p id="resultThai" class="result-thai"></p>
+            <div id="resultEvidence" class="evidence"></div>
+            <p id="resultHint" class="result-hint">ระบบจะอ่านชื่อยาออกเสียงทันทีที่ยืนยันได้</p>
+            <div class="result-actions">
+              <button id="repeatBtn" type="button" class="button ghost" disabled>🔊 อ่านซ้ำ <kbd>R</kbd></button>
+              <button id="nextBtn" type="button" class="button ghost" disabled>ชิ้นถัดไป <kbd>Space</kbd></button>
+              <button id="bindBarcodeBtn" type="button" class="button primary" hidden>ผูกบาร์โค้ดนี้กับยา</button>
+            </div>
+          </article>
+
+          <div class="session-card">
+            <div class="session-head">
+              <h3>เช็คแล้วรอบนี้ <span id="sessionCount" class="tab-count">0</span></h3>
+              <button id="clearSessionBtn" type="button" class="link-button">ล้างรายการ</button>
+            </div>
+            <ol id="sessionList" class="session-list"><li class="empty">ยังไม่มีรายการ</li></ol>
+          </div>
+        </div>
+      </div>
     </section>
-    <p class="foot">ระบบภายในห้องยา กรุณาใช้งานตามสิทธิ์ที่ได้รับ<br><strong>พัฒนาโดย เภสัชกรหญิงณกมล สุทธธง</strong></p>
+
+    <!-- ===================== ฐานข้อมูลยา ===================== -->
+    <section id="register" class="panel">
+      <div class="register-grid">
+        <form id="medicineForm" class="card form-card" autocomplete="off">
+          <div class="card-head">
+            <h2 id="formTitle">เพิ่มยาใหม่</h2>
+            <button id="cancelEditBtn" type="button" class="link-button" hidden>ยกเลิกการแก้ไข</button>
+          </div>
+          <input type="hidden" id="medicineId">
+          <div class="field-row">
+            <label class="field grow">ชื่อยา (ตามฉลาก) *<input id="medicineName" required placeholder="เช่น Cephalexin"></label>
+            <label class="field">ความแรง<input id="medicineStrength" placeholder="เช่น 500 mg"></label>
+          </div>
+          <label class="field">คำอ่านภาษาไทย <small>เติมให้อัตโนมัติเมื่อพิมพ์ชื่อยา แก้ได้ถ้าอ่านไม่ถูก</small>
+            <div class="input-with-button">
+              <input id="medicinePronunciation" placeholder="พิมพ์ชื่อยาแล้วระบบจะเติมให้">
+              <button id="previewSpeechBtn" type="button" class="button ghost">🔊 ฟัง</button>
+            </div>
+          </label>
+          <p id="pronunciationHint" class="hint"></p>
+          <div class="field-row">
+            <label class="field">รูปแบบยา
+              <select id="medicineFormType">
+                <option>แผงยา</option><option>กล่อง</option><option>ขวด</option><option>ซอง</option><option>หลอด</option><option>อื่น ๆ</option>
+              </select>
+            </label>
+            <label class="field grow">หมายเหตุ<input id="medicineNote" placeholder="เช่น แผงสีเงิน ตัวอักษรสีแดง"></label>
+          </div>
+
+          <fieldset class="block">
+            <legend>บาร์โค้ด / QR <small>มีหรือไม่มีก็ได้ ถ้ามีจะตรวจได้แม่นและเร็วที่สุด</small></legend>
+            <div class="input-with-button">
+              <input id="barcodeInput" placeholder="พิมพ์หรือยิงเครื่องอ่านบาร์โค้ด แล้วกด Enter">
+              <button id="addBarcodeBtn" type="button" class="button ghost">เพิ่ม</button>
+              <button id="scanBarcodeBtn" type="button" class="button ghost">สแกนจากกล้อง</button>
+            </div>
+            <div id="barcodeChips" class="code-chips"></div>
+          </fieldset>
+
+          <fieldset class="block">
+            <legend>ภาพอ้างอิง <small>ถ่ายด้านใดด้านหนึ่งอย่างน้อย 3 ภาพ (เปลี่ยนมุมเล็กน้อย)</small></legend>
+            <div class="register-camera">
+              <div class="video-wrap small">
+                <video id="registerVideo" playsinline muted></video>
+                <div class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+                <div id="registerPlaceholder" class="camera-placeholder"><button id="openRegisterCameraBtn" type="button" class="button light">เปิดกล้อง</button></div>
+              </div>
+              <div class="ref-buttons">
+                <button id="addFrontBtn" type="button" class="button primary">ถ่ายด้านหน้า</button>
+                <button id="addBackBtn" type="button" class="button primary">ถ่ายด้านหลัง</button>
+                <label class="button ghost file-button">เลือกจากไฟล์<input id="refFileInput" type="file" accept="image/*" multiple hidden></label>
+                <select id="fileSide" aria-label="ภาพจากไฟล์เป็นด้านไหน"><option value="front">ไฟล์ = ด้านหน้า</option><option value="back">ไฟล์ = ด้านหลัง</option></select>
+              </div>
+            </div>
+            <div class="refs">
+              <div><h4>ด้านหน้า <span id="frontCount">0</span></h4><div id="frontRefs" class="thumbs"></div></div>
+              <div><h4>ด้านหลัง <span id="backCount">0</span></h4><div id="backRefs" class="thumbs"></div></div>
+            </div>
+          </fieldset>
+
+          <div class="form-actions">
+            <button type="submit" class="button primary big">บันทึกข้อมูลยา</button>
+          </div>
+        </form>
+
+        <div class="card list-card">
+          <div class="card-head">
+            <h2>รายการยา</h2>
+            <div class="list-tools">
+              <label class="button ghost file-button">นำเข้ารายชื่อ (CSV/Excel)<input id="importListInput" type="file" accept=".csv,.txt,.tsv,.json" hidden></label>
+              <button id="autofillThaiBtn" type="button" class="button ghost">เติมคำอ่านไทยอัตโนมัติ</button>
+              <button id="templateBtn" type="button" class="link-button">ดาวน์โหลดแบบฟอร์ม</button>
+            </div>
+          </div>
+          <input id="searchInput" class="search" type="search" placeholder="ค้นหาชื่อยา / คำอ่าน / บาร์โค้ด">
+          <div class="filter-row">
+            <button class="filter active" data-filter="all">ทั้งหมด</button>
+            <button class="filter" data-filter="ready">พร้อมตรวจ</button>
+            <button class="filter" data-filter="draft">ยังตรวจไม่ได้</button>
+            <button class="filter" data-filter="nothai">คำอ่านยังไม่ครบ</button>
+          </div>
+          <div id="medicineList" class="medicine-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== ประวัติ ===================== -->
+    <section id="history" class="panel">
+      <div class="card">
+        <div class="card-head">
+          <h2>ประวัติการตรวจ</h2>
+          <button id="exportHistoryBtn" type="button" class="button ghost">ส่งออก CSV</button>
+        </div>
+        <div id="historyList" class="history-list"></div>
+      </div>
+    </section>
+
+    <!-- ===================== ตั้งค่า ===================== -->
+    <section id="settings" class="panel">
+      <div class="settings-grid">
+        <div class="card">
+          <h2>เสียงอ่านภาษาไทย</h2>
+          <p id="voiceStatus" class="voice-status">กำลังตรวจหาเสียงไทย…</p>
+          <label class="switch"><input id="speechToggle" type="checkbox" checked> อ่านชื่อยาออกเสียงเมื่อตรวจผ่าน</label>
+          <label class="field">เสียงที่ใช้<select id="voiceSelect"></select></label>
+          <label class="field">ความเร็วในการอ่าน <output id="rateValue">0.95</output>
+            <input id="rateRange" type="range" min="0.7" max="1.3" step="0.05" value="0.95"></label>
+          <label class="field">ข้อความทดสอบ<input id="testText" value="เซฟาเล็กซิน ห้าร้อย มิลลิกรัม"></label>
+          <button id="testSpeechBtn" type="button" class="button primary">🔊 ทดสอบเสียง</button>
+          <details class="help">
+            <summary>วิธีได้เสียง AI ภาษาไทย</summary>
+            <ol>
+              <li>เปิดเว็บนี้ด้วย <strong>Microsoft Edge</strong> (มีในทุกเครื่อง Windows)</li>
+              <li>ในช่อง “เสียงที่ใช้” เลือก <strong>Microsoft Premwadee Online (Natural)</strong> (เสียงผู้หญิง) หรือ <strong>Niwat</strong> (เสียงผู้ชาย)</li>
+              <li>เสียง AI ของ Edge ต้องต่ออินเทอร์เน็ต ถ้าเน็ตหลุดจะใช้เสียงไทยของเครื่องแทน ถ้าไม่มีจะมีเสียง “ติ๊ง” และแสดงชื่อยาตัวใหญ่</li>
+            </ol>
+          </details>
+        </div>
+
+        <div class="card">
+          <h2>การตรวจจับยา</h2>
+          <label class="switch"><input id="useBarcode" type="checkbox" checked> อ่านบาร์โค้ด / QR</label>
+          <label class="switch"><input id="useImage" type="checkbox" checked> จำภาพแผงยา/กล่อง (AI)</label>
+          <label class="switch"><input id="useOcr" type="checkbox" checked> อ่านตัวหนังสือชื่อยา (OCR)</label>
+          <label class="field">เกณฑ์ความเหมือนของภาพ <output id="thresholdValue">60%</output>
+            <input id="thresholdRange" type="range" min="40" max="90" step="1" value="60"></label>
+          <p class="hint">ถ้าระบบทายผิดบ่อย ให้เพิ่มเกณฑ์ ถ้าไม่ยอมผ่านเลย ให้ลดเกณฑ์หรือถ่ายภาพอ้างอิงเพิ่ม</p>
+          <label class="field">กล้องที่ใช้
+            <div class="input-with-button">
+              <select id="cameraSelect"><option value="">กล้องค่าเริ่มต้น</option></select>
+              <button id="refreshCamerasBtn" type="button" class="button ghost">ค้นหาใหม่</button>
+            </div>
+          </label>
+        </div>
+
+        <div class="card">
+          <h2>สำรองข้อมูล</h2>
+          <p class="hint">ข้อมูลยาและภาพอ้างอิงเก็บอยู่ในเบราว์เซอร์ของเครื่องนี้ ถ้าจะใช้กับเครื่องอื่น ให้ส่งออกแล้วนำเข้าที่เครื่องนั้น</p>
+          <div class="stack">
+            <button id="exportDbBtn" type="button" class="button ghost">ส่งออกฐานข้อมูล (.json)</button>
+            <label class="button ghost file-button">นำเข้าฐานข้อมูล<input id="importDbInput" type="file" accept=".json" hidden></label>
+            <button id="clearDbBtn" type="button" class="button danger">ลบข้อมูลทั้งหมดในเครื่องนี้</button>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <dialog id="bindDialog" class="dialog">
+    <form method="dialog">
+      <h3>ผูกบาร์โค้ด <code id="bindCode"></code></h3>
+      <p class="hint">เลือกยาที่บาร์โค้ดนี้เป็นของ</p>
+      <input id="bindSearch" class="search" type="search" placeholder="พิมพ์ชื่อยา">
+      <div id="bindList" class="bind-list"></div>
+      <div class="form-actions"><button class="button ghost" value="cancel">ยกเลิก</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <script src="vendor/tf.min.js"></script>
+  <script src="vendor/mobilenet.min.js"></script>
+  <script src="vendor/tesseract/tesseract.min.js"></script>
+  <script src="db.js?v=20261003v2"></script>
+  <script src="vision.js?v=20261003v2"></script>
+  <script src="ai.js?v=20261003v2"></script>
+  <script src="ocr.js?v=20261003v2"></script>
+  <script src="barcode.js?v=20261003v2"></script>
+  <script src="drug-names-th.js?v=20261003v3"></script>
+  <script src="speech.js?v=20261003v2"></script>
+  <script src="app.js?v=20261003v4"></script>
 </body>
 </html>
-

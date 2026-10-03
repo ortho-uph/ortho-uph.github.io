@@ -12,7 +12,7 @@
   const now = () => performance.now();
 
   const STABLE_FRAMES = 4;        // ภาพต้องตรงกันติดต่อกันกี่เฟรมจึงยืนยัน
-  const ABSENT_MS = 1200;         // ยาต้องหายจากกรอบนานเท่าไรจึงพร้อมชิ้นถัดไป (กันนับชิ้นเดิมซ้ำ)
+  const ABSENT_MS = 700;          // ยาตัวเดิมต้องหายจากกรอบนานเท่าไรจึงนับใหม่ (กันนับซ้ำ)
   const OCR_INTERVAL_MS = 900;
   const OCR_FRESH_MS = 2500;
   const OCR_PASS = .80;
@@ -39,7 +39,8 @@
       ocrBusy: false, ocrStartedAt: 0, lastOcr: null, ocrStreak: { id: null, count: 0 },
       unknownCode: null, lastSpokenText: ""
     },
-    barcodeScanUntil: 0
+    barcodeScanUntil: 0,
+    bg: { emb: null, feature: null, samples: [], scores: new Map(), updates: 0 }
   };
 
   /* ---------------- helpers ---------------- */
@@ -188,23 +189,56 @@
   }
 
   /* ---------------- live check ---------------- */
+  const BG_FRAMES = 8;            // จำพื้นหลังว่าง ๆ กี่เฟรมตอนเริ่มตรวจ
+  const PRESENT_COS = .93;        // ภาพต่างจากพื้นหลังเท่านี้ = มีของวางอยู่
+  const BG_MARGIN = .15;          // คะแนนภาพต้องสูงกว่าคะแนนของพื้นหลังอย่างน้อยเท่านี้
+  const FAIL_AFTER_MS = 3500;     // วางของค้างนานเท่านี้แล้วยังตรวจไม่ได้ → แจ้งด้วยเสียง
+  const WARN_REPEAT_MS = 9000;    // แจ้งเตือนเสียงซ้ำได้ไม่ถี่กว่านี้
+
+  function dot(a, b) {
+    if (!a || !b || a.length !== b.length) return 0;
+    let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i];
+    return s;
+  }
+  function normalizeVec(v) {
+    let n = 0; for (const x of v) n += x * x; n = Math.sqrt(n) || 1;
+    return Array.from(v, x => x / n);
+  }
+
+  function resetBackground() {
+    state.bg = { emb: null, feature: null, samples: [], scores: new Map(), updates: 0 };
+  }
+
+  function computeBgScores(warn = false) {
+    const bg = state.bg; if (!bg.feature) return;
+    bg.scores = new Map();
+    const bad = [];
+    for (const med of state.medicines.filter(isTrainable)) {
+      const s = Math.max(MedVision.bestAgainst(bg.feature, med.frontRefs), MedVision.bestAgainst(bg.feature, med.backRefs));
+      bg.scores.set(med.id, s);
+      if (s >= state.threshold) bad.push(label(med));
+    }
+    if (warn && bad.length) toast(`ภาพอ้างอิงของ ${bad.slice(0, 3).join(", ")} เหมือนพื้นหลังมาก ควรถ่ายใหม่ให้ยาเต็มกรอบ`, 7000);
+  }
+
   async function startChecking() {
     MedSpeech.unlock();
     try { await openCamera(); }
-    catch (error) { toast(cameraErrorMessage(error), 5000); return; }
+    catch (error) { toast(cameraErrorMessage(error), 5000); say("เปิดกล้องไม่ได้"); return; }
     if (!state.medicines.length) { toast("ยังไม่มีรายการยา — เพิ่มยาในแท็บ “ฐานข้อมูลยา” ก่อน", 4000); }
     if (state.use.ocr && !state.ocrReady) loadOcr();
     state.live.running = true; state.live.paused = false;
-    $("startBtn").hidden = true; $("stopBtn").hidden = false;
-    resetLock();
-    setResult("scanning", { status: "กำลังตรวจ — วางยา 1 ชนิดในกรอบ", name: "รอวางยา…", thai: "", hint: "ให้ชื่อยาหรือบาร์โค้ดหันเข้ากล้อง" });
-    schedule(0);
+    $("startBtn").hidden = true; $("stopBtn").hidden = false; $("recalibrateBtn").hidden = false;
+    resetLock(); resetBackground();
+    if (state.aiReady) setResult("scanning", { status: "กำลังจำพื้นหลัง — ยังไม่ต้องวางยา", name: "รอสักครู่…", thai: "", hint: "เอายาออกจากกรอบก่อน ระบบจะจำพื้นหลังประมาณ 1 วินาที" });
+    else showReady();
+    schedule(300);
   }
 
   function stopChecking() {
     state.live.running = false; state.live.paused = false;
     clearTimeout(state.live.timer);
-    $("startBtn").hidden = false; $("stopBtn").hidden = true;
+    $("startBtn").hidden = false; $("stopBtn").hidden = true; $("recalibrateBtn").hidden = true;
     $("startBtn").textContent = "เริ่มตรวจอีกครั้ง";
     setResult("idle", { status: "หยุดตรวจแล้ว", name: "—", thai: "", hint: "" });
     closeCamera();
@@ -216,7 +250,7 @@
   }
 
   function resetLock() {
-    Object.assign(state.live, { lockedId: null, absentSince: 0, stableKey: null, stableCount: 0, unknownCode: null, ocrStreak: { id: null, count: 0 }, lastOcr: null });
+    Object.assign(state.live, { lockedId: null, absentSince: 0, stableKey: null, stableCount: 0, unknownCode: null, ocrStreak: { id: null, count: 0 }, lastOcr: null, presentSince: 0 });
     $("checkVideoWrap").classList.remove("pass", "conflict");
     $("nextBtn").disabled = true;
   }
@@ -225,7 +259,9 @@
     return state.medicines.filter(isTrainable).map(med => {
       const front = MedVision.bestAgainst(feature, med.frontRefs);
       const back = MedVision.bestAgainst(feature, med.backRefs);
-      return { med, score: Math.max(front, back), side: front >= back ? "หน้า" : "หลัง" };
+      const score = Math.max(front, back);
+      const bgScore = state.bg.scores.get(med.id) ?? 0;
+      return { med, score, rel: score - bgScore, side: front >= back ? "หน้า" : "หลัง" };
     }).sort((a, b) => b.score - a.score);
   }
 
@@ -252,12 +288,48 @@
     } finally { live.ocrBusy = false; }
   }
 
+  // แจ้งเตือนด้วยเสียงภาษาไทย ไม่ถี่เกินไป
+  function warnVoice(text, key) {
+    const live = state.live;
+    if (live.warnKey === key && now() - live.warnAt < WARN_REPEAT_MS) return;
+    live.warnKey = key; live.warnAt = now();
+    say(text);
+  }
+
   async function tick() {
     const live = state.live;
     if (!live.running || live.paused) return;
     const video = $("checkVideo");
     if (!video.videoWidth) return schedule(150);
     const started = now();
+
+    // 0) ภาพ + ความต่างจากพื้นหลัง (ใช้ตรวจว่ามียาวางอยู่หรือไม่)
+    let feature = null;
+    if (state.aiReady) {
+      try {
+        feature = MedVision.featureFromSource(video, state.zoom);
+        feature.embedding = await MedAI.embedFromSource(video, state.zoom);
+      } catch (e) { console.warn(e); feature = null; }
+    }
+    const bg = state.bg;
+    if (feature && !bg.emb) {
+      bg.samples.push(feature.embedding);
+      if (bg.samples.length < BG_FRAMES) return schedule(60);
+      const sum = new Array(feature.embedding.length).fill(0);
+      bg.samples.forEach(s => s.forEach((x, i) => { sum[i] += x; }));
+      bg.emb = normalizeVec(sum); bg.samples = [];
+      bg.feature = { ...feature, embedding: bg.emb };
+      computeBgScores(true);
+      setResult("scanning", { status: "พร้อมตรวจ — วางยา 1 ชนิดในกรอบ", name: "รอวางยา…", thai: "", hint: "ให้ชื่อยาหรือบาร์โค้ดหันเข้ากล้อง" });
+      say("พร้อมตรวจยา");
+    }
+    const bgCos = feature && bg.emb ? dot(feature.embedding, bg.emb) : null;
+    const presence = bgCos == null ? null : bgCos < PRESENT_COS;
+    if (presence === false && !live.lockedId && bgCos > .965) {
+      bg.emb = normalizeVec(bg.emb.map((x, i) => x * .95 + feature.embedding[i] * .05));
+      bg.feature.embedding = bg.emb;
+      if (++bg.updates % 30 === 0) computeBgScores();
+    }
 
     // 1) บาร์โค้ด
     let codes = [];
@@ -268,22 +340,16 @@
     const hit = hits.find(h => h.med);
     $("seeBarcode").textContent = codes.length ? (hit ? `${showCode(hit.code)} ✓` : `${showCode(codes[0].code)} (ยังไม่ผูก)`) : "–";
 
-    // 2) ภาพ
+    // 2) เทียบภาพกับยาที่ถ่ายภาพไว้
     let ranked = [];
-    if (state.use.image && state.aiReady && state.medicines.some(isTrainable)) {
-      try {
-        const feature = MedVision.featureFromSource(video, state.zoom);
-        feature.embedding = await MedAI.embedFromSource(video, state.zoom);
-        ranked = rankImages(feature);
-      } catch (e) { console.warn(e); }
-    }
-    $("seeImage").textContent = ranked[0] ? `${label(ranked[0].med)} ${Math.round(ranked[0].score * 100)}%` : "–";
+    if (feature && state.use.image && state.medicines.some(isTrainable)) ranked = rankImages(feature);
+    $("seeImage").textContent = presence === false ? "ไม่มียาในกรอบ" : ranked[0] ? `${label(ranked[0].med)} ${Math.round(ranked[0].score * 100)}%` : "–";
 
-    // 3) OCR (ทำงานเบื้องหลัง ไม่รอผล)
-    if (state.use.ocr && state.ocrReady && !live.ocrBusy && now() - live.ocrStartedAt > OCR_INTERVAL_MS && state.medicines.length) runOcr(video);
+    // 3) OCR (ทำงานเบื้องหลัง ไม่รอผล) — ข้ามเมื่อกรอบว่าง
+    if (state.use.ocr && state.ocrReady && presence !== false && !live.ocrBusy && now() - live.ocrStartedAt > OCR_INTERVAL_MS && state.medicines.length) runOcr(video);
 
     if (!live.running || live.paused) return;
-    evaluate(hit, hits, ranked);
+    evaluate(hit, hits, ranked, presence);
     schedule(Math.max(30, 140 - (now() - started)));
   }
 
@@ -292,29 +358,42 @@
     return o && now() - o.at < OCR_FRESH_MS ? o.top : null;
   }
 
-  function evaluate(hit, hits, ranked) {
+  function showReady() {
+    setResult("scanning", { status: "พร้อมตรวจ — วางยา 1 ชนิดในกรอบ", name: "รอวางยา…", thai: "", hint: "ให้ชื่อยาหรือบาร์โค้ดหันเข้ากล้อง" });
+  }
+
+  function evaluate(hit, hits, ranked, presence) {
     const live = state.live;
     const th = state.threshold;
     const ocrTop = freshOcr();
     const top = ranked[0];
     const margin = top ? top.score - (ranked[1]?.score || 0) : 0;
-    const imagePass = Boolean(top && top.score >= th && margin >= .06);
+    // ภาพผ่านเมื่อ: คะแนนถึงเกณฑ์ + สูงกว่าพื้นหลังชัดเจน + มีของวางอยู่จริง + ไม่ก้ำกึ่งกับยาอื่น
+    const imagePass = Boolean(top && presence !== false && top.score >= th && top.rel >= BG_MARGIN && margin >= .06);
 
-    // ---------- กำลังแสดงผลยาที่ผ่านแล้ว: รอให้นำยาออก ----------
+    // ---------- เพิ่งตรวจผ่าน: ยาตัวอื่นตรวจต่อได้ทันที ยาตัวเดิมต้องยกออกก่อน (กันนับซ้ำ) ----------
     if (live.lockedId) {
       const locked = medById(live.lockedId);
-      if (hit && hit.med.id !== live.lockedId) { resetLock(); return evaluate(hit, hits, ranked); }
-      if (imagePass && top.med.id !== live.lockedId && top.score >= th + .05) { resetLock(); live.stableKey = top.med.id; live.stableCount = 1; return; }
-      const imgLocked = locked && isTrainable(locked) ? (ranked.find(r => r.med.id === locked.id)?.score || 0) : 0;
-      const present = (hit && hit.med.id === live.lockedId) || imgLocked >= .38 || (ocrTop && ocrTop.medicineId === live.lockedId);
+      if (hit && hit.med.id !== live.lockedId) { resetLock(); return evaluate(hit, hits, ranked, presence); }
+      if (imagePass && top.med.id !== live.lockedId) { resetLock(); return evaluate(hit, hits, ranked, presence); }
+      if (ocrTop && ocrTop.score >= OCR_PASS && ocrTop.medicineId !== live.lockedId && !hit) { resetLock(); return evaluate(hit, hits, ranked, presence); }
+      const lockedImg = locked ? ranked.find(r => r.med.id === locked.id) : null;
+      const present = presence !== false && ((hit && hit.med.id === live.lockedId) || (lockedImg && lockedImg.rel >= .1) || (ocrTop && ocrTop.medicineId === live.lockedId));
       if (present) live.absentSince = 0;
       else if (!live.absentSince) live.absentSince = now();
-      if (live.absentSince && now() - live.absentSince >= ABSENT_MS) {
-        resetLock();
-        setResult("scanning", { status: "พร้อมตรวจชิ้นถัดไป", name: "รอวางยา…", thai: "", hint: "วางยาชิ้นถัดไปในกรอบ" });
-      }
+      if (live.absentSince && now() - live.absentSince >= ABSENT_MS) { resetLock(); showReady(); }
       return;
     }
+
+    // ---------- กรอบว่าง ----------
+    if (presence === false && !hit && !hits.length) {
+      live.presentSince = 0; live.stableKey = null; live.stableCount = 0;
+      if (live.unknownCode) { live.unknownCode = null; }
+      if (!$("resultCard").classList.contains("scanning") || $("resultStatus").textContent !== "พร้อมตรวจ — วางยา 1 ชนิดในกรอบ") showReady();
+      live.warnKey = null;
+      return;
+    }
+    if (!live.presentSince) live.presentSince = now();
 
     // ---------- 1) บาร์โค้ดตรงกับยาในฐานข้อมูล = ผ่านทันที ----------
     if (hit) {
@@ -335,12 +414,12 @@
       if (live.unknownCode !== unknown.code) {
         live.unknownCode = unknown.code;
         setResult("unknown", {
-          status: "พบบาร์โค้ดที่ยังไม่อยู่ในฐานข้อมูล",
+          status: "ตรวจไม่ผ่าน — บาร์โค้ดนี้ยังไม่มีในระบบ",
           name: showCode(unknown.code), thai: "",
-          hint: "กด “ผูกบาร์โค้ดนี้กับยา” เพื่อให้ครั้งหน้าตรวจผ่านทันที"
+          hint: "ถ้าเป็นยาที่มีในรายการ กด “ผูกบาร์โค้ดนี้กับยา” ครั้งหน้าจะผ่านทันที"
         });
         $("bindBarcodeBtn").hidden = false;
-        MedSpeech.tone("warn");
+        warnVoice("บาร์โค้ดนี้ยังไม่มีในระบบ", "unknown:" + unknown.code);
       }
       return;
     }
@@ -370,13 +449,13 @@
     if (ocrTop && ocrTop.score >= OCR_PASS) {
       const med = medById(ocrTop.medicineId);
       if (med) {
-        const img = ranked.find(r => r.med.id === med.id)?.score;
-        const imageAgrees = img != null && img >= th - .15;
-        const imageDisagrees = isTrainable(med) && img != null && img < th - .25;
+        const r = ranked.find(x => x.med.id === med.id);
+        const imageAgrees = r != null && r.score >= th - .15 && r.rel >= .05;
+        const imageDisagrees = isTrainable(med) && r != null && presence !== false && r.score < th - .25;
         if (!imageDisagrees && (imageAgrees || live.ocrStreak.id === med.id && live.ocrStreak.count >= 2)) {
           return confirm(med, [
             { text: `ชื่อบนฉลากตรง ${Math.round(ocrTop.score * 100)}%`, strong: true },
-            img != null ? { text: `ภาพ ${Math.round(img * 100)}%`, strong: imageAgrees } : null
+            r != null ? { text: `ภาพ ${Math.round(r.score * 100)}%`, strong: imageAgrees } : null
           ], Math.round(ocrTop.score * 100), "ocr");
         }
         setResult("scanning", { status: "อ่านชื่อยาได้ กำลังยืนยัน…", name: label(med), thai: "", hint: "ถือนิ่ง ๆ อีกสักครู่" }, true);
@@ -385,15 +464,30 @@
     }
 
     if (live.unknownCode && !unknown) { live.unknownCode = null; $("bindBarcodeBtn").hidden = true; }
+
+    // ---------- วางยาค้างไว้แล้วยังตรวจไม่ได้ → แจ้งด้วยเสียง ----------
+    if (presence === true && now() - live.presentSince >= FAIL_AFTER_MS) {
+      const close = top && top.score >= th - .15 && top.rel >= .05;
+      const spoken = close ? "ยังไม่แน่ใจ กรุณาหันชื่อยาหรือบาร์โค้ดเข้ากล้อง" : "ตรวจไม่ผ่าน ไม่พบยานี้ในระบบ";
+      setResult("unknown", {
+        status: close ? "ยังยืนยันไม่ได้" : "ตรวจไม่ผ่าน — ไม่พบยานี้ในระบบ",
+        name: close ? `คล้าย ${label(top.med)}?` : "ไม่รู้จักยานี้",
+        thai: "",
+        hint: close ? "หันชื่อยาหรือบาร์โค้ดเข้ากล้อง หรือถ่ายภาพอ้างอิงเพิ่ม" : "ตรวจสอบด้วยตา ถ้าเป็นยาใหม่ให้เพิ่มในฐานข้อมูลยา"
+      });
+      warnVoice(spoken, close ? "close" : "fail");
+      return;
+    }
+
     const card = $("resultCard");
-    if (!card.classList.contains("scanning") || $("resultStatus").textContent !== "กำลังตรวจ — วางยา 1 ชนิดในกรอบ") {
-      setResult("scanning", { status: "กำลังตรวจ — วางยา 1 ชนิดในกรอบ", name: "รอวางยา…", thai: "", hint: top ? `ภาพใกล้เคียงที่สุด: ${label(top.med)} ${Math.round(top.score * 100)}% (เกณฑ์ ${Math.round(th * 100)}%)` : "ให้ชื่อยาหรือบาร์โค้ดหันเข้ากล้อง" });
+    if (!card.classList.contains("scanning") || $("resultStatus").textContent !== "กำลังตรวจ…") {
+      setResult("scanning", { status: "กำลังตรวจ…", name: "กำลังดูยาในกรอบ", thai: "", hint: top ? `ภาพใกล้เคียงที่สุด: ${label(top.med)} ${Math.round(top.score * 100)}%` : "ให้ชื่อยาหรือบาร์โค้ดหันเข้ากล้อง" });
     }
   }
 
   function showConflict(message) {
     $("checkVideoWrap").classList.add("conflict");
-    if ($("resultStatus").textContent !== "ผลขัดกัน — ห้ามจ่าย ตรวจสอบด้วยตาอีกครั้ง") MedSpeech.tone("warn");
+    warnVoice("ผลไม่ตรงกัน ห้ามจ่าย กรุณาตรวจซ้ำ", "conflict");
     setResult("conflict", { status: "ผลขัดกัน — ห้ามจ่าย ตรวจสอบด้วยตาอีกครั้ง", name: "ตรวจซ้ำ", thai: "", hint: message });
     setTimeout(() => $("checkVideoWrap").classList.remove("conflict"), 800);
   }
@@ -412,13 +506,15 @@
 
   async function confirm(med, evidence, score, source) {
     const live = state.live;
-    live.lockedId = med.id; live.absentSince = 0; live.stableKey = null; live.stableCount = 0; live.unknownCode = null;
+    live.lockedId = med.id; live.absentSince = 0; live.stableKey = null; live.stableCount = 0; live.unknownCode = null; live.warnKey = null;
     const text = speechText(med);
+    // อ่านออกเสียงทันที ก่อนทำอย่างอื่น
+    const speaking = say(text);
     setResult("pass", {
       status: "ตรวจผ่าน ✓",
       name: label(med),
       thai: "อ่านว่า " + text,
-      hint: "ตรวจกับใบสั่งยาอีกครั้ง แล้วนำยาออกจากกรอบเพื่อตรวจชิ้นถัดไป"
+      hint: "วางยาตัวถัดไปได้เลย (ยาตัวเดิมให้ยกออกจากกรอบก่อน)"
     });
     $("resultEvidence").innerHTML = evidence.filter(Boolean).map(e => `<span class="${e.strong ? "" : "weak"}">${esc(e.text)}</span>`).join("");
     $("repeatBtn").disabled = false; $("nextBtn").disabled = false;
@@ -433,7 +529,7 @@
       reason: evidence.filter(Boolean).map(e => e.text).join(", ")
     };
     MedDB.put("history", record).then(() => { state.history.unshift(record); renderHistory(); }).catch(console.error);
-    await say(text);
+    await speaking;
   }
 
   function renderSession() {
@@ -518,6 +614,9 @@
       const image = MedVision.cropDataUrl(video, 960, state.zoom);
       const feature = MedVision.featureFromSource(video, state.zoom);
       feature.embedding = await MedAI.embedFromSource(video, state.zoom);
+      if (state.bg?.emb && dot(feature.embedding, state.bg.emb) >= PRESENT_COS) {
+        return toast("ภาพนี้เหมือนพื้นหลังว่าง ๆ — วางยาให้เต็มกรอบแล้วถ่ายใหม่", 4500);
+      }
       state.form[side].push({ id: uid(), image, feature, createdAt: new Date().toISOString() });
       renderRefs();
       const warnings = MedVision.qualityWarnings(feature);
@@ -537,21 +636,45 @@
     renderRefs(); toast(`เพิ่มภาพ ${files.length} ภาพแล้ว`);
   }
 
+  // เติมคำอ่านภาษาไทยให้อัตโนมัติจากชื่อยา — ถ้าผู้ใช้พิมพ์แก้เอง จะไม่เขียนทับ
   function updatePronunciationHint() {
     const name = $("medicineName").value.trim();
-    const typed = $("medicinePronunciation").value.trim();
+    const field = $("medicinePronunciation");
     const hint = $("pronunciationHint");
-    if (typed || !name) { hint.textContent = ""; return; }
-    const auto = autoPronunciation(name);
-    hint.textContent = /[A-Za-z]/.test(auto)
-      ? `ถ้าไม่กรอก ระบบจะอ่านว่า “${auto}” — มีคำภาษาอังกฤษที่ระบบไม่รู้จัก แนะนำให้พิมพ์คำอ่านเอง`
-      : `ถ้าไม่กรอก ระบบจะอ่านว่า “${auto}”`;
+    if (field.dataset.auto !== "0") {
+      field.value = name ? autoPronunciation(name) : "";
+      field.dataset.auto = "1";
+    }
+    const value = field.value.trim();
+    if (!value) { hint.textContent = ""; return; }
+    const unknown = (value.match(/[A-Za-z][A-Za-z-]*/g) || []).filter(w => !/^(mg|mcg|ml|g|iu)$/i.test(w));
+    if (field.dataset.auto === "1") {
+      hint.textContent = unknown.length
+        ? `เติมให้อัตโนมัติแล้ว แต่ยังมีคำที่ระบบไม่รู้จัก: ${unknown.join(", ")} — พิมพ์แก้เป็นภาษาไทยได้เลย`
+        : "เติมให้อัตโนมัติแล้ว กด 🔊 ฟังเพื่อตรวจ ถ้าอ่านไม่ถูกพิมพ์แก้ได้";
+    } else hint.textContent = unknown.length ? `ยังมีคำภาษาอังกฤษ: ${unknown.join(", ")}` : "";
+  }
+
+  async function autofillAllPronunciations() {
+    const targets = state.medicines.filter(m => !String(m.pronunciation || "").trim());
+    if (!targets.length) return toast("ทุกรายการมีคำอ่านแล้ว");
+    let full = 0;
+    for (const m of targets) {
+      m.pronunciation = autoPronunciation(m.name);
+      if (!/[A-Za-z]/.test(m.pronunciation)) full++;
+      m.updatedAt = new Date().toISOString();
+      await MedDB.put("medicines", m);
+    }
+    await loadMedicines();
+    const partial = targets.length - full;
+    toast(`เติมคำอ่าน ${targets.length} รายการ${partial ? ` · ${partial} รายการยังมีคำภาษาอังกฤษ ดูได้ที่ตัวกรอง “ยังไม่มีคำอ่าน”` : ""}`, 5000);
   }
 
   function resetForm() {
     $("medicineForm").reset(); $("medicineId").value = "";
     state.form = { front: [], back: [], barcodes: [] };
     $("formTitle").textContent = "เพิ่มยาใหม่"; $("cancelEditBtn").hidden = true;
+    $("medicinePronunciation").dataset.auto = "1";
     renderRefs(); renderFormBarcodes(); updatePronunciationHint();
   }
 
@@ -561,6 +684,7 @@
     $("medicineName").value = med.name || "";
     $("medicineStrength").value = med.strength || "";
     $("medicinePronunciation").value = med.pronunciation || "";
+    $("medicinePronunciation").dataset.auto = med.pronunciation ? "0" : "1";
     $("medicineFormType").value = med.formType || "แผงยา";
     $("medicineNote").value = med.note || "";
     state.form = { front: structuredClone(med.frontRefs || []), back: structuredClone(med.backRefs || []), barcodes: [...(med.barcodes || [])] };
@@ -602,13 +726,13 @@
       if (q && !`${m.name} ${m.strength} ${m.pronunciation || ""} ${(m.barcodes || []).join(" ")}`.toLowerCase().includes(q)) return false;
       if (state.filter === "ready") return isTrainable(m) || hasBarcode(m);
       if (state.filter === "draft") return !isTrainable(m) && !hasBarcode(m);
-      if (state.filter === "nothai") return !m.pronunciation && /[A-Za-z]/.test(autoPronunciation(m.name));
+      if (state.filter === "nothai") return /[A-Za-z]/.test(spokenName(m).replace(/\b(mg|mcg|ml|g|iu)\b/gi, ""));
       return true;
     });
     $("medicineList").innerHTML = list.length ? list.map(m => {
       const auto = !m.pronunciation;
       const reading = spokenName(m);
-      const thaiClass = auto && /[A-Za-z]/.test(reading) ? "thai missing" : "thai";
+      const thaiClass = /[A-Za-z]/.test(reading) ? "thai missing" : "thai";
       return `<article class="med-item">
         <div>
           <h3>${esc(label(m))}</h3>
@@ -632,6 +756,7 @@
   async function loadMedicines() {
     state.medicines = (await MedDB.all("medicines")).sort((a, b) => (a.name || "").localeCompare(b.name || "", "th"));
     renderMedicines();
+    if (state.bg?.feature) computeBgScores();
   }
 
   /* ---------------- import list ---------------- */
@@ -699,14 +824,14 @@
       const old = byKey.get(key);
       if (old) {
         let changed = false;
-        if (!old.pronunciation && r.pronunciation) { old.pronunciation = String(r.pronunciation).trim(); changed = true; }
+        if (!old.pronunciation) { old.pronunciation = String(r.pronunciation || "").trim() || autoPronunciation(name); changed = true; }
         const merged = [...new Set([...(old.barcodes || []), ...codes])];
         if (merged.length !== (old.barcodes || []).length) { old.barcodes = merged; changed = true; }
         if (changed) { old.updatedAt = new Date().toISOString(); await MedDB.put("medicines", old); updated++; }
         continue;
       }
       const med = {
-        id: uid(), name, strength, pronunciation: String(r.pronunciation || "").trim(),
+        id: uid(), name, strength, pronunciation: String(r.pronunciation || "").trim() || autoPronunciation(name),
         formType: String(r.formType || "แผงยา").trim() || "แผงยา", note: String(r.note || "").trim(),
         barcodes: codes, frontRefs: [], backRefs: [], updatedAt: new Date().toISOString()
       };
@@ -783,6 +908,11 @@
     $("zoomRange").addEventListener("input", e => { state.zoom = Number(e.target.value); localStorage.setItem("medicineCameraZoom", String(state.zoom)); applyZoom(); });
     $("repeatBtn").addEventListener("click", () => { const m = medById(state.live.lockedId); if (m) say(speechText(m), true); });
     $("nextBtn").addEventListener("click", nextPiece);
+    $("recalibrateBtn").addEventListener("click", () => {
+      if (!state.live.running) return;
+      resetLock(); resetBackground();
+      setResult("scanning", { status: "กำลังจำพื้นหลัง — ยังไม่ต้องวางยา", name: "รอสักครู่…", thai: "", hint: "เอายาออกจากกรอบก่อน" });
+    });
     $("bindBarcodeBtn").addEventListener("click", openBindDialog);
     $("bindSearch").addEventListener("input", renderBindList);
     $("bindList").addEventListener("click", e => { const b = e.target.closest("[data-bind]"); if (b) bindCodeTo(b.dataset.bind); });
@@ -791,7 +921,8 @@
     $("medicineForm").addEventListener("submit", saveMedicine);
     $("cancelEditBtn").addEventListener("click", resetForm);
     $("medicineName").addEventListener("input", updatePronunciationHint);
-    $("medicinePronunciation").addEventListener("input", updatePronunciationHint);
+    $("medicinePronunciation").addEventListener("input", e => { e.target.dataset.auto = e.target.value.trim() ? "0" : "1"; updatePronunciationHint(); });
+    $("autofillThaiBtn").addEventListener("click", autofillAllPronunciations);
     $("previewSpeechBtn").addEventListener("click", () => {
       MedSpeech.unlock();
       const med = { name: $("medicineName").value, strength: $("medicineStrength").value, pronunciation: $("medicinePronunciation").value };
