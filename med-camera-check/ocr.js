@@ -66,7 +66,7 @@
   function strengthScore(text, strength) {
     const normalized = normalize(text);
     const { number, unit } = strengthParts(strength);
-    if (!number) return .5;
+    if (!number) return .7; // ไม่ได้ระบุความแรง: ไม่ตัดสิทธิ์ แต่ให้น้ำหนักน้อยกว่าการตรงจริง
     const numberFound = new RegExp(`(^| )${number.replace(".", "\\.")}( |$)`).test(normalized);
     const unitFound = !unit || new RegExp(`(^| )${unit}( |$)`).test(normalized);
     return numberFound && unitFound ? 1 : numberFound ? .65 : 0;
