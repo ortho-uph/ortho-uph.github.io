@@ -3,6 +3,7 @@ const API_KEY='CHANGE_ME_TO_A_LONG_RANDOM_SECRET';
 const DEFAULT_PHARMACY_PIN='9999';
 function doGet(e){
   const action=e&&e.parameter&&e.parameter.action;
+  if(action==='medicineSpeechStatus')return out(medicineSpeechStatus_());
   if(action==='pharmacyPatient')return out(pharmacyPatient_(e.parameter.token));
   if(action==='refillPatient')return out(refillPatient_(e.parameter.token));
   if(action==='pharmacyPinStatus')return out({ok:1,pinApiVersion:2,configured:true});
@@ -22,6 +23,7 @@ function doGet(e){
 function doPost(e){
   try{
     const req=JSON.parse(e.postData.contents);
+    if(req.action==='medicineSpeech')return out(medicineSpeech_(req.text));
     if(req.action==='tkaLogin')return out(tkaLogin_(req.password));
     if(String(req.action||'').indexOf('tka')===0)return out(tkaHandle_(req));
     if(req.action==='pharmacyLogin')return out(pharmacyLogin_(req.pin));
@@ -46,6 +48,50 @@ function doPost(e){
     return out({ok:0,err:'unknown action'});
   }catch(err){return out({ok:0,err:String(err)});}
 }
+/* ===== เสียงอ่านชื่อยาภาษาไทย (Azure Speech Free F0) =====
+ * ตั้งค่า Script Properties: AZURE_SPEECH_KEY และ AZURE_SPEECH_REGION
+ * จำกัดที่ 450,000 ตัวอักษรต่อเดือน เพื่อเว้นระยะจากโควตาฟรี 500,000 ตัวอักษร
+ */
+function medicineSpeechStatus_(){
+  const props=PropertiesService.getScriptProperties();
+  return {ok:1,configured:!!(props.getProperty('AZURE_SPEECH_KEY')&&props.getProperty('AZURE_SPEECH_REGION')),voice:'th-TH-PremwadeeNeural',tier:'F0'};
+}
+function medicineSpeechEscape_(value){
+  return String(value||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+function medicineSpeechHash_(value){
+  const bytes=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,String(value),Utilities.Charset.UTF_8);
+  return bytes.map(function(v){v=v<0?v+256:v;return ('0'+v.toString(16)).slice(-2);}).join('');
+}
+function medicineSpeech_(value){
+  const text=String(value==null?'':value).replace(/\s+/g,' ').trim();
+  if(!text||text.length>160)return {ok:0,err:'invalid_text'};
+  if(!/^[\u0E00-\u0E7Fa-zA-Z0-9\s.,()%+\-\/]+$/.test(text))return {ok:0,err:'invalid_text'};
+  const props=PropertiesService.getScriptProperties();
+  const key=props.getProperty('AZURE_SPEECH_KEY'),region=props.getProperty('AZURE_SPEECH_REGION');
+  if(!key||!region)return {ok:0,err:'speech_not_configured'};
+  const cache=CacheService.getScriptCache(),cacheKey='MED_TTS_'+medicineSpeechHash_(text),saved=cache.get(cacheKey);
+  if(saved)return {ok:1,audio:saved,mime:'audio/mpeg',cached:true};
+  const month=Utilities.formatDate(new Date(),'GMT+7','yyyy-MM'),monthKey='AZURE_TTS_MONTH',usageKey='AZURE_TTS_CHARS';
+  const lock=LockService.getScriptLock();lock.waitLock(10000);
+  try{
+    if(props.getProperty(monthKey)!==month){props.setProperty(monthKey,month);props.setProperty(usageKey,'0');}
+    const used=Number(props.getProperty(usageKey)||0);
+    if(used+text.length>450000)return {ok:0,err:'free_quota_guard'};
+    const ssml='<speak version="1.0" xml:lang="th-TH"><voice name="th-TH-PremwadeeNeural"><prosody rate="-4%">'+medicineSpeechEscape_(text)+'</prosody></voice></speak>';
+    const response=UrlFetchApp.fetch('https://'+region+'.tts.speech.microsoft.com/cognitiveservices/v1',{
+      method:'post',contentType:'application/ssml+xml',payload:ssml,muteHttpExceptions:true,
+      headers:{'Ocp-Apim-Subscription-Key':key,'X-Microsoft-OutputFormat':'audio-24khz-48kbitrate-mono-mp3','User-Agent':'UPH-Medicine-Check'}
+    });
+    const code=response.getResponseCode();
+    if(code<200||code>=300)return {ok:0,err:'speech_provider_'+code};
+    const audio=Utilities.base64Encode(response.getBlob().getBytes());
+    props.setProperty(usageKey,String(used+text.length));
+    if(audio.length<95000)cache.put(cacheKey,audio,21600);
+    return {ok:1,audio:audio,mime:'audio/mpeg',cached:false};
+  }finally{lock.releaseLock();}
+}
+
 function authorizedGet_(e){
   return !!(e&&e.parameter)&&(authorizedApiKey_(e.parameter)||authorizedSession_(e.parameter.session));
 }

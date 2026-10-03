@@ -205,9 +205,9 @@
         </label>
         <div class="button-row speech-test-row">
           <button id="testSpeechBtn" type="button" class="button secondary">ทดสอบเสียงไทย</button>
-          <span id="speechVoiceStatus" class="speech-voice-status">กำลังเตรียมเสียงภาษาไทยของระบบ…</span>
+          <span id="speechVoiceStatus" class="speech-voice-status">กำลังเตรียมเสียงพากย์ภาษาไทย…</span>
         </div>
-        <p class="speech-license">ใช้โมเดลเสียงประสาท <a href="https://huggingface.co/siridech/mms-tts-tha-onnx" target="_blank" rel="noopener">MMS ภาษาไทย (CC BY-NC 4.0)</a> ทำงานบนเครื่องผ่าน ONNX Runtime ไม่ต้องติดตั้งชุดเสียงใน Windows การเปิดครั้งแรกจะดาวน์โหลดโมเดลประมาณ 114 MB และต้องใช้อินเทอร์เน็ต</p>
+        <p class="speech-license">ใช้เสียงผู้หญิงไทย Premwadee Neural ผ่าน Azure Speech แพ็กเกจ Free F0 และจำเสียงที่เคยอ่านไว้ในเครื่องเพื่อลดโควตา หากเสียงไทยออนไลน์ขัดข้อง ระบบจะอ่านชื่อยาและขนาดด้วยเสียงอังกฤษของเครื่องแทน</p>
       </div>
 
       <div class="settings-card danger-zone">
@@ -227,8 +227,7 @@
   <script src="vision.js?v=20261002n"></script>
   <script src="ai.js"></script>
   <script src="db.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/dist/ort.webgpu.min.js" crossorigin="anonymous"></script>
-  <script src="thai-speech.js?v=20261002n"></script>
-  <script src="app.js?v=20261002o"></script>
+  <script src="thai-speech.js?v=20261003a"></script>
+  <script src="app.js?v=20261003a"></script>
 </body>
 </html>

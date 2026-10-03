@@ -521,19 +521,21 @@
       .trim();
   }
 
-  async function speak(text, force = false) {
+  async function speak(text, force = false, englishFallback = "") {
     if (!force && !$("speechToggle").checked) return;
     try {
-      await ThaiSpeech.speak(text);
+      await ThaiSpeech.speak(text, englishFallback);
     } catch (error) {
       console.error("Thai speech failed", error);
-      toast("เสียงไทยยังไม่พร้อม กรุณาตรวจอินเทอร์เน็ตแล้วกดทดสอบเสียงอีกครั้ง");
+      toast("ระบบเสียงไม่พร้อม กรุณาตรวจลำโพงและลองใหม่อีกครั้ง");
     }
   }
 
   function speakMedicine(medicine, force = false) {
     const spokenName = String(medicine.pronunciation || medicine.name || "").trim();
-    speak(`${spokenName} ${strengthForThaiSpeech(medicine.strength)}`.trim(), force);
+    const thaiText = `${spokenName} ${strengthForThaiSpeech(medicine.strength)}`.trim();
+    const englishText = `${medicine.name || "Medicine"} ${medicine.strength || ""}`.trim();
+    speak(thaiText, force, englishText);
   }
 
   function updateSpeechVoiceStatus(event) {
@@ -670,7 +672,7 @@
     navigator.mediaDevices?.addEventListener?.("devicechange", refreshCameraDevices);
     $("speechToggle").checked = localStorage.getItem("speechEnabled") !== "0";
     ThaiSpeech.subscribe(updateSpeechVoiceStatus);
-    updateSpeechVoiceStatus({ status: "idle", message: "เสียง AI ภาษาไทยจะโหลดอัตโนมัติ ไม่ต้องติดตั้งเสียงใน Windows" });
+    updateSpeechVoiceStatus({ status: "idle", message: "เสียงไทยออนไลน์จะทำงานก่อน และใช้เสียงอังกฤษของเครื่องเมื่อขัดข้อง" });
     $("storageBadge").textContent = "กำลังโหลดโมเดล AI";
     try {
       await MedAI.load();
