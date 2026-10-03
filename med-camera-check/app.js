@@ -31,6 +31,8 @@
     },
     speechOn: localStorage.getItem("speechEnabled") !== "0",
     form: { front: [], back: [], barcodes: [] },
+    formAug: new Map(),      // ภาพจำลองของภาพที่เพิ่งถ่าย (ยังไม่บันทึก)
+    aug: new Map(),          // refId → ค่า AI ของภาพจำลอง
     filter: "all",
     live: {
       running: false, paused: false, timer: null,
@@ -118,6 +120,15 @@
     } catch (error) {
       console.error(error); return "error";
     }
+  }
+
+  // บันทึกยาที่แก้ในเครื่องนี้ แล้วส่งขึ้นฐานข้อมูลกลาง (ถ้าเชื่อมต่อไว้)
+  async function persistMed(med) {
+    med.updatedAt = new Date().toISOString();
+    med.dirty = true;
+    await MedDB.put("medicines", med);
+    if (window.MedSync) MedSync.changed();
+    return med;
   }
 
   /* ---------------- tabs ---------------- */
@@ -213,10 +224,9 @@
     const bg = state.bg; if (!bg.feature) return;
     bg.scores = new Map();
     const bad = [];
-    for (const med of state.medicines.filter(isTrainable)) {
-      const s = Math.max(MedVision.bestAgainst(bg.feature, med.frontRefs), MedVision.bestAgainst(bg.feature, med.backRefs));
-      bg.scores.set(med.id, s);
-      if (s >= state.threshold) bad.push(label(med));
+    for (const r of scoreImages(bg.feature)) {
+      bg.scores.set(r.med.id, r.score);
+      if (r.score >= state.threshold) bad.push(label(r.med));
     }
     if (warn && bad.length) toast(`ภาพอ้างอิงของ ${bad.slice(0, 3).join(", ")} เหมือนพื้นหลังมาก ควรถ่ายใหม่ให้ยาเต็มกรอบ`, 7000);
   }
@@ -255,14 +265,95 @@
     $("nextBtn").disabled = true;
   }
 
+  /* ---------- ตัวจำภาพ: เทียบกับภาพอ้างอิง + ภาพจำลอง แล้วตัดสินจากภาพที่ใกล้ที่สุดหลายภาพ (k-NN) ---------- */
+  const TOP_PER_MED = 3;   // คะแนนของยา = ค่าเฉลี่ยภาพที่ใกล้ที่สุด 3 ภาพของยานั้น
+  const KNN_K = 7;         // ดูภาพที่ใกล้ที่สุด 7 ภาพจากทุกยา แล้วนับว่าเป็นของยาไหน
+  let imageIndex = null;
+  function invalidateIndex() { imageIndex = null; }
+  const toF32 = v => v instanceof Float32Array ? v : Float32Array.from(v);
+
+  function buildIndex() {
+    const entries = [];
+    for (const med of state.medicines.filter(isTrainable)) {
+      for (const [sideKey, refs] of [["หน้า", med.frontRefs || []], ["หลัง", med.backRefs || []]]) {
+        for (const ref of refs) {
+          if (!ref.feature?.embedding) continue;
+          entries.push({ med, side: sideKey, emb: toF32(ref.feature.embedding), ref });
+          for (const a of state.aug.get(ref.id) || []) entries.push({ med, side: sideKey, emb: a, ref: null });
+        }
+      }
+    }
+    return { entries };
+  }
+
+  function stripEmbedding(f) { return f ? { ...f, embedding: null } : f; }
+
+  function scoreImages(feature) {
+    if (!feature?.embedding) return [];
+    const idx = imageIndex || (imageIndex = buildIndex());
+    if (!idx.entries.length) return [];
+    const q = toF32(feature.embedding);
+    const perMed = new Map();
+    const all = [];
+    for (const e of idx.entries) {
+      let c = 0; const a = e.emb;
+      for (let i = 0; i < a.length; i++) c += a[i] * q[i];
+      const s = Math.max(0, Math.min(1, (c - .4) / .6));
+      all.push([s, e]);
+      let m = perMed.get(e.med.id);
+      if (!m) { m = { med: e.med, list: [] }; perMed.set(e.med.id, m); }
+      m.list.push([s, e]);
+    }
+    all.sort((x, y) => y[0] - x[0]);
+    const votes = new Map();
+    for (const [, e] of all.slice(0, KNN_K)) votes.set(e.med.id, (votes.get(e.med.id) || 0) + 1);
+    const plain = stripEmbedding(feature);
+    const ranked = [...perMed.values()].map(({ med, list }) => {
+      list.sort((x, y) => y[0] - x[0]);
+      const top = list.slice(0, TOP_PER_MED);
+      const ai = top.reduce((t, x) => t + x[0], 0) / top.length;
+      const v = votes.get(med.id) || 0;
+      const need = Math.min(4, Math.ceil(.6 * Math.min(KNN_K, list.length)));
+      return { med, ai, side: list[0][1].side, votes: v, votesOk: v >= need };
+    }).sort((a, b) => b.ai - a.ai);
+    // ส่วนสี/ลาย (ไม่ใช่ AI) คิดเฉพาะยา 5 อันดับแรก เพื่อความเร็ว
+    ranked.forEach((r, i) => {
+      let legacy = 0;
+      if (i < 5) for (const ref of [...(r.med.frontRefs || []), ...(r.med.backRefs || [])]) {
+        if (ref.feature) legacy = Math.max(legacy, MedVision.compare(plain, stripEmbedding(ref.feature)));
+      }
+      r.score = r.ai * .85 + legacy * .15;
+    });
+    return ranked.sort((a, b) => b.score - a.score);
+  }
+
   function rankImages(feature) {
-    return state.medicines.filter(isTrainable).map(med => {
-      const front = MedVision.bestAgainst(feature, med.frontRefs);
-      const back = MedVision.bestAgainst(feature, med.backRefs);
-      const score = Math.max(front, back);
-      const bgScore = state.bg.scores.get(med.id) ?? 0;
-      return { med, score, rel: score - bgScore, side: front >= back ? "หน้า" : "หลัง" };
-    }).sort((a, b) => b.score - a.score);
+    return scoreImages(feature).map(r => ({ ...r, rel: r.score - (state.bg.scores.get(r.med.id) ?? 0) }));
+  }
+
+  // สร้างภาพจำลองให้ภาพอ้างอิงที่ยังไม่มี (ทำเบื้องหลัง ครั้งเดียว)
+  async function ensureAugments() {
+    if (ensureAugments.running || !state.aiReady) return;
+    ensureAugments.running = true;
+    try {
+      const todo = state.medicines.flatMap(m => [...(m.frontRefs || []), ...(m.backRefs || [])]).filter(r => r.image && !state.aug.has(r.id));
+      let done = 0;
+      for (const ref of todo) {
+        try {
+          const embs = await MedAI.embedVariantsFromDataUrl(ref.image);
+          state.aug.set(ref.id, embs);
+          await MedDB.put("augments", { id: ref.id, embs });
+        } catch (e) { console.warn("augment failed", e); }
+        done++;
+        if (done % 10 === 0 || done === todo.length) {
+          invalidateIndex();
+          $("chipImage").textContent = done < todo.length ? `เตรียมภาพจำลอง ${done}/${todo.length}` : "จำภาพ";
+        }
+        // ระหว่างกำลังตรวจยา ทำช้า ๆ ไม่ให้แย่งเครื่อง
+        await new Promise(r => setTimeout(r, state.live.running && !state.live.paused ? 250 : 0));
+      }
+      if (todo.length && state.bg?.feature) computeBgScores();
+    } finally { ensureAugments.running = false; $("chipImage").textContent = "จำภาพ"; }
   }
 
   function findByBarcode(code) {
@@ -369,7 +460,8 @@
     const top = ranked[0];
     const margin = top ? top.score - (ranked[1]?.score || 0) : 0;
     // ภาพผ่านเมื่อ: คะแนนถึงเกณฑ์ + สูงกว่าพื้นหลังชัดเจน + มีของวางอยู่จริง + ไม่ก้ำกึ่งกับยาอื่น
-    const imagePass = Boolean(top && presence !== false && top.score >= th && top.rel >= BG_MARGIN && margin >= .06);
+    const multi = ranked.length >= 2;
+    const imagePass = Boolean(top && presence !== false && top.score >= th && top.rel >= BG_MARGIN && margin >= .06 && (!multi || top.votesOk));
 
     // ---------- เพิ่งตรวจผ่าน: ยาตัวอื่นตรวจต่อได้ทันที ยาตัวเดิมต้องยกออกก่อน (กันนับซ้ำ) ----------
     if (live.lockedId) {
@@ -437,6 +529,7 @@
       if (live.stableCount >= (ocrAgree ? 2 : STABLE_FRAMES)) {
         return confirm(top.med, [
           { text: `ภาพด้าน${top.side} ${Math.round(top.score * 100)}%`, strong: true },
+          multi ? { text: `ภาพใกล้สุด ${top.votes}/${KNN_K} เป็นยานี้`, strong: true } : null,
           ocrAgree ? { text: "ชื่อบนฉลากตรง", strong: true } : null
         ], Math.round(top.score * 100), "image");
       }
@@ -560,7 +653,7 @@
     const med = medById(medId); if (!med || !code) return;
     med.barcodes = [...new Set([...(med.barcodes || []), code])];
     med.updatedAt = new Date().toISOString();
-    await MedDB.put("medicines", med);
+    await persistMed(med);
     $("bindDialog").close();
     state.live.unknownCode = null;
     renderMedicines();
@@ -617,8 +710,10 @@
       if (state.bg?.emb && dot(feature.embedding, state.bg.emb) >= PRESENT_COS) {
         return toast("ภาพนี้เหมือนพื้นหลังว่าง ๆ — วางยาให้เต็มกรอบแล้วถ่ายใหม่", 4500);
       }
-      state.form[side].push({ id: uid(), image, feature, createdAt: new Date().toISOString() });
+      const id = uid();
+      state.form[side].push({ id, image, feature, createdAt: new Date().toISOString() });
       renderRefs();
+      MedAI.embedVariantsFromDataUrl(image).then(embs => state.formAug.set(id, embs)).catch(console.warn);
       const warnings = MedVision.qualityWarnings(feature);
       toast(warnings.length ? "เพิ่มภาพแล้ว แต่ " + warnings.join(" / ") : `เพิ่มภาพด้าน${side === "front" ? "หน้า" : "หลัง"}แล้ว (${state.form[side].length})`);
     } catch (error) { console.error(error); toast("ถ่ายภาพไม่สำเร็จ ลองใหม่"); }
@@ -631,7 +726,9 @@
       const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
       const feature = await MedVision.featureFromDataUrl(dataUrl);
       feature.embedding = await MedAI.embedFromDataUrl(dataUrl);
-      state.form[side].push({ id: uid(), image: dataUrl, feature, createdAt: new Date().toISOString() });
+      const id = uid();
+      state.form[side].push({ id, image: dataUrl, feature, createdAt: new Date().toISOString() });
+      try { state.formAug.set(id, await MedAI.embedVariantsFromDataUrl(dataUrl)); } catch (e) { console.warn(e); }
     }
     renderRefs(); toast(`เพิ่มภาพ ${files.length} ภาพแล้ว`);
   }
@@ -663,7 +760,7 @@
       m.pronunciation = autoPronunciation(m.name);
       if (!/[A-Za-z]/.test(m.pronunciation)) full++;
       m.updatedAt = new Date().toISOString();
-      await MedDB.put("medicines", m);
+      await persistMed(m);
     }
     await loadMedicines();
     const partial = targets.length - full;
@@ -672,7 +769,7 @@
 
   function resetForm() {
     $("medicineForm").reset(); $("medicineId").value = "";
-    state.form = { front: [], back: [], barcodes: [] };
+    state.form = { front: [], back: [], barcodes: [] }; state.formAug.clear();
     $("formTitle").textContent = "เพิ่มยาใหม่"; $("cancelEditBtn").hidden = true;
     $("medicinePronunciation").dataset.auto = "1";
     renderRefs(); renderFormBarcodes(); updatePronunciationHint();
@@ -711,7 +808,17 @@
       updatedAt: new Date().toISOString()
     };
     if (!med.name) return toast("กรุณากรอกชื่อยา");
-    await MedDB.put("medicines", med);
+    await persistMed(med);
+    // บันทึกภาพจำลองของภาพใหม่ และลบของภาพที่ถูกลบออก
+    const keep = new Set([...med.frontRefs, ...med.backRefs].map(r => r.id));
+    for (const ref of [...med.frontRefs, ...med.backRefs]) {
+      const embs = state.formAug.get(ref.id);
+      if (embs) { state.aug.set(ref.id, embs); await MedDB.put("augments", { id: ref.id, embs }); }
+    }
+    for (const ref of [...(existing?.frontRefs || []), ...(existing?.backRefs || [])]) {
+      if (!keep.has(ref.id)) { state.aug.delete(ref.id); await MedDB.remove("augments", ref.id).catch(() => {}); }
+    }
+    state.formAug.clear();
     await loadMedicines();
     resetForm();
     const ways = [hasBarcode(med) && "บาร์โค้ด", isTrainable(med) && "ภาพ", "ตัวอักษร"].filter(Boolean).join(" + ");
@@ -755,8 +862,10 @@
 
   async function loadMedicines() {
     state.medicines = (await MedDB.all("medicines")).sort((a, b) => (a.name || "").localeCompare(b.name || "", "th"));
+    invalidateIndex();
     renderMedicines();
     if (state.bg?.feature) computeBgScores();
+    if (state.aiReady) setTimeout(ensureAugments, 300);
   }
 
   /* ---------------- import list ---------------- */
@@ -827,7 +936,7 @@
         if (!old.pronunciation) { old.pronunciation = String(r.pronunciation || "").trim() || autoPronunciation(name); changed = true; }
         const merged = [...new Set([...(old.barcodes || []), ...codes])];
         if (merged.length !== (old.barcodes || []).length) { old.barcodes = merged; changed = true; }
-        if (changed) { old.updatedAt = new Date().toISOString(); await MedDB.put("medicines", old); updated++; }
+        if (changed) { await persistMed(old); updated++; }
         continue;
       }
       const med = {
@@ -835,7 +944,7 @@
         formType: String(r.formType || "แผงยา").trim() || "แผงยา", note: String(r.note || "").trim(),
         barcodes: codes, frontRefs: [], backRefs: [], updatedAt: new Date().toISOString()
       };
-      await MedDB.put("medicines", med); byKey.set(key, med); added++;
+      await persistMed(med); byKey.set(key, med); added++;
     }
     await loadMedicines();
     toast(`นำเข้าแล้ว: เพิ่มใหม่ ${added} · อัปเดต ${updated} รายการ`, 4000);
@@ -900,6 +1009,36 @@
     }
   }
 
+  /* ---------------- ฐานข้อมูลกลาง (หลายเครื่อง) ---------------- */
+  function startSync() {
+    if (!window.MedSync) return;
+    MedSync.subscribe(st => {
+      $("syncStatus").textContent = st.message;
+      $("syncStatus").className = "voice-status " + ({ ok: "ai", busy: "basic", error: "none", off: "" })[st.level];
+      setChip("chipSync", ({ ok: "ok", busy: "", error: "warn", off: "off" })[st.level], st.message);
+      $("chipSync").hidden = st.level === "off";
+      $("syncConnected").hidden = !MedSync.isConfigured();
+      $("syncForm").hidden = MedSync.isConfigured();
+    });
+    MedSync.init({
+      getMedicines: () => state.medicines,
+      saveLocal: async med => {
+        await MedDB.put("medicines", med);
+        const i = state.medicines.findIndex(m => m.id === med.id);
+        if (i >= 0) state.medicines[i] = med; else state.medicines.push(med);
+      },
+      removeLocal: async med => {
+        await MedDB.remove("medicines", med.id);
+        for (const ref of [...(med.frontRefs || []), ...(med.backRefs || [])]) { state.aug.delete(ref.id); await MedDB.remove("augments", ref.id).catch(() => {}); }
+        state.medicines = state.medicines.filter(m => m.id !== med.id);
+      },
+      afterChange: async () => {
+        if (state.aiReady) await upgradeEmbeddings();
+        await loadMedicines();
+      }
+    });
+  }
+
   /* ---------------- events ---------------- */
   function bindEvents() {
     document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));
@@ -960,7 +1099,10 @@
       const del = e.target.closest("[data-delete-med]");
       if (del) {
         const m = medById(del.dataset.deleteMed);
-        if (m && window.confirm(`ลบ ${label(m)} ออกจากฐานข้อมูลหรือไม่`)) { await MedDB.remove("medicines", m.id); await loadMedicines(); }
+        if (m && window.confirm(`ลบ ${label(m)} ออกจากฐานข้อมูลหรือไม่`)) { await MedDB.remove("medicines", m.id);
+          if (window.MedSync) MedSync.deleted(m);
+          for (const ref of [...(m.frontRefs || []), ...(m.backRefs || [])]) { state.aug.delete(ref.id); await MedDB.remove("augments", ref.id).catch(() => {}); }
+          await loadMedicines(); }
       }
     });
 
@@ -1003,17 +1145,27 @@
       toast("เปลี่ยนกล้องแล้ว" + (wasRunning ? " กดเริ่มตรวจอีกครั้ง" : ""));
     });
     $("refreshCamerasBtn").addEventListener("click", async () => { await refreshCameras(); toast("อัปเดตรายชื่อกล้องแล้ว"); });
+    $("syncConnectBtn").addEventListener("click", async () => {
+      const btn = $("syncConnectBtn"); btn.disabled = true;
+      try { await MedSync.connect($("syncUrl").value, $("syncKey").value); toast("เชื่อมต่อฐานข้อมูลกลางแล้ว"); }
+      catch (error) { toast("เชื่อมต่อไม่สำเร็จ: " + error.message, 6000); }
+      finally { btn.disabled = false; }
+    });
+    $("syncNowBtn").addEventListener("click", () => MedSync.syncNow("manual"));
+    $("syncDisconnectBtn").addEventListener("click", () => {
+      if (window.confirm("ยกเลิกการเชื่อมต่อฐานข้อมูลกลางในเครื่องนี้หรือไม่ (ข้อมูลในเครื่องยังอยู่)")) MedSync.disconnect();
+    });
     $("exportDbBtn").addEventListener("click", async () => download(`ฐานข้อมูลยา-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(await MedDB.exportAll()), "application/json"));
     $("importDbInput").addEventListener("change", async e => {
       const file = e.target.files[0]; if (!file) return;
       if (!window.confirm("นำเข้าจะเขียนทับข้อมูลยาเดิมในเครื่องนี้ทั้งหมด ดำเนินการต่อหรือไม่")) { e.target.value = ""; return; }
-      try { await MedDB.importAll(JSON.parse(await file.text())); await loadMedicines(); await loadHistory(); toast("นำเข้าฐานข้อมูลแล้ว"); }
+      try { await MedDB.importAll(JSON.parse(await file.text())); state.aug.clear(); await loadMedicines(); await loadHistory(); toast("นำเข้าฐานข้อมูลแล้ว"); }
       catch (err) { toast("นำเข้าไม่สำเร็จ: " + err.message, 5000); }
       e.target.value = "";
     });
     $("clearDbBtn").addEventListener("click", async () => {
       if (!window.confirm("ลบข้อมูลยา ภาพ และประวัติทั้งหมดในเครื่องนี้หรือไม่ (กู้คืนไม่ได้ ถ้ายังไม่ได้ส่งออก)")) return;
-      await MedDB.clear("medicines"); await MedDB.clear("history"); await loadMedicines(); await loadHistory(); toast("ลบข้อมูลแล้ว");
+      await MedDB.clear("medicines"); await MedDB.clear("history"); await MedDB.clear("augments"); state.aug.clear(); await loadMedicines(); await loadHistory(); toast("ลบข้อมูลแล้ว");
     });
 
     // คีย์ลัดในหน้าตรวจยา
@@ -1039,6 +1191,7 @@
     renderSession(); renderRefs(); renderFormBarcodes();
     MedSpeech.subscribe(onVoiceStatus);
     await MedDB.open();
+    for (const a of await MedDB.all("augments").catch(() => [])) state.aug.set(a.id, a.embs);
     await loadMedicines(); await loadHistory();
 
     if (location.protocol === "file:") {
@@ -1058,13 +1211,17 @@
       await MedAI.load();
       state.aiReady = true; updateChips();
       await upgradeEmbeddings();
-      await loadMedicines();
+      await loadMedicines();   // จะเริ่มสร้างภาพจำลองให้ภาพเดิมเบื้องหลังเอง
     } catch (error) {
       console.error(error);
       setChip("chipImage", "warn", "โหลด AI จำภาพไม่สำเร็จ");
       toast("โหลด AI จำภาพไม่สำเร็จ — ยังตรวจด้วยบาร์โค้ดและตัวอักษรได้", 5000);
     }
+    startSync();
   }
+
+  // สำหรับทดสอบ/ตรวจปัญหาใน DevTools
+  window.__medDebug = { scoreImages: f => scoreImages(f), invalidateIndex: () => invalidateIndex(), state };
 
   init().catch(error => { console.error(error); toast("เริ่มระบบไม่สำเร็จ: " + error.message, 6000); });
 })();

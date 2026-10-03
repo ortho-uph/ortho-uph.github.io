@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#123d34">
   <title>ระบบรีเช็คยาด้วยกล้อง</title>
   <link rel="icon" href="../favicon.png">
-  <link rel="stylesheet" href="styles.css?v=20261003v2">
+  <link rel="stylesheet" href="styles.css?v=20261003v5">
 </head>
 <body>
   <header class="topbar">
@@ -20,6 +20,7 @@
       <span id="chipImage" class="chip">จำภาพ</span>
       <span id="chipOcr" class="chip">อ่านตัวอักษร</span>
       <span id="chipVoice" class="chip">เสียง</span>
+      <span id="chipSync" class="chip" hidden>ฐานข้อมูลกลาง</span>
     </div>
     <a class="hub-link" href="../">← หน้าระบบห้องยา</a>
   </header>
@@ -227,6 +228,31 @@
         </div>
 
         <div class="card">
+          <h2>ฐานข้อมูลกลาง <small class="hint-inline">ใช้หลายเครื่อง</small></h2>
+          <p id="syncStatus" class="voice-status">ยังไม่ได้เชื่อมต่อ</p>
+          <div id="syncForm">
+            <label class="field">URL เว็บแอป Apps Script<input id="syncUrl" placeholder="https://script.google.com/macros/s/…/exec"></label>
+            <label class="field">รหัสลับ (SYNC_KEY)<input id="syncKey" type="password" autocomplete="off"></label>
+            <button id="syncConnectBtn" type="button" class="button primary">เชื่อมต่อ</button>
+          </div>
+          <div id="syncConnected" class="stack" hidden>
+            <button id="syncNowBtn" type="button" class="button ghost">ซิงก์ตอนนี้</button>
+            <button id="syncDisconnectBtn" type="button" class="link-button">ยกเลิกการเชื่อมต่อในเครื่องนี้</button>
+          </div>
+          <details class="help">
+            <summary>วิธีตั้งค่าครั้งแรก</summary>
+            <ol>
+              <li>สร้าง Google Sheet ใหม่ 1 ไฟล์ (ใช้บัญชี Google ของห้องยา)</li>
+              <li>เมนู ส่วนขยาย → Apps Script → วางโค้ดจากไฟล์ <code>apps-script-med-camera.gs</code> → บันทึก</li>
+              <li>⚙ การตั้งค่าโปรเจ็กต์ → พร็อพเพอร์ตี้ของสคริปต์ → เพิ่ม <code>SYNC_KEY</code> = รหัสลับที่ตั้งเอง</li>
+              <li>ทำให้ใช้งานได้ → เว็บแอป · เรียกใช้ในฐานะ “ฉัน” · ผู้มีสิทธิ์ “ทุกคน” → คัดลอก URL</li>
+              <li>วาง URL และรหัสลับที่นี่ กดเชื่อมต่อ — ทำที่ทุกเครื่อง เครื่องแรกจะส่งข้อมูลยาเดิมขึ้นไปให้อัตโนมัติ</li>
+            </ol>
+            <p class="hint">รายชื่อยาเก็บใน Google Sheet รูปเก็บใน Google Drive ข้อมูลยังเก็บในเครื่องด้วย เน็ตหลุดก็ยังตรวจยาได้</p>
+          </details>
+        </div>
+
+        <div class="card">
           <h2>สำรองข้อมูล</h2>
           <p class="hint">ข้อมูลยาและภาพอ้างอิงเก็บอยู่ในเบราว์เซอร์ของเครื่องนี้ ถ้าจะใช้กับเครื่องอื่น ให้ส่งออกแล้วนำเข้าที่เครื่องนั้น</p>
           <div class="stack">
@@ -254,13 +280,14 @@
   <script src="vendor/tf.min.js"></script>
   <script src="vendor/mobilenet.min.js"></script>
   <script src="vendor/tesseract/tesseract.min.js"></script>
-  <script src="db.js?v=20261003v2"></script>
+  <script src="db.js?v=20261003v5"></script>
   <script src="vision.js?v=20261003v2"></script>
-  <script src="ai.js?v=20261003v2"></script>
+  <script src="ai.js?v=20261003v5"></script>
   <script src="ocr.js?v=20261003v2"></script>
   <script src="barcode.js?v=20261003v2"></script>
   <script src="drug-names-th.js?v=20261003v3"></script>
+  <script src="sync.js?v=20261003v5"></script>
   <script src="speech.js?v=20261003v2"></script>
-  <script src="app.js?v=20261003v4"></script>
+  <script src="app.js?v=20261003v5"></script>
 </body>
 </html>

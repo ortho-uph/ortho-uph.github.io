@@ -42,6 +42,49 @@
     finally { tensor.dispose(); }
   }
 
+  // สร้างภาพจำลองจากภาพอ้างอิง 1 ภาพ: หมุนซ้าย/ขวา ซูมเข้า มืดลง สว่างขึ้น
+  // ช่วยให้จำยาได้แม้วางเอียงเล็กน้อยหรือแสงเปลี่ยน (เก็บเฉพาะค่า AI ไม่เก็บรูป)
+  const VARIANTS = [
+    { rot: -9, scale: 1.14 }, { rot: 9, scale: 1.14 }, { rot: 0, scale: 1.18 },
+    { rot: 0, scale: 1, filter: "brightness(0.7) contrast(1.1)" },
+    { rot: 0, scale: 1, filter: "brightness(1.3) contrast(0.9)" },
+    { rot: -4, scale: 1.08, filter: "brightness(0.85)" }
+  ];
+
+  function variantCanvas(base, v) {
+    const c = document.createElement("canvas");
+    c.width = base.width; c.height = base.height;
+    const g = c.getContext("2d");
+    g.fillStyle = "#808080"; g.fillRect(0, 0, c.width, c.height);
+    if (v.filter) g.filter = v.filter;
+    g.translate(c.width / 2, c.height / 2);
+    g.rotate(v.rot * Math.PI / 180);
+    g.scale(v.scale, v.scale);
+    g.drawImage(base, -c.width / 2, -c.height / 2);
+    return c;
+  }
+
+  async function embedVariantsFromSource(source, zoom = 1) {
+    const loaded = await load();
+    const base = MedVision.canvasForImage(source, 224, zoom);
+    const out = [];
+    for (const v of VARIANTS) {
+      const tensor = loaded.infer(variantCanvas(base, v), true);
+      try { out.push(Float32Array.from(normalize(await tensor.data()))); }
+      finally { tensor.dispose(); }
+    }
+    return out;
+  }
+
+  function embedVariantsFromDataUrl(dataUrl) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => embedVariantsFromSource(image, 1).then(resolve, reject);
+      image.onerror = () => reject(new Error("อ่านภาพอ้างอิงไม่สำเร็จ"));
+      image.src = dataUrl;
+    });
+  }
+
   function embedFromDataUrl(dataUrl, zoom = 1) {
     return new Promise((resolve, reject) => {
       const image = new Image();
@@ -51,5 +94,5 @@
     });
   }
 
-  window.MedAI = { load, embedFromSource, embedFromDataUrl, isReady: () => Boolean(model) };
+  window.MedAI = { load, embedFromSource, embedFromDataUrl, embedVariantsFromSource, embedVariantsFromDataUrl, isReady: () => Boolean(model) };
 })();

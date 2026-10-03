@@ -221,3 +221,5 @@ input[type=range] { accent-color: var(--green-700); }
   .zoom-control { margin-left: 0; }
   .sensor-row { grid-template-columns: 1fr; }
 }
+
+.hint-inline { font-size: 13px; font-weight: 400; color: var(--muted); }

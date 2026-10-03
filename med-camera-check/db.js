@@ -2,7 +2,7 @@
   "use strict";
 
   const DB_NAME = "med-camera-check";
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   let dbPromise;
 
   function open() {
@@ -15,6 +15,8 @@
           const store = db.createObjectStore("medicines", { keyPath: "id" });
           store.createIndex("name", "name", { unique: false });
         }
+        // v2: ค่า AI ของภาพจำลอง (สร้างใหม่ได้เสมอ จึงไม่รวมในไฟล์สำรอง)
+        if (!db.objectStoreNames.contains("augments")) db.createObjectStore("augments", { keyPath: "id" });
         if (!db.objectStoreNames.contains("history")) {
           const store = db.createObjectStore("history", { keyPath: "id" });
           store.createIndex("createdAt", "createdAt", { unique: false });
@@ -77,6 +79,7 @@
     }
     await clear("medicines");
     await clear("history");
+    await clear("augments");
     for (const item of payload.medicines) await put("medicines", item);
     for (const item of payload.history || []) await put("history", item);
   }
