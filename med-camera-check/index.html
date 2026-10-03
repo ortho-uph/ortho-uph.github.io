@@ -207,7 +207,16 @@
           <button id="testSpeechBtn" type="button" class="button secondary">ทดสอบเสียงไทย</button>
           <span id="speechVoiceStatus" class="speech-voice-status">กำลังเตรียมเสียงพากย์ภาษาไทย…</span>
         </div>
-        <p class="speech-license">ใช้เสียงผู้หญิงไทย Premwadee Neural ผ่าน Azure Speech แพ็กเกจ Free F0 และจำเสียงที่เคยอ่านไว้ในเครื่องเพื่อลดโควตา หากเสียงไทยออนไลน์ขัดข้อง ระบบจะอ่านชื่อยาและขนาดด้วยเสียงอังกฤษของเครื่องแทน</p>
+        <label class="field speech-engine-field">
+          <span>แหล่งเสียงภาษาไทย</span>
+          <select id="speechEngineSelect">
+            <option value="auto">อัตโนมัติ (แนะนำ) — เลือกเสียงไทยที่ดีที่สุดที่ใช้ได้</option>
+            <option value="azure">เสียงไทย Premwadee ออนไลน์ (Azure)</option>
+            <option value="browser">เสียงไทยของเครื่อง / เบราว์เซอร์</option>
+            <option value="espeak">เสียงไทยออฟไลน์ (eSpeak — ไม่ต้องใช้อินเทอร์เน็ต)</option>
+          </select>
+        </label>
+        <p class="speech-license">โหมดอัตโนมัติจะลองตามลำดับ: ① เสียง Premwadee ออนไลน์ (Azure) ② เสียงไทยของเครื่อง เช่น Microsoft Edge มีเสียง Premwadee/Niwat ให้ฟรี หรือ Windows มีเสียง Pattara (ติดตั้งที่ Settings → Time &amp; language → Speech → Add voices → ไทย) ③ เสียงไทยออฟไลน์ eSpeak ที่ติดมากับระบบ ④ เสียงอังกฤษเป็นทางสุดท้าย ถ้ายาไม่ได้กรอกคำอ่านภาษาไทย ระบบจะใช้คำอ่านจากพจนานุกรมชื่อยาที่ติดมากับระบบ</p>
       </div>
 
       <div class="settings-card danger-zone">
@@ -227,7 +236,8 @@
   <script src="vision.js?v=20261002n"></script>
   <script src="ai.js"></script>
   <script src="db.js"></script>
-  <script src="thai-speech.js?v=20261003a"></script>
-  <script src="app.js?v=20261003a"></script>
+  <script src="drug-names-th.js?v=20261003b"></script>
+  <script src="thai-speech.js?v=20261003b"></script>
+  <script src="app.js?v=20261003b"></script>
 </body>
 </html>

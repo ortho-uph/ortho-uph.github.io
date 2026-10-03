@@ -532,7 +532,9 @@
   }
 
   function speakMedicine(medicine, force = false) {
-    const spokenName = String(medicine.pronunciation || medicine.name || "").trim();
+    const pronunciation = String(medicine.pronunciation || "").trim();
+    const name = String(medicine.name || "").trim();
+    const spokenName = pronunciation || (window.DrugNamesTH ? DrugNamesTH.toThai(name) : name);
     const thaiText = `${spokenName} ${strengthForThaiSpeech(medicine.strength)}`.trim();
     const englishText = `${medicine.name || "Medicine"} ${medicine.strength || ""}`.trim();
     speak(thaiText, force, englishText);
@@ -625,8 +627,14 @@
       else ThaiSpeech.stop();
     });
     $("testSpeechBtn").addEventListener("click", () => {
-      const sample = state.medicines.find(isTrainable) || { name: "พาราเซตามอล", strength: "500 mg" };
+      const sample = state.medicines.find(isTrainable) || { name: "Paracetamol", strength: "500 mg" };
       speakMedicine(sample, true);
+    });
+    $("speechEngineSelect").value = ThaiSpeech.getPreferredEngine();
+    $("speechEngineSelect").addEventListener("change", e => {
+      ThaiSpeech.stop();
+      ThaiSpeech.setPreferredEngine(e.target.value);
+      ThaiSpeech.prepare().catch(error => console.error("Thai speech load failed", error));
     });
     $("exportDbBtn").addEventListener("click", async () => download(`med-database-${new Date().toISOString().slice(0,10)}.json`, JSON.stringify(await MedDB.exportAll()), "application/json"));
     $("importDbInput").addEventListener("change", async e => { try { await MedDB.importAll(JSON.parse(await e.target.files[0].text())); await loadData(); toast("นำเข้าฐานข้อมูลแล้ว"); } catch (err) { toast(err.message); } e.target.value = ""; });
