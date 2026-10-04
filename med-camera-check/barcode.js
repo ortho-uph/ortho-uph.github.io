@@ -1,6 +1,6 @@
 /*
  * MedBarcode — อ่านบาร์โค้ด / QR / GS1 DataMatrix จากภาพกล้อง (ทำงานในเครื่อง ไม่ต้องใช้เน็ต)
- * ใช้ zxing-wasm (โหลดจาก jsDelivr) เพราะ Chrome/Edge บน Windows ไม่มี BarcodeDetector ในตัว
+ * ใช้ zxing-wasm (ไฟล์ใน vendor/zxing; ถ้าไม่มีจึงโหลดจาก jsDelivr) เพราะ Chrome/Edge บน Windows ไม่มี BarcodeDetector ในตัว
  */
 (function () {
   "use strict";
@@ -22,18 +22,30 @@
     });
   }
 
+  // ใช้ไฟล์ใน vendor/zxing ของเว็บก่อน (เร็วกว่า และใช้ได้แม้เน็ตหลุด) ถ้าไม่มีค่อยโหลดจาก CDN
+  const LOCAL = new URL("vendor/zxing/", document.baseURI).href;
+
+  async function prepare(base) {
+    ZXingWASM.prepareZXingModule({
+      overrides: { locateFile: (path, prefix) => path.endsWith(".wasm") ? base + path.replace(/^.*\//, "") : prefix + path },
+      fireImmediately: true
+    });
+    canvas.width = 8; canvas.height = 8;
+    await ZXingWASM.readBarcodes(ctx.getImageData(0, 0, 8, 8), { formats: ["QRCode"] });
+  }
+
   function load() {
     if (ready) return ready;
     ready = (async () => {
-      // ถ้าไม่มีไฟล์ vendor/zxing ในเว็บ ให้โหลดจาก CDN แทน (ต้องต่ออินเทอร์เน็ต)
-      if (!window.ZXingWASM) await loadScript(CDN + "iife/reader/index.js");
-      if (!window.ZXingWASM) throw new Error("ไม่พบตัวอ่านบาร์โค้ด");
-      ZXingWASM.prepareZXingModule({
-        overrides: { locateFile: (path, prefix) => path.endsWith(".wasm") ? CDN + "reader/" + path : prefix + path },
-        fireImmediately: true
-      });
-      canvas.width = 8; canvas.height = 8;
-      await ZXingWASM.readBarcodes(ctx.getImageData(0, 0, 8, 8), { formats: ["QRCode"] });
+      try {
+        if (!window.ZXingWASM) await loadScript(LOCAL + "zxing-reader.js");
+        await prepare(LOCAL);
+      } catch (localError) {
+        console.warn("ใช้ zxing ในเครื่องไม่ได้ เปลี่ยนไปโหลดจาก CDN", localError);
+        if (!window.ZXingWASM) await loadScript(CDN + "iife/reader/index.js");
+        if (!window.ZXingWASM) throw new Error("ไม่พบตัวอ่านบาร์โค้ด");
+        await prepare(CDN + "reader/");
+      }
       return true;
     })().catch(error => { ready = null; throw error; });
     return ready;

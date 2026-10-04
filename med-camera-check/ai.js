@@ -36,7 +36,8 @@
 
   async function embedFromSource(source, zoom = 1) {
     const loaded = await load();
-    const canvas = MedVision.canvasForImage(source, 224, zoom);
+    // infer() อ่านพิกเซลทันที จึงใช้ canvas ซ้ำได้อย่างปลอดภัย
+    const canvas = MedVision.canvasForImage(source, 224, zoom, "embed");
     const tensor = loaded.infer(canvas, true);
     try { return normalize(await tensor.data()); }
     finally { tensor.dispose(); }

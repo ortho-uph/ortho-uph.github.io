@@ -256,7 +256,7 @@
 
   function schedule(delay = 60) {
     clearTimeout(state.live.timer);
-    if (state.live.running && !state.live.paused) state.live.timer = setTimeout(tick, delay);
+    if (state.live.running && !state.live.paused && !document.hidden) state.live.timer = setTimeout(tick, delay);
   }
 
   function resetLock() {
@@ -287,40 +287,58 @@
   }
 
   function stripEmbedding(f) { return f ? { ...f, embedding: null } : f; }
+  // สำเนาแบบไม่มี embedding ของภาพอ้างอิง เก็บไว้ใช้ซ้ำ (ไม่ต้องคัดลอกใหม่ทุกเฟรม)
+  const plainCache = new WeakMap();
+  function plainFeature(f) {
+    let p = plainCache.get(f);
+    if (!p) { p = stripEmbedding(f); plainCache.set(f, p); }
+    return p;
+  }
 
   function scoreImages(feature) {
     if (!feature?.embedding) return [];
     const idx = imageIndex || (imageIndex = buildIndex());
     if (!idx.entries.length) return [];
     const q = toF32(feature.embedding);
+    const dim = q.length;
+    // เก็บเฉพาะภาพที่ใกล้ที่สุดที่ต้องใช้ (top-3 ต่อยา และ top-7 รวม) แทนการเก็บทั้งหมดแล้ว sort
+    // ผลลัพธ์เท่าเดิม แต่เร็วขึ้นมากเมื่อมีภาพอ้างอิงหลายพันภาพ
     const perMed = new Map();
-    const all = [];
+    const topAll = [];   // เรียงจากมากไปน้อย ยาวไม่เกิน KNN_K
+    const insertTop = (arr, item, max) => {
+      if (arr.length >= max && item[0] <= arr[arr.length - 1][0]) return;
+      let i = arr.length;
+      while (i > 0 && arr[i - 1][0] < item[0]) i--;
+      arr.splice(i, 0, item);
+      if (arr.length > max) arr.pop();
+    };
     for (const e of idx.entries) {
       let c = 0; const a = e.emb;
-      for (let i = 0; i < a.length; i++) c += a[i] * q[i];
-      const s = Math.max(0, Math.min(1, (c - .4) / .6));
-      all.push([s, e]);
+      if (a.length !== dim) continue;
+      for (let i = 0; i < dim; i++) c += a[i] * q[i];
+      const s = c <= .4 ? 0 : c >= 1 ? 1 : (c - .4) / .6;
+      const item = [s, e];
+      insertTop(topAll, item, KNN_K);
       let m = perMed.get(e.med.id);
-      if (!m) { m = { med: e.med, list: [] }; perMed.set(e.med.id, m); }
-      m.list.push([s, e]);
+      if (!m) { m = { med: e.med, list: [], count: 0 }; perMed.set(e.med.id, m); }
+      m.count++;
+      insertTop(m.list, item, TOP_PER_MED);
     }
-    all.sort((x, y) => y[0] - x[0]);
     const votes = new Map();
-    for (const [, e] of all.slice(0, KNN_K)) votes.set(e.med.id, (votes.get(e.med.id) || 0) + 1);
+    for (const [, e] of topAll) votes.set(e.med.id, (votes.get(e.med.id) || 0) + 1);
     const plain = stripEmbedding(feature);
-    const ranked = [...perMed.values()].map(({ med, list }) => {
-      list.sort((x, y) => y[0] - x[0]);
-      const top = list.slice(0, TOP_PER_MED);
+    const ranked = [...perMed.values()].map(({ med, list, count }) => {
+      const top = list;
       const ai = top.reduce((t, x) => t + x[0], 0) / top.length;
       const v = votes.get(med.id) || 0;
-      const need = Math.min(4, Math.ceil(.6 * Math.min(KNN_K, list.length)));
+      const need = Math.min(4, Math.ceil(.6 * Math.min(KNN_K, count)));
       return { med, ai, side: list[0][1].side, votes: v, votesOk: v >= need };
     }).sort((a, b) => b.ai - a.ai);
     // ส่วนสี/ลาย (ไม่ใช่ AI) คิดเฉพาะยา 5 อันดับแรก เพื่อความเร็ว
     ranked.forEach((r, i) => {
       let legacy = 0;
-      if (i < 5) for (const ref of [...(r.med.frontRefs || []), ...(r.med.backRefs || [])]) {
-        if (ref.feature) legacy = Math.max(legacy, MedVision.compare(plain, stripEmbedding(ref.feature)));
+      if (i < 5) for (const refs of [r.med.frontRefs || [], r.med.backRefs || []]) {
+        for (const ref of refs) if (ref.feature) legacy = Math.max(legacy, MedVision.compare(plain, plainFeature(ref.feature)));
       }
       r.score = r.ai * .85 + legacy * .15;
     });
@@ -423,8 +441,12 @@
     }
 
     // 1) บาร์โค้ด
+    // ตอนกรอบว่าง (ไม่มียา) อ่านบาร์โค้ดแค่ทุก 3 เฟรม ลดภาระเครื่องตอนรอวางยา
+    // พอมีของวางอยู่ หรือยังไม่รู้ว่ามีของไหม จะอ่านทุกเฟรมเหมือนเดิม
+    live.idleTicks = presence === false ? (live.idleTicks || 0) + 1 : 0;
+    const scanBarcode = presence !== false || live.idleTicks % 3 === 1;
     let codes = [];
-    if (state.use.barcode && state.barcodeReady) {
+    if (state.use.barcode && state.barcodeReady && scanBarcode) {
       try { codes = await MedBarcode.scan(video, state.zoom); } catch (e) { console.warn(e); }
     }
     const hits = codes.map(c => ({ ...c, med: findByBarcode(c.code) }));
@@ -1175,6 +1197,12 @@
       else if (e.key === "r" || e.key === "R" || e.key === "ร") { const m = medById(state.live.lockedId); if (m) say(speechText(m), true); }
     });
     window.addEventListener("beforeunload", () => { MedSpeech.stop(); closeCamera(); });
+    // ย่อหน้าต่าง/สลับแท็บเบราว์เซอร์ → หยุดประมวลผลภาพชั่วคราว (กล้องยังเปิดอยู่) กลับมาแล้วตรวจต่อทันที
+    document.addEventListener("visibilitychange", () => {
+      if (!state.live.running) return;
+      if (document.hidden) { state.live.hiddenPause = true; clearTimeout(state.live.timer); }
+      else if (state.live.hiddenPause) { state.live.hiddenPause = false; schedule(0); }
+    });
   }
 
   function nextPiece() {

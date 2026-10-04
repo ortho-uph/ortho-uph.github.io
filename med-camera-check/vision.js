@@ -16,10 +16,23 @@
     return { sx: (sw - cropW) / 2, sy: (sh - cropH) / 2, cropW, cropH };
   }
 
-  function canvasForImage(source, size = SIZE, zoom = 1) {
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
+  // canvas ชั่วคราวที่ใช้ซ้ำทุกเฟรม (ลดการสร้าง canvas ใหม่ 3 อันต่อเฟรมตอนตรวจสด)
+  // ใช้ได้เฉพาะงานที่อ่านค่าออกทันทีแบบ synchronous เท่านั้น
+  const scratch = new Map();
+  function scratchCanvas(key, size) {
+    let c = scratch.get(key);
+    if (!c) {
+      c = document.createElement("canvas");
+      c.width = size; c.height = size;
+      scratch.set(key, c);
+    }
+    return c;
+  }
+
+  function canvasForImage(source, size = SIZE, zoom = 1, reuseKey = null) {
+    const canvas = reuseKey ? scratchCanvas(reuseKey, size) : document.createElement("canvas");
+    if (canvas.width !== size) canvas.width = size;
+    if (canvas.height !== size) canvas.height = size;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     const { sx, sy, cropW, cropH } = cropRect(source, zoom);
     ctx.drawImage(source, sx, sy, cropW, cropH, 0, 0, size, size);
@@ -27,7 +40,7 @@
   }
 
   function featureFromSource(source, zoom = 1) {
-    const canvas = canvasForImage(source, SIZE, zoom);
+    const canvas = canvasForImage(source, SIZE, zoom, "feature");
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     const data = ctx.getImageData(0, 0, SIZE, SIZE).data;
     const gray = new Float32Array(SIZE * SIZE);
@@ -84,7 +97,7 @@
 
     const hash = [];
     const hSize = 16;
-    const sample = canvasForImage(source, hSize + 1, zoom);
+    const sample = canvasForImage(source, hSize + 1, zoom, "hash");
     const sampleData = sample.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, hSize + 1, hSize).data;
     for (let y = 0; y < hSize; y++) {
       for (let x = 0; x < hSize; x++) {
