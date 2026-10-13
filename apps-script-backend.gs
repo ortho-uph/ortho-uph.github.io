@@ -313,12 +313,25 @@ function refillSheet_(){
   if(!sh)sh=ss.insertSheet('PharmacyRefill');
   return sh;
 }
-function refillLoad_(){
-  const raw=refillSheet_().getRange(1,1).getValue();
-  if(!raw)return [];
-  try{const rows=JSON.parse(raw);return Array.isArray(rows)?rows:[];}catch(err){return [];}
+/* หนึ่งแถวต่อหนึ่งรายการ (เดิมเก็บ JSON ทั้งหมดในเซลล์ A1 ซึ่งจำกัด 50,000 ตัวอักษร) */
+const REFILL_FIELDS=['id','publicToken','createdAt','updatedAt','hn','patient','drug','unit','quantity','prescribedQuantity','dispensedQuantity','availableDate','status','note','receiveMethod','recipientName','phone1','phone2','deliveryAddress','statusHistory'];
+function refillLegacyRaw_(sh){
+  const raw=String(sh.getRange(1,1).getValue()||'');
+  return raw.charAt(0)==='['?raw:'';
 }
-function refillSave_(items){refillSheet_().getRange(1,1).setValue(JSON.stringify(items));}
+function refillLoad_(){
+  const sh=refillSheet_(),legacy=refillLegacyRaw_(sh);
+  if(legacy){let rows;try{rows=JSON.parse(legacy);}catch(err){throw new Error('refill_data_corrupt');}return Array.isArray(rows)?rows:[];}
+  const last=sh.getLastRow();if(last<2)return [];
+  return sh.getRange(2,1,last-1,REFILL_FIELDS.length).getDisplayValues().map(function(row){const o={};REFILL_FIELDS.forEach(function(k,i){o[k]=row[i]||'';});try{o.statusHistory=JSON.parse(o.statusHistory||'[]');}catch(e){o.statusHistory=[];}return o;}).filter(function(o){return o.id;});
+}
+function refillSave_(items){
+  const sh=refillSheet_(),legacy=refillLegacyRaw_(sh);
+  if(legacy){const ss=SpreadsheetApp.getActiveSpreadsheet();const backup=ss.getSheetByName('PharmacyRefill_legacy')||ss.insertSheet('PharmacyRefill_legacy');backup.getRange(1,1).setValue(legacy);}
+  const rows=[REFILL_FIELDS].concat(items.map(function(o){return REFILL_FIELDS.map(function(k){return k==='statusHistory'?JSON.stringify(o.statusHistory||[]):String(o[k]==null?'':o[k]);});}));
+  sh.clearContents();
+  sh.getRange(1,1,rows.length,REFILL_FIELDS.length).setNumberFormat('@').setValues(rows);
+}
 function refillItem_(input,old){
   const fields=['hn','patient','drug','unit','quantity','prescribedQuantity','dispensedQuantity','availableDate','status','note','receiveMethod','recipientName','phone1','phone2','deliveryAddress'];
   const item={};fields.forEach(function(k){item[k]=pharmacyClean_(input&&input[k],(k==='note'||k==='deliveryAddress')?1200:250);});
