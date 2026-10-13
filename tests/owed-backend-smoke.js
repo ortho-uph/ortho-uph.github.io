@@ -187,4 +187,19 @@ assert.deepEqual(saved.holidays, [{ date: '2026-12-31', name: 'วันสิ�
 assert.deepEqual(post({ action: 'drugSave', session: s3, names: ['Tamsulosin 0.4 mg', 'tamsulosin 0.4 MG', ' '] }).names, ['Tamsulosin 0.4 mg']);
 assert.deepEqual(get({ action: 'drugList', session: s3 }).names, ['Tamsulosin 0.4 mg']);
 
+// คลินิก: มีค่าตั้งต้น ผู้ดูแลเพิ่ม/แก้ชื่อได้ ลบคลินิกที่ยังมีใบแจ้งไม่ได้
+assert.deepEqual(get({ action: 'list', session: s3 }).clinics.map(c => c.code), ['ORTHO', 'URO']);
+const staffOnly = post({ action: 'login', username: 'boss', password: 'recover1' });
+assert.equal(post({ action: 'userUpdate', session: staffOnly.session, id: staffId, role: 'staff' }).ok, 1);
+const s4 = post({ action: 'login', username: 'nurse.a', password: 'abcdef12' }).session;
+assert.equal(post({ action: 'clinicSave', session: s4, clinics: [{ code: 'MED', name: 'อายุรกรรม' }] }).err, 'forbidden', 'only admins edit clinics');
+const clinicSaved = post({ action: 'clinicSave', session: staffOnly.session, clinics: [{ code: 'ORTHO', name: 'กระดูกและข้อ' }, { code: 'URO', name: 'URO' }, { code: 'MED', name: 'อายุรกรรม' }, { code: 'med', name: 'ซ้ำ' }, { code: '', name: 'ไม่มีรหัส' }] });
+assert.deepEqual(clinicSaved.clinics, [{ code: 'ORTHO', name: 'กระดูกและข้อ' }, { code: 'URO', name: 'URO' }, { code: 'MED', name: 'อายุรกรรม' }]);
+assert.deepEqual(get({ action: 'list', session: s4 }).clinics, clinicSaved.clinics);
+const inUse = post({ action: 'clinicSave', session: staffOnly.session, clinics: [{ code: 'ORTHO', name: 'กระดูกและข้อ' }, { code: 'MED', name: 'อายุรกรรม' }] });
+assert.equal(inUse.err, 'clinic_in_use', 'URO still has slips');
+assert.deepEqual(inUse.codes, ['URO']);
+assert.equal(post({ action: 'clinicSave', session: staffOnly.session, clinics: [] }).err, 'clinic_required');
+assert(get({ action: 'auditList', session: staffOnly.session }).entries.some(e => e.action === 'clinic' && e.detail.includes('MED=อายุรกรรม')));
+
 console.log('Owed medication backend smoke tests passed');

@@ -282,7 +282,7 @@
       <form id="form" autocomplete="off">
         <div class="fs"><h3><i>1</i>ผู้ป่วย</h3>
           <div class="g2"><div class="f"><label>HN</label><input name="hn" maxlength="20" placeholder="เช่น 680003221" required></div><div class="f"><label>ชื่อ-นามสกุล</label><input name="patient" placeholder="ชื่อผู้ป่วย" required></div></div>
-          <div class="g3"><div class="f"><label>เบอร์โทรศัพท์</label><input name="phone1" inputmode="tel" placeholder="081-234-5678"></div><div class="f"><label>เบอร์สำรอง <span class="opt">(ถ้ามี)</span></label><input name="phone2" inputmode="tel"></div><div class="f"><label>คลินิก</label><input name="clinic" list="clinicList" required></div></div>
+          <div class="g3"><div class="f"><label>เบอร์โทรศัพท์</label><input name="phone1" inputmode="tel" placeholder="081-234-5678"></div><div class="f"><label>เบอร์สำรอง <span class="opt">(ถ้ามี)</span></label><input name="phone2" inputmode="tel"></div><div class="f"><label>คลินิก</label><select name="clinic" required></select></div></div>
         </div>
         <div class="fs"><h3><i>2</i>ยาที่จ่ายไม่ครบ <span class="opt" style="font-size:12px">(เพิ่มได้หลายรายการ)</span></h3>
           <div class="dgrid dhead"><span>รายการยา</span><span>หน่วย</span><span>แพทย์สั่ง</span><span>จ่ายแล้ว</span><span>ค้างจ่าย</span><span></span></div>
@@ -317,7 +317,7 @@
           <div class="filebar">📄 <div><b id="impName"></b><br><span id="impMeta" class="muted"></span></div><button type="button" id="impReset">เปลี่ยนไฟล์</button></div>
           <div class="maprow" id="impMap"></div>
           <div class="batch"><h4>ข้อมูลที่ใช้ร่วมกันทั้งชุด</h4><p>รายชื่อจะอยู่ในสถานะ “รอกรอกข้อมูล” แล้วค่อยกรอกรายการยาและวันนัดทีละคน · ยังไม่แจ้งผู้ป่วยจนกว่าจะพิมพ์ใบแจ้ง</p>
-            <div class="g4"><div class="f"><label>คลินิก</label><input id="impClinic" list="clinicList"></div><div class="f"><label>วิธีรับยา</label><select id="impMethod"><option value="self">มารับเอง</option><option value="mail">ส่งไปรษณีย์</option></select></div></div>
+            <div class="g4"><div class="f"><label>คลินิก</label><select id="impClinic"></select></div><div class="f"><label>วิธีรับยา</label><select id="impMethod"><option value="self">มารับเอง</option><option value="mail">ส่งไปรษณีย์</option></select></div></div>
           </div>
           <div class="istats" id="impStats"></div>
           <div class="itable"><table><thead><tr><th style="width:34px"><input type="checkbox" id="impAll" checked></th><th>HN</th><th>ชื่อ</th><th>เบอร์โทร</th><th>ที่อยู่</th><th>ตรวจสอบ</th></tr></thead><tbody id="impRows"></tbody></table></div>
@@ -345,7 +345,7 @@
     <section class="modal small blank" aria-label="พิมพ์ใบแจ้งเปล่า">
       <header><div><h2>🖨 พิมพ์ใบแจ้งเปล่า</h2><small>จองเลขที่และ QR ไว้ล่วงหน้า แล้วเขียนข้อมูลบนกระดาษก่อน ค่อยมากรอกในเว็บภายหลัง</small></div><button class="x" data-close type="button">✕</button></header>
       <div class="body">
-        <div class="g2"><div class="f"><label for="blankCount">จำนวนใบ</label><input id="blankCount" type="number" min="1" max="50" value="10"></div><div class="f"><label for="blankClinic">คลินิก</label><input id="blankClinic" list="clinicList"></div></div>
+        <div class="g2"><div class="f"><label for="blankCount">จำนวนใบ</label><input id="blankCount" type="number" min="1" max="50" value="10"></div><div class="f"><label for="blankClinic">คลินิก</label><select id="blankClinic"></select></div></div>
         <p class="warn" style="margin:4px 0 0">แต่ละใบได้เลขที่และ QR จริงทันที · ผู้ป่วยที่สแกนก่อนกรอกข้อมูลจะเห็นว่า “ห้องยากำลังจัดเตรียมข้อมูล” · เมื่อจะกรอก ให้พิมพ์เลขที่บนใบในช่องค้นหา</p>
       </div>
       <footer><span class="grow" id="blankFoot"></span><button class="btn btn-ghost" type="button" data-close>ยกเลิก</button><button class="btn btn-primary" type="button" id="blankGo" data-needs-db>จองเลขที่และพิมพ์</button></footer>
@@ -381,11 +381,16 @@
         <p class="muted" id="dbState" style="white-space:normal"></p>
         <div class="f" style="margin-top:18px"><label for="drugImport">นำเข้ารายชื่อยา (.txt หรือ .csv คอลัมน์แรกเป็นชื่อยา)</label><input id="drugImport" type="file" accept=".txt,.csv,text/plain,text/csv"></div>
         <p class="muted" id="drugState" style="white-space:normal"></p>
+        <div class="sec-title" style="margin-top:20px"><span>คลินิก</span></div>
+        <p class="staff-note">ดูรายชื่อคลินิกได้ การเพิ่ม แก้ชื่อ หรือลบเป็นสิทธิ์ของผู้ดูแล</p>
+        <div class="itable"><table class="utable"><thead><tr><th style="width:120px">ชื่อย่อ</th><th>ชื่อที่แสดง</th><th></th></tr></thead><tbody id="clinicRows"></tbody></table></div>
+        <div class="holadd admin-only" style="margin-top:10px;grid-template-columns:130px 1fr auto"><input id="clinicCode" maxlength="20" placeholder="ชื่อย่อ เช่น MED"><input id="clinicTitle" maxlength="80" placeholder="ชื่อที่แสดง เช่น อายุรกรรม"><button class="btn btn-primary" id="clinicAdd" type="button" data-needs-db>＋ เพิ่ม</button></div>
+        <p class="muted admin-only" style="white-space:normal;margin-top:6px">ชื่อย่อจะติดอยู่กับใบแจ้ง แก้ได้เฉพาะชื่อที่แสดง · ลบคลินิกที่ยังมีใบแจ้งอยู่ไม่ได้</p>
         <div class="f" style="margin-top:18px"><label for="senderText">ที่อยู่ผู้ส่งบนจ่าหน้าซอง <span class="opt">(บันทึกในเครื่องนี้)</span></label><textarea id="senderText" rows="3"></textarea></div>
       </div>
     </section>
   </div>
-  <datalist id="drugList"></datalist><datalist id="clinicList"></datalist>
+  <datalist id="drugList"></datalist>
   <div class="toast" id="toast" role="status"></div>
   <style id="pageSize">@media print{@page{size:A4 portrait;margin:0}}</style>
 
@@ -395,7 +400,7 @@
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     /* ===== สถานะของหน้า ===== */
-    const state = { items: [], holidays: [], drugNames: [], filter: 'all', sel: null, online: false, busy: false };
+    const state = { items: [], holidays: [], clinics: [], drugNames: [], filter: 'all', sel: null, online: false, busy: false };
     let zipIndex = null, imp = null, editing = null, formDrugs = [], formRounds = [];
 
     function toast(text, isError) { const el = $('#toast'); el.textContent = text; el.className = 'toast show' + (isError ? ' err' : ''); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), isError ? 6000 : 3500); }
@@ -433,7 +438,7 @@
       if (!response.ok || !data.ok) throw new Error(data.err || data.error || 'connection_failed');
       return data;
     }
-    const ERRORS = { forbidden: 'สิทธิ์ไม่พอ ต้องเป็นผู้ดูแล', wrong_password: 'รหัสผ่านปัจจุบันไม่ถูกต้อง', invalid_password: 'รหัสผ่านต้องยาว 6–64 ตัวอักษร', invalid_username: 'ชื่อผู้ใช้ใช้ได้เฉพาะ a-z 0-9 . _ - ยาว 3–30 ตัว', invalid_name: 'กรุณาใส่ชื่อที่แสดง', username_taken: 'ชื่อผู้ใช้นี้มีอยู่แล้ว', cannot_change_self: 'ระงับหรือลดสิทธิ์ตัวเองไม่ได้', locked: 'ใส่รหัสผิดหลายครั้ง ชื่อผู้ใช้นี้ถูกล็อก 15 นาที', central_timeout: 'ฐานข้อมูลกลางตอบช้า กรุณาลองใหม่', unauthorized: 'สิทธิ์เข้าใช้หมดอายุ กรุณาเข้าสู่ระบบใหม่', deployment_not_found: 'ไม่พบ Deployment ของ Apps Script', 'unknown action': 'Apps Script ยังเป็นเวอร์ชันเก่า กรุณา Deploy เป็น New version', not_found: 'ไม่พบรายการนี้ในฐานข้อมูลกลาง' };
+    const ERRORS = { clinic_in_use: 'ลบไม่ได้ เพราะยังมีใบแจ้งของคลินิกนี้อยู่', clinic_required: 'ต้องมีอย่างน้อย 1 คลินิก', forbidden: 'สิทธิ์ไม่พอ ต้องเป็นผู้ดูแล', wrong_password: 'รหัสผ่านปัจจุบันไม่ถูกต้อง', invalid_password: 'รหัสผ่านต้องยาว 6–64 ตัวอักษร', invalid_username: 'ชื่อผู้ใช้ใช้ได้เฉพาะ a-z 0-9 . _ - ยาว 3–30 ตัว', invalid_name: 'กรุณาใส่ชื่อที่แสดง', username_taken: 'ชื่อผู้ใช้นี้มีอยู่แล้ว', cannot_change_self: 'ระงับหรือลดสิทธิ์ตัวเองไม่ได้', locked: 'ใส่รหัสผิดหลายครั้ง ชื่อผู้ใช้นี้ถูกล็อก 15 นาที', central_timeout: 'ฐานข้อมูลกลางตอบช้า กรุณาลองใหม่', unauthorized: 'สิทธิ์เข้าใช้หมดอายุ กรุณาเข้าสู่ระบบใหม่', deployment_not_found: 'ไม่พบ Deployment ของ Apps Script', 'unknown action': 'Apps Script ยังเป็นเวอร์ชันเก่า กรุณา Deploy เป็น New version', not_found: 'ไม่พบรายการนี้ในฐานข้อมูลกลาง' };
     const errText = e => ERRORS[e && e.message] || 'ติดต่อฐานข้อมูลกลางไม่ได้ (' + (e && e.message || 'unknown') + ')';
     function setOnline(online, message) {
       state.online = online;
@@ -449,7 +454,7 @@
       try {
         const data = await call('list');
         if (seq !== loadSeq) return state.items;
-        state.items = data.items || []; state.holidays = data.holidays || []; if (data.me) setUser(data.me);
+        state.items = data.items || []; state.holidays = data.holidays || []; state.clinics = data.clinics || [{ code: 'ORTHO', name: 'ศัลยกรรมกระดูกและข้อ' }, { code: 'URO', name: 'ระบบทางเดินปัสสาวะ (URO)' }]; if (data.me) setUser(data.me);
         setOnline(true); render(); loadDrugNames().catch(() => {});
         return state.items;
       } catch (error) {
@@ -598,12 +603,15 @@
     const statusUrl = i => new URL('status.html?token=' + encodeURIComponent(i.publicToken), location.href).toString();
 
     /* ===== หน้าหลัก: ตาราง + แผงรายละเอียด ===== */
+    const clinicName = code => (state.clinics.find(c => c.code === code) || {}).name || code || '-';
+    const clinicCodes = () => [...new Set([...state.clinics.map(c => c.code), ...state.items.map(i => i.clinic).filter(Boolean)])];
+    function fillClinics(select) { const keep = select.value; select.innerHTML = clinicCodes().map(c => `<option value="${esc(c)}">${esc(c)} · ${esc(clinicName(c))}</option>`).join(''); if (keep) select.value = keep; }
     function renderDatalists() {
       $('#drugList').innerHTML = [...new Set([...state.drugNames, ...state.items.flatMap(i => i.drugs.map(d => d.name))])].sort((a, b) => a.localeCompare(b, 'th')).map(n => `<option value="${esc(n)}">`).join('');
-      const clinics = [...new Set([...Object.keys(C.CLINICS), ...state.items.map(i => i.clinic).filter(Boolean)])];
-      $('#clinicList').innerHTML = clinics.map(c => `<option value="${esc(c)}">${esc(C.clinicName(c))}</option>`).join('');
+      const clinics = clinicCodes();
+      ['#impClinic', '#blankClinic', '#form [name=clinic]'].forEach(sel => fillClinics($(sel)));
       const current = $('#clinic').value || localStorage.getItem(KEYS.clinic) || 'all';
-      $('#clinic').innerHTML = `<option value="all">ทุกคลินิก</option>` + clinics.map(c => `<option value="${esc(c)}">${esc(C.clinicName(c))}</option>`).join('');
+      $('#clinic').innerHTML = `<option value="all">ทุกคลินิก</option>` + clinics.map(c => `<option value="${esc(c)}">${esc(clinicName(c))}</option>`).join('');
       $('#clinic').value = clinics.includes(current) ? current : 'all';
     }
     function render() {
@@ -701,7 +709,7 @@
       const f = F(); f.reset(); editing = item ? item.id : null; $('#zipHint').textContent = '';
       $('#dTitle').textContent = !item ? 'บันทึกยาค้างจ่าย' : (C.isDraft(item) ? 'กรอกข้อมูลยา · ' : 'แก้ไขใบแจ้ง ') + item.id;
       $('#dSub').textContent = item && isBlank(item) ? 'ใบที่พิมพ์ไว้ล่วงหน้า กรอกตามที่เขียนบนกระดาษ เลขที่และ QR คงเดิม' : !item ? 'เลขที่ใบแจ้งและ QR สร้างให้อัตโนมัติเมื่อบันทึก' : C.isDraft(item) ? 'ข้อมูลผู้ป่วยมาจาก Excel แล้ว เหลือกรอกรายการยาและวันนัด' : 'QR เดิมยังใช้ได้ ผู้ป่วยเห็นข้อมูลใหม่ทันทีหลังบันทึก';
-      f.clinic.value = item ? item.clinic : ($('#clinic').value === 'all' ? 'ORTHO' : $('#clinic').value);
+      fillClinics(f.clinic); f.clinic.value = item ? item.clinic : ($('#clinic').value === 'all' ? (state.clinics[0] || {}).code || '' : $('#clinic').value);
       if (item) ['hn', 'patient', 'phone1', 'phone2', 'address', 'recipientName', 'note'].forEach(k => { f[k].value = item[k] || ''; });
       f.firstDate.value = (item && item.firstDate) || C.today();
       f.receiveMethod.value = item ? item.receiveMethod : 'self';
@@ -811,7 +819,7 @@
         seen.add(hn); return row;
       });
       const clinicFromName = /uro/i.test(fileName) ? 'URO' : /ortho|กระดูก/i.test(fileName) ? 'ORTHO' : ($('#clinic').value === 'all' ? '' : $('#clinic').value);
-      imp = { fileName, map, head, rows }; $('#impClinic').value = clinicFromName;
+      imp = { fileName, map, head, rows }; fillClinics($('#impClinic')); $('#impClinic').value = clinicCodes().includes(clinicFromName) ? clinicFromName : clinicCodes()[0] || '';
       renderImport();
     }
     function renderImport() {
@@ -833,7 +841,7 @@
         data.items.slice().reverse().forEach(upsert);
         overlay(null); localStorage.setItem(KEYS.clinic, clinic); $('#clinic').value = clinic; state.filter = 'draft'; state.sel = data.items[0].id;
         const first = data.items[0].id, last = data.items[data.items.length - 1].id;
-        toast(`✓ นำเข้า ${data.items.length} รายชื่อ (${first === last ? first : first + '–' + last}) เข้าคลินิก ${C.clinicName(clinic)} แล้ว`);
+        toast(`✓ นำเข้า ${data.items.length} รายชื่อ (${first === last ? first : first + '–' + last}) เข้าคลินิก ${clinicName(clinic)} แล้ว`);
       });
     }
     $('#impBtn').onclick = openImport; $('#impReset').onclick = openImport; $('#impGo').onclick = runImport;
@@ -867,7 +875,7 @@
       const person = (name ? at(9.6, i.receiveMethod === 'mail' ? 22.85 : 14.1, '', esc(name), 'width:26%') : '')
         + at(12.4, 28.8, '', esc(i.phone1)) + at(12.4, 31.65, '', esc(i.phone2)) + at(5.6, 37.0, 'addr', esc(i.address), 'width:41.5%');
       const ids = at(9.6, 7.75, 'b', esc(i.id)) + at(86.9, 57.85, 'b', esc(i.id));
-      const staffLine = i.hn || i.patient ? `<div class="pf box" style="left:49.3%;top:27.2%;width:45%"><b>${esc(i.patient)} · HN ${esc(i.hn)} · ${esc(C.clinicName(i.clinic))}</b></div>` : '';
+      const staffLine = i.hn || i.patient ? `<div class="pf box" style="left:49.3%;top:27.2%;width:45%"><b>${esc(i.patient)} · HN ${esc(i.hn)} · ${esc(clinicName(i.clinic))}</b></div>` : '';
       if (C.isDraft(i)) return `<div class="ps-sheet"><img class="ps-bg" src="assets/notice-template.png" alt="">${ids}${person}${staffLine}${qr}</div>`;
       const r = C.curRound(i);
       const list = f => esc(i.drugs.map((d, j) => `${d.name} ${f(d, j)} ${d.unit}`).join(' · '));
@@ -880,7 +888,7 @@
         + (i.drugs.length === 1
           ? at(16.6, 44.4, 'sm', list(d => d.rx), 'width:30.5%') + at(11.4, 46.9, 'sm', list((d, j) => C.receivedOf(i, j)), 'width:35.5%') + at(12.6, 49.4, 'sm', list((d, j) => C.leftOf(i, j)), 'width:34.5%')
           : at(16.6, 44.4, 'sm', `ยา ${i.drugs.length} รายการ · ดูตารางด้านขวา`, 'width:30.5%'))
-        + `<div class="pf box" style="left:49.3%;top:27.2%;width:45%"><b>${esc(i.patient)} · HN ${esc(i.hn)} · ${esc(C.clinicName(i.clinic))}</b>${drugTable}<b style="margin-top:6px">นัดรับยาส่วนที่เหลือ</b>${roundTable}</div>`
+        + `<div class="pf box" style="left:49.3%;top:27.2%;width:45%"><b>${esc(i.patient)} · HN ${esc(i.hn)} · ${esc(clinicName(i.clinic))}</b>${drugTable}<b style="margin-top:6px">นัดรับยาส่วนที่เหลือ</b>${roundTable}</div>`
         + at(18.9, 65.4, 'b lg', r ? C.dateDay(r.date) : '')
         + qr
         + `<div class="pf box" style="left:22%;top:75.4%;width:73%"><b>ตารางนัดรับยาส่วนที่เหลือ · ${esc(name)}</b>${roundTable}</div></div>`;
@@ -923,7 +931,7 @@
     $('#senderText').addEventListener('change', e => { localStorage.setItem(KEYS.sender, e.target.value.trim()); toast('✓ บันทึกที่อยู่ผู้ส่งแล้ว'); });
 
     /* ===== ใบเปล่า: จองเลขที่และ QR ไว้ก่อน แล้วพิมพ์ทั้งชุด ===== */
-    $('#blankBtn').onclick = () => { $('#blankClinic').value = $('#clinic').value === 'all' ? '' : $('#clinic').value; $('#blankFoot').textContent = ''; overlay('blank'); };
+    $('#blankBtn').onclick = () => { fillClinics($('#blankClinic')); if ($('#clinic').value !== 'all') $('#blankClinic').value = $('#clinic').value; $('#blankFoot').textContent = ''; overlay('blank'); };
     $('#blankGo').onclick = () => {
       const count = Math.floor(+$('#blankCount').value || 0), clinic = $('#blankClinic').value.trim();
       if (count < 1 || count > 50) { toast('จำนวนใบต้องอยู่ระหว่าง 1–50', true); return; }
@@ -937,7 +945,25 @@
     };
 
     /* ===== ตั้งค่า ===== */
-    $('#settingsBtn').onclick = () => { $('#dbUrl').value = endpoint(); $('#senderText').value = senderText(); overlay('settings'); };
+    $('#settingsBtn').onclick = () => { $('#dbUrl').value = endpoint(); $('#senderText').value = senderText(); renderClinics(); overlay('settings'); };
+
+    /* ===== คลินิก (ตั้งค่า · ผู้ดูแลแก้ได้) ===== */
+    function renderClinics() {
+      const used = new Set(state.items.map(i => i.clinic));
+      $('#clinicRows').innerHTML = state.clinics.map((c, k) => `<tr><td class="ref">${esc(c.code)}</td><td>${isAdmin() ? `<input data-cname="${k}" value="${esc(c.name)}" maxlength="80" style="width:100%;padding:6px 9px;border:1px solid #d9dce5;border-radius:8px">` : esc(c.name)}</td><td style="text-align:right;white-space:nowrap"><span class="muted">${used.has(c.code) ? state.items.filter(i => i.clinic === c.code).length + ' ใบ' : ''}</span> <button class="act admin-only" type="button" data-cdel="${k}" ${used.has(c.code) ? 'disabled title="ยังมีใบแจ้งของคลินิกนี้"' : ''}>ลบ</button></td></tr>`).join('') || '<tr><td colspan="3" class="muted">ยังไม่มีคลินิก</td></tr>';
+    }
+    const saveClinics = (list, message) => mutate('clinicSave', { clinics: list }, data => { state.clinics = data.clinics; renderClinics(); toast(message); });
+    $('#clinicAdd').onclick = () => {
+      const code = $('#clinicCode').value.trim(), name = $('#clinicTitle').value.trim();
+      if (!code || !name) { toast('กรุณาใส่ทั้งชื่อย่อและชื่อที่แสดง', true); return; }
+      if (state.clinics.some(c => c.code.toLowerCase() === code.toLowerCase())) { toast('มีชื่อย่อนี้แล้ว', true); return; }
+      saveClinics(state.clinics.concat({ code, name }), `✓ เพิ่มคลินิก ${code} · ${name} แล้ว`).then(r => { if (r !== null) { $('#clinicCode').value = ''; $('#clinicTitle').value = ''; } });
+    };
+    $('#clinicRows').addEventListener('change', e => {
+      const k = e.target.dataset.cname; if (k === undefined) return;
+      const name = e.target.value.trim(); if (!name) { renderClinics(); return; }
+      saveClinics(state.clinics.map((c, j) => (j === +k ? { code: c.code, name } : c)), `✓ เปลี่ยนชื่อเป็น ${name} แล้ว`);
+    });
     $('#dbSave').onclick = () => { localStorage.setItem(KEYS.endpoint, $('#dbUrl').value.trim()); $('#dbState').textContent = 'กำลังเชื่อมต่อ…'; loadRemote().then(() => toast('✓ เชื่อมต่อฐานข้อมูลกลางแล้ว')).catch(() => {}); };
     $('#dbRefresh').onclick = () => loadRemote().then(() => toast('✓ ดึงข้อมูลล่าสุดแล้ว')).catch(() => {});
     $('#drugImport').addEventListener('change', async event => {
@@ -950,10 +976,11 @@
 
     /* ===== เหตุการณ์ ===== */
     document.addEventListener('click', e => {
-      const t = e.target.closest('[data-close],[data-filter],[data-move],[data-open],[data-edit],[data-print],[data-delete],[data-delround],[data-deldrug],[data-fixday],[data-delhol],[data-printdrafts],[data-label],[data-labels],[data-utab],[data-ureset],[data-uactive]');
+      const t = e.target.closest('[data-close],[data-filter],[data-move],[data-open],[data-edit],[data-print],[data-delete],[data-delround],[data-deldrug],[data-fixday],[data-delhol],[data-printdrafts],[data-label],[data-labels],[data-utab],[data-ureset],[data-uactive],[data-cdel]');
       if (!t) return;
       const d = t.dataset;
       if (t.hasAttribute('data-close')) overlay(null);
+      else if (d.cdel) { const c = state.clinics[+d.cdel]; if (confirm(`ลบคลินิก ${c.code} · ${c.name}?`)) saveClinics(state.clinics.filter(x => x !== c), `✓ ลบคลินิก ${c.code} แล้ว`); }
       else if (d.utab) loadUsersTab(d.utab);
       else if (d.ureset) {
         const u = users.find(x => x.id === d.ureset), password = prompt(`ตั้งรหัสผ่านใหม่ให้ ${u.name} (${u.username})\nอย่างน้อย 6 ตัว แล้วแจ้งให้เจ้าตัวเปลี่ยนเองภายหลัง`);

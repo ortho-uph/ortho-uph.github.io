@@ -9,8 +9,6 @@ const RefillCore = (() => {
     delivery: 'จัดส่งแล้ว',
     received: 'รับครบแล้ว',
   };
-  const CLINICS = { ORTHO: 'ศัลยกรรมกระดูกและข้อ', URO: 'ระบบทางเดินปัสสาวะ (URO)' };
-  const clinicName = code => CLINICS[code] || code || '-';
 
   const isDraft = s => !s.drugs.length || !s.rounds.length;
   const cur = s => s.rounds.findIndex(r => r.status !== 'received');
@@ -143,7 +141,7 @@ const RefillCore = (() => {
   }
 
   return {
-    STATUS, CLINICS, clinicName, isDraft, cur, curRound, status, leftOf, receivedOf, roundItems, next,
+    STATUS, isDraft, cur, curRound, status, leftOf, receivedOf, roundItems, next,
     today, addDays, daysBetween, dateShort, dateDay, dateLong, isDue, offReason, nextWorkday, planRounds,
     patientView, patientHeadline, cleanText, cleanAddress, cleanPhone, parseAddress, buildZipIndex, findZip,
   };

@@ -37,7 +37,7 @@ function writeTable_(name,fields,rows){
 /* ===== คำสั่งทั้งหมดพร้อมสิทธิ์ที่ต้องมี: public (ไม่ต้องล็อกอิน) · staff (ผู้ใช้ทุกคนที่เปิดใช้งาน) · admin ===== */
 const GET_ACTIONS={
   patient:{role:'public',fn:function(p){return patient_(p.token);}},
-  list:{role:'staff',fn:function(p,u){return {ok:1,items:load_(),holidays:holidays_(),me:publicUser_(u)};}},
+  list:{role:'staff',fn:function(p,u){return {ok:1,items:load_(),holidays:holidays_(),clinics:clinics_(),me:publicUser_(u)};}},
   drugList:{role:'staff',fn:function(){return {ok:1,names:drugNames_()};}},
   userList:{role:'admin',fn:function(){return {ok:1,users:users_().map(publicUser_)};}},
   auditList:{role:'admin',fn:function(){return {ok:1,entries:auditList_()};}}
@@ -53,6 +53,7 @@ const POST_ACTIONS={
   drugSave:{role:'staff',fn:function(r,u){return drugSave_(r.names,u);}},
   'delete':{role:'admin',fn:function(r,u){return remove_(r.id,u);}},
   holidaySave:{role:'admin',fn:function(r,u){return holidaySave_(r.holidays,u);}},
+  clinicSave:{role:'admin',fn:function(r,u){return clinicSave_(r.clinics,u);}},
   userCreate:{role:'admin',fn:function(r,u){return userCreate_(r,u);}},
   userUpdate:{role:'admin',fn:function(r,u){return userUpdate_(r,u);}},
   userResetPassword:{role:'admin',fn:function(r,u){return userResetPassword_(r,u);}}
@@ -294,6 +295,29 @@ function patient_(token){
   if(!item)return {ok:0,err:'not_found'};
   return {ok:1,item:{id:item.id,patient:mask_(item.patient),receiveMethod:item.receiveMethod,note:item.note,firstDate:item.firstDate,
     drugs:item.drugs.map(function(d){return {name:d.name,unit:d.unit,got:d.got};}),rounds:item.rounds,updatedAt:item.updatedAt}};
+}
+
+/* ===== คลินิก: แท็บ Clinics (code, name) · code คือค่าที่เก็บในใบแจ้ง name คือชื่อที่แสดง ===== */
+const DEFAULT_CLINICS=[['ORTHO','ศัลยกรรมกระดูกและข้อ'],['URO','ระบบทางเดินปัสสาวะ (URO)']];
+function clinics_(){
+  if(sheet_('Clinics').getLastRow()===0)writeTable_('Clinics',['code','name'],DEFAULT_CLINICS.map(function(c){return {code:c[0],name:c[1]};}));
+  return readTable_('Clinics').map(function(c){return {code:clean_(c.code,20),name:clean_(c.name,80)};}).filter(function(c){return c.code&&c.name;});
+}
+function clinicSave_(input,actor){
+  const seen={};
+  const list=(Array.isArray(input)?input:[]).slice(0,100).map(function(c){c=c||{};return {code:clean_(c.code,20),name:clean_(c.name,80)};})
+    .filter(function(c){const k=c.code.toLowerCase();if(!c.code||!c.name||seen[k])return false;seen[k]=1;return true;});
+  if(!list.length)return {ok:0,err:'clinic_required'};
+  return withLock_(function(){
+    // ห้ามลบคลินิกที่ยังมีใบแจ้งอยู่ ไม่งั้นใบแจ้งเหล่านั้นจะไม่มีคลินิกให้เลือก
+    const keep={};list.forEach(function(c){keep[c.code]=1;});
+    const used=load_().map(function(s){return s.clinic;}).filter(function(code,i,all){return code&&!keep[code]&&all.indexOf(code)===i;});
+    if(used.length)return {ok:0,err:'clinic_in_use',codes:used};
+    const before=clinics_().map(function(c){return c.code+'='+c.name;}).join(', ');
+    writeTable_('Clinics',['code','name'],list);
+    audit_(actor,'clinic','','บันทึกคลินิก '+list.map(function(c){return c.code+'='+c.name;}).join(', ')+' (เดิม '+before+')');
+    return {ok:1,clinics:list};
+  });
 }
 
 /* ===== วันหยุดราชการ: แท็บ Holidays (date, name) แก้ได้จากหน้าเว็บ (ผู้ดูแล) หรือในชีต ===== */
