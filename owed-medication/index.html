@@ -44,7 +44,19 @@
     .btn-ghost{background:#f1f1f6}.btn-ghost:hover:not(:disabled){background:#e7e7ef}
     .btn-outline{background:#fff;border:1px solid #d9cbea;color:var(--brand)}
     .btn-danger{background:#fff0f0;color:#a62e2e}
-    .bar-end{margin-left:auto;display:flex;gap:6px}
+    .bar-end{margin-left:auto;display:flex;gap:6px;align-items:center}
+    .me{font-size:13px;font-weight:700;white-space:nowrap;margin-right:4px}
+    .role{display:inline-block;margin-left:4px;padding:1px 7px;border-radius:999px;font-size:11.5px;font-weight:800}
+    .role-admin{background:var(--brand);color:#fff}.role-staff{background:#eef0f5;color:#4b5163}
+    body:not(.is-admin) .admin-only{display:none!important}
+    .staff-note{display:none;margin:0 0 10px;color:var(--muted);font-size:13px}body:not(.is-admin) .staff-note{display:block}
+    .tabs{display:flex;gap:6px;margin-bottom:14px}.tabs button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:7px 14px;font-weight:700}.tabs button.on{border-color:var(--brand);background:var(--brand-soft);color:var(--brand)}
+    .uadd{display:grid;grid-template-columns:1.2fr 1fr .8fr 1fr auto;gap:8px;align-items:end;padding:12px;border-radius:12px;background:#f6f2fb;margin-bottom:14px}
+    .uadd .f{margin:0}.uadd .btn{height:42px}
+    .utable td,.utable th{font-size:13.5px}.utable select{padding:6px 8px;border:1px solid #d9dce5;border-radius:8px}
+    .hist{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:12px;max-height:220px;overflow:auto}
+    .hist li{padding:8px 12px;border-bottom:1px solid #f0f1f5;font-size:13px;line-height:1.45}.hist li:last-child{border:0}
+    .hist time{color:var(--muted);font-variant-numeric:tabular-nums;margin-right:6px}
     .icon-btn{border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 10px;font-weight:700;font-size:13px;color:var(--muted);white-space:nowrap}
 
     .conn{margin:0 0 14px;padding:11px 15px;border-radius:12px;background:#fff1e0;color:#8a4b00;font-weight:600}
@@ -124,9 +136,9 @@
     .drawer{position:fixed;top:0;right:0;bottom:0;width:min(780px,100%);background:#fff;z-index:61;transform:translateX(100%);transition:.25s ease;display:flex;flex-direction:column;box-shadow:-12px 0 40px #1a123026}
     .modal{position:fixed;left:50%;top:50%;width:min(1040px,94vw);max-height:92vh;transform:translate(-50%,-46%);opacity:0;pointer-events:none;transition:.22s;background:#fff;border-radius:20px;z-index:61;display:flex;flex-direction:column;box-shadow:0 30px 80px #1a12304d}
     .modal.small{width:min(680px,94vw)}.modal.print{width:min(900px,96vw)}
-    .ov-drawer .scrim,.ov-imp .scrim,.ov-hol .scrim,.ov-print .scrim,.ov-settings .scrim,.ov-blank .scrim{opacity:1;pointer-events:auto}
+    .ov-drawer .scrim,.ov-imp .scrim,.ov-hol .scrim,.ov-print .scrim,.ov-settings .scrim,.ov-blank .scrim,.ov-users .scrim,.ov-pass .scrim{opacity:1;pointer-events:auto}
     .ov-drawer .drawer{transform:none}
-    .ov-imp .modal.imp,.ov-hol .modal.hol,.ov-print .modal.print,.ov-settings .modal.settings,.ov-blank .modal.blank{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
+    .ov-imp .modal.imp,.ov-hol .modal.hol,.ov-print .modal.print,.ov-settings .modal.settings,.ov-blank .modal.blank,.ov-users .modal.users,.ov-pass .modal.pass{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
     .drawer header,.modal header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 24px;border-bottom:1px solid var(--line)}
     .drawer header h2,.modal header h2{margin:0;font-size:19px}.drawer header small,.modal header small{color:var(--muted)}
     .x{border:0;background:#f1f1f6;width:34px;height:34px;border-radius:10px;font-size:18px;flex:none}
@@ -232,10 +244,10 @@
   <section class="access-gate" id="accessGate" aria-label="เข้าสู่ระบบเจ้าหน้าที่">
     <div class="access-box">
       <h1>เข้าสู่ระบบเจ้าหน้าที่</h1>
-      <p>กรอก PIN เพื่อจัดการข้อมูลยาค้างจ่าย</p>
-      <form id="accessForm"><label for="accessCode">PIN 4–8 หลัก</label><input id="accessCode" type="password" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="current-password" required autofocus><button class="btn btn-primary" type="submit" style="width:100%;margin-top:16px">เข้าสู่ระบบ</button><p class="access-error" id="accessError" role="alert"></p></form>
-      <button class="link-btn" id="togglePinSetup" type="button">ตั้งหรือเปลี่ยน PIN</button>
-      <form class="pin-setup" id="pinSetupForm" hidden><p>ใช้ API key ยืนยันสิทธิ์เพียงครั้งเดียว</p><label for="setupUrl">Web App URL</label><input id="setupUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" required><label for="setupApiKey">API key</label><input id="setupApiKey" type="password" autocomplete="off" required><label for="newPin">PIN ใหม่ 4–8 หลัก</label><input id="newPin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" required><label for="confirmPin">ยืนยัน PIN ใหม่</label><input id="confirmPin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" required><button class="btn btn-primary" type="submit" style="width:100%;margin-top:16px">บันทึก PIN ใหม่</button><p class="access-error" id="pinSetupError" role="alert"></p></form>
+      <p>ใช้ชื่อผู้ใช้และรหัสผ่านของตัวเอง</p>
+      <form id="accessForm"><label for="loginUser">ชื่อผู้ใช้</label><input id="loginUser" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus><label for="loginPass">รหัสผ่าน</label><input id="loginPass" type="password" autocomplete="current-password" required><button class="btn btn-primary" type="submit" style="width:100%;margin-top:16px">เข้าสู่ระบบ</button><p class="access-error" id="accessError" role="alert"></p></form>
+      <button class="link-btn" id="toggleSetup" type="button">ตั้งผู้ดูแลคนแรก / กู้คืนผู้ดูแล (ใช้ API key)</button>
+      <form class="pin-setup" id="setupForm" hidden><p>ใช้ตอนเริ่มระบบครั้งแรก หรือเมื่อผู้ดูแลลืมรหัส ต้องใช้ API key จาก Script Properties ของ Apps Script</p><label for="setupUrl">Web App URL</label><input id="setupUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" required><label for="setupApiKey">API key</label><input id="setupApiKey" type="password" autocomplete="off" required><label for="setupName">ชื่อผู้ดูแล</label><input id="setupName" placeholder="เช่น ภก.ณกมล" required><label for="setupUser">ชื่อผู้ใช้</label><input id="setupUser" autocapitalize="none" spellcheck="false" placeholder="อังกฤษ/ตัวเลข/ . _ - อย่างน้อย 3 ตัว" required><label for="setupPass">รหัสผ่าน (อย่างน้อย 6 ตัว)</label><input id="setupPass" type="password" autocomplete="new-password" minlength="6" required><label for="setupPass2">ยืนยันรหัสผ่าน</label><input id="setupPass2" type="password" autocomplete="new-password" minlength="6" required><button class="btn btn-primary" type="submit" style="width:100%;margin-top:16px">บันทึกผู้ดูแลและเข้าสู่ระบบ</button><p class="access-error" id="setupError" role="alert"></p></form>
     </div>
   </section>
 
@@ -247,7 +259,7 @@
     <button class="btn btn-outline" id="blankBtn" type="button" data-needs-db>🖨 พิมพ์ใบเปล่า</button>
     <button class="btn btn-outline" id="impBtn" type="button" data-needs-db>⇪ นำเข้าจาก Excel</button>
     <button class="btn btn-primary" id="newBtn" type="button" data-needs-db>＋ บันทึกยาค้างจ่าย</button>
-    <div class="bar-end"><button class="icon-btn" id="settingsBtn" type="button" title="ตั้งค่าการเชื่อมต่อและรายชื่อยา">⚙ ตั้งค่า</button><button class="icon-btn" id="changeCodeBtn" type="button">เปลี่ยน PIN</button><button class="icon-btn" id="logoutBtn" type="button">ออกจากระบบ</button></div>
+    <div class="bar-end"><span class="me" id="me"></span><button class="icon-btn" id="usersBtn" type="button" hidden>👥 ผู้ใช้</button><button class="icon-btn" id="settingsBtn" type="button" title="ตั้งค่าการเชื่อมต่อ รายชื่อยา และที่อยู่ผู้ส่ง">⚙ ตั้งค่า</button><button class="icon-btn" id="passBtn" type="button">🔑 รหัสผ่าน</button><button class="icon-btn" id="logoutBtn" type="button">ออกจากระบบ</button></div>
   </header>
 
   <main class="page">
@@ -317,7 +329,8 @@
     <section class="modal small hol" aria-label="วันหยุดราชการ">
       <header><div><h2>📅 วันหยุดราชการ</h2><small>ตอนสร้างตารางนัด ระบบเลี่ยงวันเสาร์–อาทิตย์และวันในรายการนี้ให้อัตโนมัติ</small></div><button class="x" data-close type="button">✕</button></header>
       <div class="body">
-        <div class="holadd"><input type="date" id="holDate"><input id="holName" placeholder="ชื่อวันหยุด เช่น วันมาฆบูชา หรือวันหยุดพิเศษตามมติ ครม."><button class="btn btn-primary" id="holAdd" type="button" data-needs-db>＋ เพิ่ม</button></div>
+        <p class="staff-note">ดูรายการวันหยุดได้ การเพิ่มหรือลบเป็นสิทธิ์ของผู้ดูแล</p>
+        <div class="holadd admin-only"><input type="date" id="holDate"><input id="holName" placeholder="ชื่อวันหยุด เช่น วันมาฆบูชา หรือวันหยุดพิเศษตามมติ ครม."><button class="btn btn-primary" id="holAdd" type="button" data-needs-db>＋ เพิ่ม</button></div>
         <p class="warn" style="margin:12px 0">วันหยุดตามจันทรคติ (มาฆบูชา วิสาขบูชา อาสาฬหบูชา เข้าพรรษา) และวันหยุดพิเศษ ต้องเพิ่มเองตามประกาศ ครม. ทุกปี</p>
         <div class="itable"><table><thead><tr><th>วันที่</th><th>วันหยุด</th><th></th></tr></thead><tbody id="holRows"></tbody></table></div>
       </div>
@@ -336,6 +349,28 @@
         <p class="warn" style="margin:4px 0 0">แต่ละใบได้เลขที่และ QR จริงทันที · ผู้ป่วยที่สแกนก่อนกรอกข้อมูลจะเห็นว่า “ห้องยากำลังจัดเตรียมข้อมูล” · เมื่อจะกรอก ให้พิมพ์เลขที่บนใบในช่องค้นหา</p>
       </div>
       <footer><span class="grow" id="blankFoot"></span><button class="btn btn-ghost" type="button" data-close>ยกเลิก</button><button class="btn btn-primary" type="button" id="blankGo" data-needs-db>จองเลขที่และพิมพ์</button></footer>
+    </section>
+
+    <section class="modal users" aria-label="ผู้ใช้และประวัติการใช้งาน">
+      <header><div><h2>👥 ผู้ใช้และประวัติการใช้งาน</h2><small>เฉพาะผู้ดูแล · เพิ่ม ระงับ เปลี่ยนสิทธิ์ และตั้งรหัสใหม่ให้เจ้าหน้าที่</small></div><button class="x" data-close type="button">✕</button></header>
+      <div class="body">
+        <div class="tabs"><button type="button" data-utab="users" class="on">ผู้ใช้</button><button type="button" data-utab="audit">ประวัติการใช้งาน</button></div>
+        <div id="usersPane">
+          <form class="uadd" id="userAdd" autocomplete="off"><div class="f"><label>ชื่อที่แสดง</label><input name="name" placeholder="เช่น ภก.สมชาย" required></div><div class="f"><label>ชื่อผู้ใช้</label><input name="username" autocapitalize="none" spellcheck="false" placeholder="somchai" required></div><div class="f"><label>สิทธิ์</label><select name="role"><option value="staff">เจ้าหน้าที่</option><option value="admin">ผู้ดูแล</option></select></div><div class="f"><label>รหัสผ่านเริ่มต้น</label><input name="password" type="text" minlength="6" placeholder="อย่างน้อย 6 ตัว" required></div><button class="btn btn-primary" type="submit">＋ เพิ่มผู้ใช้</button></form>
+          <div class="itable"><table class="utable"><thead><tr><th>ผู้ใช้</th><th>สิทธิ์</th><th>สถานะ</th><th>เข้าใช้ล่าสุด</th><th></th></tr></thead><tbody id="userRows"></tbody></table></div>
+          <p class="muted" style="white-space:normal;margin-top:10px">เจ้าหน้าที่ใช้งานประจำวันได้ทั้งหมด ยกเว้น ลบใบแจ้ง แก้วันหยุด และจัดการผู้ใช้ ซึ่งเป็นสิทธิ์ของผู้ดูแล · ระงับผู้ใช้แล้วมีผลทันที</p>
+        </div>
+        <div id="auditPane" hidden>
+          <input id="auditQ" placeholder="ค้นหาชื่อผู้ใช้ เลขที่ใบแจ้ง หรือข้อความ" style="width:100%;padding:9px 12px;border:1px solid #d9dce5;border-radius:10px;margin-bottom:10px">
+          <div class="itable" style="max-height:460px"><table class="utable"><thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>การกระทำ</th><th>เลขที่</th><th>รายละเอียด</th></tr></thead><tbody id="auditRows"></tbody></table></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="modal small pass" aria-label="เปลี่ยนรหัสผ่าน">
+      <header><div><h2>🔑 เปลี่ยนรหัสผ่านของฉัน</h2><small id="passWho"></small></div><button class="x" data-close type="button">✕</button></header>
+      <form class="body" id="passForm" autocomplete="off"><div class="f"><label>รหัสผ่านปัจจุบัน</label><input name="old" type="password" autocomplete="current-password" required></div><div class="g2"><div class="f"><label>รหัสผ่านใหม่ (อย่างน้อย 6 ตัว)</label><input name="next" type="password" minlength="6" autocomplete="new-password" required></div><div class="f"><label>ยืนยันรหัสผ่านใหม่</label><input name="again" type="password" minlength="6" autocomplete="new-password" required></div></div></form>
+      <footer><span class="grow"></span><button class="btn btn-ghost" type="button" data-close>ยกเลิก</button><button class="btn btn-primary" type="button" id="passSave" data-needs-db>บันทึกรหัสผ่าน</button></footer>
     </section>
 
     <section class="modal small settings" aria-label="ตั้งค่า">
@@ -369,10 +404,10 @@
     /* ===== ฐานข้อมูลกลาง (Google Apps Script) ===== */
     // ชื่อคีย์ขึ้นต้นด้วย owed เพื่อไม่ชนกับระบบอื่นบนโดเมนเดียวกัน
     const KEYS = { endpoint: 'owedEndpoint', clinic: 'owedClinic', sender: 'owedSender' };
-    // รุ่นก่อนเก็บ API key และสิทธิ์เข้าใช้ไว้ในเครื่อง ทำให้เปิดหน้าใหม่แล้วไม่ต้องใส่ PIN จึงลบทิ้งทุกครั้งที่เปิดหน้า
+    // รุ่นก่อนเก็บ API key และสิทธิ์เข้าใช้ไว้ในเครื่อง ทำให้เปิดหน้าใหม่แล้วเข้าได้เลยโดยไม่ต้องล็อกอิน จึงลบทิ้งทุกครั้งที่เปิดหน้า
     localStorage.removeItem('owedApiKey'); sessionStorage.removeItem('owedSession'); sessionStorage.removeItem('owedUnlocked');
     const endpoint = () => localStorage.getItem(KEYS.endpoint) || OWED_CONFIG.endpoint;
-    // สิทธิ์เข้าใช้อยู่ในหน่วยความจำของหน้านี้เท่านั้น ปิด รีเฟรช หรือออกจากหน้าแล้วต้องใส่ PIN ใหม่
+    // สิทธิ์เข้าใช้อยู่ในหน่วยความจำของหน้านี้เท่านั้น ปิด รีเฟรช หรือออกจากหน้าแล้วต้องเข้าสู่ระบบใหม่
     let session = '';
     const hasCredentials = () => Boolean(endpoint() && session);
     async function fetchTimed(url, options = {}, timeout = 25000) {
@@ -398,7 +433,7 @@
       if (!response.ok || !data.ok) throw new Error(data.err || data.error || 'connection_failed');
       return data;
     }
-    const ERRORS = { locked: 'กรอก PIN ผิดหลายครั้ง ระบบล็อกไว้ 15 นาที', central_timeout: 'ฐานข้อมูลกลางตอบช้า กรุณาลองใหม่', unauthorized: 'สิทธิ์เข้าใช้หมดอายุ กรุณาเข้าสู่ระบบใหม่', deployment_not_found: 'ไม่พบ Deployment ของ Apps Script', 'unknown action': 'Apps Script ยังเป็นเวอร์ชันเก่า กรุณา Deploy เป็น New version', not_found: 'ไม่พบรายการนี้ในฐานข้อมูลกลาง' };
+    const ERRORS = { forbidden: 'สิทธิ์ไม่พอ ต้องเป็นผู้ดูแล', wrong_password: 'รหัสผ่านปัจจุบันไม่ถูกต้อง', invalid_password: 'รหัสผ่านต้องยาว 6–64 ตัวอักษร', invalid_username: 'ชื่อผู้ใช้ใช้ได้เฉพาะ a-z 0-9 . _ - ยาว 3–30 ตัว', invalid_name: 'กรุณาใส่ชื่อที่แสดง', username_taken: 'ชื่อผู้ใช้นี้มีอยู่แล้ว', cannot_change_self: 'ระงับหรือลดสิทธิ์ตัวเองไม่ได้', locked: 'ใส่รหัสผิดหลายครั้ง ชื่อผู้ใช้นี้ถูกล็อก 15 นาที', central_timeout: 'ฐานข้อมูลกลางตอบช้า กรุณาลองใหม่', unauthorized: 'สิทธิ์เข้าใช้หมดอายุ กรุณาเข้าสู่ระบบใหม่', deployment_not_found: 'ไม่พบ Deployment ของ Apps Script', 'unknown action': 'Apps Script ยังเป็นเวอร์ชันเก่า กรุณา Deploy เป็น New version', not_found: 'ไม่พบรายการนี้ในฐานข้อมูลกลาง' };
     const errText = e => ERRORS[e && e.message] || 'ติดต่อฐานข้อมูลกลางไม่ได้ (' + (e && e.message || 'unknown') + ')';
     function setOnline(online, message) {
       state.online = online;
@@ -409,18 +444,18 @@
     // คำขอโหลดอาจซ้อนกัน (ล็อกอิน + ลองเชื่อมต่อใหม่อัตโนมัติ) ใช้ผลของคำขอล่าสุดเท่านั้น
     let loadSeq = 0;
     async function loadRemote() {
-      if (!hasCredentials()) { setOnline(false, 'ยังไม่ได้เชื่อมต่อฐานข้อมูลกลาง กรุณาเข้าสู่ระบบด้วย PIN'); throw new Error('central_not_connected'); }
+      if (!hasCredentials()) { setOnline(false, 'ยังไม่ได้เชื่อมต่อฐานข้อมูลกลาง กรุณาเข้าสู่ระบบ'); throw new Error('central_not_connected'); }
       const seq = ++loadSeq;
       try {
         const data = await call('list');
         if (seq !== loadSeq) return state.items;
-        state.items = data.items || []; state.holidays = data.holidays || [];
+        state.items = data.items || []; state.holidays = data.holidays || []; if (data.me) setUser(data.me);
         setOnline(true); render(); loadDrugNames().catch(() => {});
         return state.items;
       } catch (error) {
         if (seq !== loadSeq) return state.items;
         setOnline(false, errText(error) + ' · ปิดการแก้ไขข้อมูลชั่วคราว');
-        if (error.message === 'unauthorized' && session) lockStaff(false, 'สิทธิ์เข้าสู่ระบบหมดอายุ กรุณากรอก PIN อีกครั้ง');
+        if (error.message === 'unauthorized' && session) lockStaff(false, 'สิทธิ์เข้าสู่ระบบหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง');
         throw error;
       }
     }
@@ -439,54 +474,103 @@
     }
     const upsert = item => { const at = state.items.findIndex(x => x.id === item.id); if (at >= 0) state.items[at] = item; else state.items.unshift(item); return item; };
 
-    /* ===== ล็อกอินด้วย PIN ส่วนกลาง ===== */
+    /* ===== เข้าสู่ระบบรายบุคคล ===== */
     const gate = $('#accessGate');
+    const ROLE_TH = { admin: 'ผู้ดูแล', staff: 'เจ้าหน้าที่' };
+    const isAdmin = () => Boolean(state.user && state.user.role === 'admin');
+    const fmtTime = v => (v ? new Intl.DateTimeFormat('th-TH', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(v)) : '-');
+    function setUser(user) {
+      state.user = user;
+      $('#me').innerHTML = user ? `${esc(user.name)}<span class="role role-${user.role}">${ROLE_TH[user.role] || user.role}</span>` : '';
+      $('#usersBtn').hidden = !isAdmin();
+      document.body.classList.toggle('is-admin', isAdmin());
+    }
     const unlockStaff = () => { gate.classList.add('unlocked'); };
     function lockStaff(showSetup, message) {
-      session = ''; setOnline(false, 'กรุณาเข้าสู่ระบบด้วย PIN');
-      state.items = []; render(); gate.classList.remove('unlocked');
-      $('#accessCode').value = ''; $('#accessError').textContent = message || ''; $('#pinSetupForm').hidden = !showSetup; $('#pinSetupError').textContent = ''; $('#setupUrl').value = endpoint();
-      setTimeout(() => (showSetup ? $('#setupApiKey') : $('#accessCode')).focus(), 0);
+      session = ''; setUser(null); setOnline(false, 'กรุณาเข้าสู่ระบบ');
+      state.items = []; overlay(null); render(); gate.classList.remove('unlocked');
+      $('#loginPass').value = ''; $('#accessError').textContent = message || ''; $('#setupForm').hidden = !showSetup; $('#setupError').textContent = ''; $('#setupUrl').value = endpoint();
+      setTimeout(() => (showSetup ? $('#setupApiKey') : $('#loginUser')).focus(), 0);
     }
+    const postRaw = body => fetchTimed(endpoint(), { method: 'POST', headers: { 'content-type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) }).then(r => r.json());
+    function startSession(data) { session = data.session; setUser(data.user); unlockStaff(); loadRemote().catch(() => {}); }
+    const LOGIN_ERRORS = { locked: ERRORS.locked, no_users: 'ยังไม่มีผู้ใช้ในระบบ กรุณาตั้งผู้ดูแลคนแรก', 'unknown action': ERRORS['unknown action'], central_timeout: 'ฐานข้อมูลกลางตอบช้า กรุณาลองใหม่อีกครั้ง' };
     $('#accessForm').addEventListener('submit', async event => {
       event.preventDefault();
-      const code = $('#accessCode').value.trim(), box = $('#accessError'), button = event.submitter;
-      if (!/^\d{4,8}$/.test(code)) { box.textContent = 'กรุณากรอก PIN ตัวเลข 4–8 หลัก'; return; }
-      if (!endpoint()) { box.textContent = 'ยังไม่ได้ตั้งค่า Web App URL กรุณากรอกในส่วน “ตั้งหรือเปลี่ยน PIN”'; $('#pinSetupForm').hidden = false; $('#setupUrl').focus(); return; }
-      box.textContent = 'กำลังตรวจสอบ PIN…'; if (button) button.disabled = true;
+      const username = $('#loginUser').value.trim(), password = $('#loginPass').value, box = $('#accessError'), button = event.submitter;
+      if (!endpoint()) { box.textContent = 'ยังไม่ได้ตั้งค่า Web App URL'; $('#setupForm').hidden = false; $('#setupUrl').focus(); return; }
+      box.textContent = 'กำลังตรวจสอบ…'; if (button) button.disabled = true;
       try {
-        const response = await fetchTimed(endpoint(), { method: 'POST', headers: { 'content-type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'login', pin: code }) });
-        const data = await response.json();
-        if (!response.ok || !data.ok || !data.session) throw new Error(data.err || 'unauthorized');
-        session = data.session; unlockStaff(); box.textContent = '';
-        loadRemote().catch(() => {});
+        const data = await postRaw({ action: 'login', username, password });
+        if (!data.ok || !data.session) throw new Error(data.err || 'unauthorized');
+        box.textContent = ''; $('#loginPass').value = ''; startSession(data);
       } catch (error) {
-        if (error.message === 'central_timeout') box.textContent = 'ฐานข้อมูลกลางตอบช้า กรุณาลองใหม่อีกครั้ง';
-        else if (error.message === 'pin_not_set') { box.textContent = 'ยังไม่ได้ตั้ง PIN กรุณากด “ตั้งหรือเปลี่ยน PIN”'; $('#pinSetupForm').hidden = false; }
-        else if (error.message === 'locked') box.textContent = 'กรอก PIN ผิดหลายครั้ง ระบบล็อกไว้ 15 นาที กรุณารอแล้วลองใหม่';
-        else if (error.message === 'unknown action') box.textContent = ERRORS['unknown action'];
-        else box.textContent = 'PIN ไม่ถูกต้อง กรุณาตรวจสอบแล้วลองใหม่';
+        box.textContent = LOGIN_ERRORS[error.message] || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+        if (error.message === 'no_users') { $('#setupForm').hidden = false; $('#setupUrl').value = endpoint(); }
       } finally { if (button) button.disabled = false; }
     });
-    $('#togglePinSetup').addEventListener('click', () => { const f = $('#pinSetupForm'); f.hidden = !f.hidden; $('#setupUrl').value = endpoint(); if (!f.hidden) (endpoint() ? $('#setupApiKey') : $('#setupUrl')).focus(); });
-    $('#pinSetupForm').addEventListener('submit', async event => {
+    $('#toggleSetup').addEventListener('click', () => { const f = $('#setupForm'); f.hidden = !f.hidden; $('#setupUrl').value = endpoint(); if (!f.hidden) (endpoint() ? $('#setupApiKey') : $('#setupUrl')).focus(); });
+    $('#setupForm').addEventListener('submit', async event => {
       event.preventDefault();
-      const url = $('#setupUrl').value.trim(), key = $('#setupApiKey').value.trim(), pin = $('#newPin').value.trim(), box = $('#pinSetupError');
+      const url = $('#setupUrl').value.trim(), key = $('#setupApiKey').value.trim(), name = $('#setupName').value.trim(), username = $('#setupUser').value.trim(), password = $('#setupPass').value, box = $('#setupError');
+      if (password !== $('#setupPass2').value) { box.textContent = 'รหัสผ่านทั้งสองช่องไม่ตรงกัน'; return; }
       localStorage.setItem(KEYS.endpoint, url);
-      if (!/^\d{4,8}$/.test(pin)) { box.textContent = 'PIN ต้องเป็นตัวเลข 4–8 หลัก'; return; }
-      if (pin !== $('#confirmPin').value.trim()) { box.textContent = 'PIN ทั้งสองช่องไม่ตรงกัน'; return; }
-      box.textContent = 'กำลังบันทึก PIN…';
+      box.textContent = 'กำลังบันทึก…';
       try {
-        const post = body => fetchTimed(endpoint(), { method: 'POST', headers: { 'content-type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) }).then(r => r.json());
-        const set = await post({ action: 'setPin', key, pin }); if (!set.ok) throw new Error(set.err || 'unauthorized');
-        const login = await post({ action: 'login', pin }); if (!login.ok || !login.session) throw new Error(login.err || 'login_failed');
-        session = login.session;
-        unlockStaff(); $('#pinSetupForm').reset(); box.textContent = ''; loadRemote().catch(() => {});
-      } catch (error) { box.textContent = error.message === 'unauthorized' ? 'API key ไม่ตรงกับค่า API_KEY ใน Apps Script' : 'ตั้ง PIN ไม่สำเร็จ: ' + error.message; }
+        const boot = await postRaw({ action: 'bootstrapAdmin', key, name, username, password });
+        if (!boot.ok) throw new Error(boot.err || 'unauthorized');
+        const login = await postRaw({ action: 'login', username, password });
+        if (!login.ok) throw new Error(login.err || 'login_failed');
+        $('#setupForm').reset(); box.textContent = ''; startSession(login);
+      } catch (error) { box.textContent = error.message === 'unauthorized' ? 'API key ไม่ตรงกับค่า API_KEY ใน Apps Script' : (ERRORS[error.message] || 'ไม่สำเร็จ: ' + error.message); }
     });
-    $('#logoutBtn').onclick = () => lockStaff(false);
-    $('#changeCodeBtn').onclick = () => lockStaff(true);
+    $('#logoutBtn').onclick = () => { if (session) call('logout', {}).catch(() => {}); lockStaff(false); };
 
+    /* ===== เปลี่ยนรหัสผ่านของตัวเอง ===== */
+    $('#passBtn').onclick = () => { $('#passForm').reset(); $('#passWho').textContent = state.user ? `${state.user.name} (${state.user.username})` : ''; overlay('pass'); };
+    $('#passSave').onclick = () => {
+      const f = $('#passForm'); if (!f.reportValidity()) return;
+      if (f.next.value !== f.again.value) { toast('รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน', true); return; }
+      mutate('changePassword', { oldPassword: f.old.value, newPassword: f.next.value }, () => { overlay(null); toast('✓ เปลี่ยนรหัสผ่านแล้ว ครั้งหน้าใช้รหัสใหม่'); });
+    };
+
+    /* ===== ผู้ใช้และประวัติการใช้งาน (ผู้ดูแล) ===== */
+    const ACTION_TH = { login: 'เข้าสู่ระบบ', create: 'สร้างใบแจ้ง', update: 'แก้ไข', import: 'นำเข้า/จองใบ', delete: 'ลบใบแจ้ง', user: 'ผู้ใช้', holiday: 'วันหยุด', drugs: 'รายชื่อยา' };
+    let users = [], auditEntries = [];
+    function renderUsers() {
+      $('#userRows').innerHTML = users.map(u => {
+        const self = state.user && u.id === state.user.id;
+        return `<tr><td><b>${esc(u.name)}</b>${self ? ' <small class="muted">(คุณ)</small>' : ''}<br><small class="muted">${esc(u.username)}</small></td>`
+          + `<td><select data-urole="${esc(u.id)}" ${self ? 'disabled' : ''}>${['staff', 'admin'].map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${ROLE_TH[r]}</option>`).join('')}</select></td>`
+          + `<td>${u.active ? '<span class="pill s-ready">ใช้งาน</span>' : '<span class="pill s-received">ระงับ</span>'}</td>`
+          + `<td class="muted">${u.lastLoginAt ? fmtTime(u.lastLoginAt) : 'ยังไม่เคยเข้า'}</td>`
+          + `<td style="text-align:right;white-space:nowrap"><button class="act" type="button" data-ureset="${esc(u.id)}">ตั้งรหัสใหม่</button> ${self ? '' : `<button class="act" type="button" data-uactive="${esc(u.id)}">${u.active ? 'ระงับ' : 'เปิดใช้'}</button>`}</td></tr>`;
+      }).join('');
+    }
+    function renderAudit() {
+      const q = $('#auditQ').value.trim().toLowerCase();
+      $('#auditRows').innerHTML = auditEntries.filter(e => !q || [e.userName, e.slipId, e.detail, ACTION_TH[e.action]].some(v => String(v || '').toLowerCase().includes(q)))
+        .map(e => `<tr><td class="muted" style="white-space:nowrap">${fmtTime(e.at)}</td><td>${esc(e.userName)}</td><td>${esc(ACTION_TH[e.action] || e.action)}</td><td class="ref">${/^\d{4}-/.test(e.slipId || '') ? esc(e.slipId) : ''}</td><td>${esc(e.detail)}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">ไม่มีรายการ</td></tr>';
+    }
+    async function loadUsersTab(tab) {
+      document.querySelectorAll('[data-utab]').forEach(b => b.classList.toggle('on', b.dataset.utab === tab));
+      $('#usersPane').hidden = tab !== 'users'; $('#auditPane').hidden = tab !== 'audit';
+      try {
+        if (tab === 'users') { users = (await call('userList')).users; renderUsers(); }
+        else { auditEntries = (await call('auditList')).entries; renderAudit(); }
+      } catch (error) { toast(errText(error), true); }
+    }
+    $('#usersBtn').onclick = () => { overlay('users'); loadUsersTab('users'); };
+    $('#auditQ').addEventListener('input', renderAudit);
+    $('#userAdd').addEventListener('submit', event => {
+      event.preventDefault();
+      const f = event.target, body = { name: f.name.value.trim(), username: f.username.value.trim().toLowerCase(), role: f.role.value, password: f.password.value };
+      mutate('userCreate', body, data => { users.push(data.user); renderUsers(); f.reset(); toast(`✓ เพิ่ม ${data.user.name} แล้ว · แจ้งชื่อผู้ใช้ “${data.user.username}” และรหัสผ่านให้เจ้าตัว แล้วให้เปลี่ยนรหัสเองที่ปุ่ม 🔑`); });
+    });
+    $('#userRows').addEventListener('change', e => {
+      const id = e.target.dataset.urole; if (!id) return;
+      mutate('userUpdate', { id, role: e.target.value }, data => { users = users.map(u => (u.id === id ? data.user : u)); renderUsers(); toast(`✓ เปลี่ยนสิทธิ์ ${data.user.name} เป็น${ROLE_TH[data.user.role]}แล้ว`); }).then(r => { if (!r) renderUsers(); });
+    });
     /* ===== ตัวช่วยแสดงผล ===== */
     const STATUS_KEYS = Object.keys(C.STATUS);
     const pill = s => `<span class="pill s-${s}">${C.STATUS[s]}</span>`;
@@ -543,9 +627,10 @@
       if (!i) { $('#panel').innerHTML = '<div class="empty">เลือกรายการเพื่อดูรายละเอียด</div>'; return; }
       const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div><h2>${isBlank(i) ? 'ใบเปล่า ' + esc(i.id) : esc(i.patient)}</h2><div class="sub">HN ${esc(i.hn || '-')} · เลขที่ ${esc(i.id)} · ${mLabel(i.receiveMethod)}${ctag(i)}</div></div>${pill(C.status(i))}</div>`;
       const contact = `<dl class="kv"><dt>โทรศัพท์</dt><dd>${esc([i.phone1, i.phone2].filter(Boolean).join(', ') || '-')}</dd><dt>ที่อยู่</dt><dd>${esc(i.address || '-')}</dd>${i.recipientName ? `<dt>ผู้รับยาแทน</dt><dd>${esc(i.recipientName)}</dd>` : ''}${i.note ? `<dt>หมายเหตุ</dt><dd>${esc(i.note)}</dd>` : ''}</dl>`;
-      const del = `<button class="btn btn-danger" data-delete="${esc(i.id)}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>ลบ</button>`;
+      const del = isAdmin() ? `<button class="btn btn-danger" data-delete="${esc(i.id)}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>ลบ</button>` : '';
+      const history = `<div class="sec-title"><span>ประวัติใบแจ้ง</span>${i.createdBy ? `<small>สร้างโดย ${esc(i.createdBy)}</small>` : ''}</div><ul class="hist">${(i.log || []).slice().reverse().map(l => `<li><time>${fmtTime(l.at)}</time><b>${esc(l.by)}</b> ${esc(l.what)}</li>`).join('') || '<li class="muted">ยังไม่มีประวัติ</li>'}</ul>`;
       if (C.isDraft(i)) {
-        $('#panel').innerHTML = `${head}${contact}<div class="draft-box">${isBlank(i) ? 'ใบนี้จองเลขที่และ QR ไว้แล้ว ยังไม่ได้กรอกข้อมูลผู้ป่วย' : 'ยังไม่มี<b>รายการยา</b>และ<b>วันนัด</b>'} · ผู้ป่วยที่สแกน QR จะเห็นว่า “ห้องยากำลังจัดเตรียมข้อมูล”</div><button class="btn btn-primary big-act" data-edit="${esc(i.id)}" type="button">${isBlank(i) ? 'กรอกข้อมูลจากใบที่เขียนไว้' : 'กรอกรายการยาและวันนัด'} →</button><div class="qrrow"><canvas id="panelQr"></canvas><p><b style="color:var(--ink)">QR ของใบนี้</b><br>พิมพ์ซ้ำได้ เลขที่และ QR ไม่เปลี่ยน</p></div><div class="row-btns"><button class="btn btn-ghost" data-print="${esc(i.id)}" type="button">🖨 พิมพ์ใบแจ้ง</button>${del}</div>`;
+        $('#panel').innerHTML = `${head}${contact}<div class="draft-box">${isBlank(i) ? 'ใบนี้จองเลขที่และ QR ไว้แล้ว ยังไม่ได้กรอกข้อมูลผู้ป่วย' : 'ยังไม่มี<b>รายการยา</b>และ<b>วันนัด</b>'} · ผู้ป่วยที่สแกน QR จะเห็นว่า “ห้องยากำลังจัดเตรียมข้อมูล”</div><button class="btn btn-primary big-act" data-edit="${esc(i.id)}" type="button">${isBlank(i) ? 'กรอกข้อมูลจากใบที่เขียนไว้' : 'กรอกรายการยาและวันนัด'} →</button><div class="qrrow"><canvas id="panelQr"></canvas><p><b style="color:var(--ink)">QR ของใบนี้</b><br>พิมพ์ซ้ำได้ เลขที่และ QR ไม่เปลี่ยน</p></div>${history}<div class="row-btns" style="margin-top:12px"><button class="btn btn-ghost" data-print="${esc(i.id)}" type="button">🖨 พิมพ์ใบแจ้ง</button>${del}</div>`;
         new QRious({ element: $('#panelQr'), size: 200, level: 'M', value: statusUrl(i) });
         return;
       }
@@ -559,6 +644,7 @@
         ${n ? `<button class="btn btn-primary big-act" data-move="${esc(i.id)}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>นัดที่ ${C.cur(i) + 1}: ${n[1]} → ${n[0] === 'received' ? 'รับนัดนี้แล้ว' : C.STATUS[n[0]]}</button>` : ''}
         <div class="pt-preview"><small>ผู้ป่วยเห็นข้อความว่า</small><b>“${esc(C.patientHeadline(i))}”</b></div>
         ${contact}
+        ${history}
         <div class="qrrow"><canvas id="panelQr"></canvas><p><b style="color:var(--ink)">QR เดียวใช้ได้ทุกนัด</b><br>ผู้ป่วยสแกนเพื่อดูสถานะ ยาที่จะได้รับ และวันนัดถัดไป</p></div>
         <div class="row-btns"><button class="btn btn-ghost" data-edit="${esc(i.id)}" type="button">✎ แก้ไข</button><button class="btn btn-ghost" data-print="${esc(i.id)}" type="button">🖨 พิมพ์ใบแจ้ง</button>${i.receiveMethod === 'mail' ? `<button class="btn btn-ghost" data-label="${esc(i.id)}" type="button">📦 จ่าหน้าซอง</button>` : ''}${del}</div>`;
       if (i.publicToken && window.QRious) new QRious({ element: $('#panelQr'), size: 200, level: 'M', value: statusUrl(i) });
@@ -743,7 +829,7 @@
       const clinic = $('#impClinic').value.trim(); if (!clinic) { toast('กรุณาระบุคลินิกของรายชื่อชุดนี้', true); $('#impClinic').focus(); return; }
       const method = $('#impMethod').value;
       const items = imp.rows.filter(r => r.on).map(r => ({ clinic, hn: r.hn, patient: r.patient || '(ไม่มีชื่อ)', phone1: r.phone, address: r.address, receiveMethod: method, drugs: [], rounds: [] }));
-      mutate('import', { items }, data => {
+      mutate('import', { items, source: 'excel' }, data => {
         data.items.slice().reverse().forEach(upsert);
         overlay(null); localStorage.setItem(KEYS.clinic, clinic); $('#clinic').value = clinic; state.filter = 'draft'; state.sel = data.items[0].id;
         const first = data.items[0].id, last = data.items[data.items.length - 1].id;
@@ -762,7 +848,7 @@
     /* ===== วันหยุดราชการ ===== */
     function renderHolidays() {
       const today = C.today();
-      $('#holRows').innerHTML = state.holidays.map((h, k) => `<tr class="${h.date < today ? 'past' : ''}"><td>${C.dateDay(h.date)}</td><td>${esc(h.name)}</td><td style="text-align:right"><button type="button" class="act" data-delhol="${k}" ${state.online ? '' : 'disabled'}>ลบ</button></td></tr>`).join('') || '<tr><td colspan="3" class="muted">ยังไม่มีรายการ</td></tr>';
+      $('#holRows').innerHTML = state.holidays.map((h, k) => `<tr class="${h.date < today ? 'past' : ''}"><td>${C.dateDay(h.date)}</td><td>${esc(h.name)}</td><td style="text-align:right"><button type="button" class="act admin-only" data-delhol="${k}" ${state.online ? '' : 'disabled'}>ลบ</button></td></tr>`).join('') || '<tr><td colspan="3" class="muted">ยังไม่มีรายการ</td></tr>';
     }
     const saveHolidays = (list, message) => mutate('holidaySave', { holidays: list }, data => { state.holidays = data.holidays; renderHolidays(); toast(message); });
     $('#holBtn').onclick = () => { renderHolidays(); overlay('hol'); };
@@ -842,7 +928,7 @@
       const count = Math.floor(+$('#blankCount').value || 0), clinic = $('#blankClinic').value.trim();
       if (count < 1 || count > 50) { toast('จำนวนใบต้องอยู่ระหว่าง 1–50', true); return; }
       if (!clinic) { toast('กรุณาระบุคลินิก', true); $('#blankClinic').focus(); return; }
-      mutate('import', { items: Array.from({ length: count }, () => ({ clinic, receiveMethod: 'self', drugs: [], rounds: [] })) }, data => {
+      mutate('import', { source: 'blank', items: Array.from({ length: count }, () => ({ clinic, receiveMethod: 'self', drugs: [], rounds: [] })) }, data => {
         data.items.slice().reverse().forEach(upsert);
         state.sel = data.items[0].id;
         toast(`✓ จองเลขที่ ${data.items[0].id}${count > 1 ? '–' + data.items[count - 1].id : ''} แล้ว · กำลังเปิดหน้าพิมพ์`);
@@ -864,10 +950,19 @@
 
     /* ===== เหตุการณ์ ===== */
     document.addEventListener('click', e => {
-      const t = e.target.closest('[data-close],[data-filter],[data-move],[data-open],[data-edit],[data-print],[data-delete],[data-delround],[data-deldrug],[data-fixday],[data-delhol],[data-printdrafts],[data-label],[data-labels]');
+      const t = e.target.closest('[data-close],[data-filter],[data-move],[data-open],[data-edit],[data-print],[data-delete],[data-delround],[data-deldrug],[data-fixday],[data-delhol],[data-printdrafts],[data-label],[data-labels],[data-utab],[data-ureset],[data-uactive]');
       if (!t) return;
       const d = t.dataset;
       if (t.hasAttribute('data-close')) overlay(null);
+      else if (d.utab) loadUsersTab(d.utab);
+      else if (d.ureset) {
+        const u = users.find(x => x.id === d.ureset), password = prompt(`ตั้งรหัสผ่านใหม่ให้ ${u.name} (${u.username})\nอย่างน้อย 6 ตัว แล้วแจ้งให้เจ้าตัวเปลี่ยนเองภายหลัง`);
+        if (password) mutate('userResetPassword', { id: u.id, password }, () => toast(`✓ ตั้งรหัสใหม่ให้ ${u.name} แล้ว`));
+      }
+      else if (d.uactive) {
+        const u = users.find(x => x.id === d.uactive);
+        if (confirm(u.active ? `ระงับการใช้งานของ ${u.name}?\nจะออกจากระบบทันทีและเข้าใหม่ไม่ได้จนกว่าจะเปิดใช้` : `เปิดใช้งาน ${u.name} อีกครั้ง?`)) mutate('userUpdate', { id: u.id, active: !u.active }, data => { users = users.map(x => (x.id === u.id ? data.user : x)); renderUsers(); toast(`✓ ${data.user.active ? 'เปิดใช้' : 'ระงับ'} ${data.user.name} แล้ว`); });
+      }
       else if (d.label) openLabels([state.items.find(x => x.id === d.label)]);
       else if (t.hasAttribute('data-labels')) openLabels(state.items.filter(x => inClinic(x) && x.receiveMethod === 'mail' && C.status(x) === 'ready').sort((a, b) => a.id.localeCompare(b.id)));
       else if (t.hasAttribute('data-printdrafts')) openPrint(state.items.filter(x => inClinic(x) && C.isDraft(x)).sort((a, b) => a.id.localeCompare(b.id)));

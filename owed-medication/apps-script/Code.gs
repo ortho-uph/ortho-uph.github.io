@@ -1,13 +1,19 @@
-/* ระบบยาค้างจ่าย: Apps Script ของ Google Sheet ชุดใหม่ (แยกจากระบบเดิมทั้งหมด)
+/* คลินิกเติมยา (ระบบยาค้างจ่าย): Apps Script ของ Google Sheet ชุดใหม่ แยกจากระบบเดิมทั้งหมด
    ติดตั้งตาม owed-medication/README.md · ต้องตั้ง Script Property API_KEY ก่อน Deploy
-   ใบแจ้ง = ยาหลายรายการ (drugs) + นัดหลายรอบ (rounds) · rounds[k].qty[j] คือจำนวนยา drugs[j] ในนัดที่ k */
-const FIELDS=['id','publicToken','createdAt','updatedAt','clinic','hn','patient','phone1','phone2','address','recipientName','receiveMethod','note','firstDate','drugs','rounds','statusHistory'];
-const JSON_FIELDS=['drugs','rounds','statusHistory'];
+   ใบแจ้ง = ยาหลายรายการ (drugs) + นัดหลายรอบ (rounds) · rounds[k].qty[j] คือจำนวนยา drugs[j] ในนัดที่ k
+   ผู้ใช้แต่ละคนมีชื่อผู้ใช้และรหัสผ่านของตัวเอง สิทธิ์ admin จัดการผู้ใช้ได้ ส่วน staff ใช้งานประจำวัน */
+const FIELDS=['id','publicToken','createdAt','updatedAt','createdBy','clinic','hn','patient','phone1','phone2','address','recipientName','receiveMethod','note','firstDate','drugs','rounds','statusHistory','log'];
+const JSON_FIELDS=['drugs','rounds','statusHistory','log'];
 const STATUSES=['waiting','ready','delivery','received'];
+const STATUS_TH={waiting:'ค้างจ่าย',ready:'พร้อมจ่าย',delivery:'จัดส่งแล้ว',received:'รับแล้ว'};
+const USER_FIELDS=['id','username','name','role','active','salt','hash','createdAt','createdBy','lastLoginAt'];
+const ROLES=['admin','staff'];
 const DEFAULT_HOLIDAYS=[['2026-10-13','วันนวมินทรมหาราช'],['2026-10-23','วันปิยมหาราช'],['2026-12-05','วันพ่อแห่งชาติ'],['2026-12-07','ชดเชยวันพ่อแห่งชาติ'],['2026-12-10','วันรัฐธรรมนูญ'],['2026-12-31','วันสิ้นปี'],['2027-01-01','วันขึ้นปีใหม่'],['2027-04-06','วันจักรี'],['2027-04-13','วันสงกรานต์'],['2027-04-14','วันสงกรานต์'],['2027-04-15','วันสงกรานต์']];
 const SESSION_SECONDS=21600;
-// PIN มีแค่ 4–8 หลัก จึงล็อกการเข้าสู่ระบบทั้งระบบเมื่อผิดติดกันหลายครั้ง เพื่อกันการสุ่ม PIN จากภายนอก
-const LOGIN_MAX_FAILS=10,LOGIN_LOCK_SECONDS=900;
+// ล็อกชื่อผู้ใช้นั้นชั่วคราวเมื่อใส่รหัสผิดติดกัน เพื่อกันการสุ่มรหัสจากภายนอก
+const LOGIN_MAX_FAILS=5,LOGIN_LOCK_SECONDS=900;
+// hash ซ้ำหลายรอบ ถ้าชีตรั่ว การเดารหัสผ่านจาก hash จะช้าลงมาก
+const HASH_ROUNDS=300;
 
 function out(o){return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);}
 function props_(){return PropertiesService.getScriptProperties();}
@@ -16,70 +22,183 @@ function sheet_(name){const ss=SpreadsheetApp.getActiveSpreadsheet();return ss.g
 function clean_(v,n){return String(v==null?'':v).trim().slice(0,n||250);}
 function num_(v){const m=String(v==null?'':v).replace(/,/g,'').match(/\d+/);return m?Math.min(99999,parseInt(m[0],10)):0;}
 function date_(v){v=String(v||'');return /^\d{4}-\d{2}-\d{2}$/.test(v)?v:'';}
+function now_(){return new Date().toISOString();}
 function withLock_(fn){const lock=LockService.getScriptLock();lock.waitLock(20000);try{return fn();}finally{lock.releaseLock();}}
+function readTable_(name){
+  const sh=sheet_(name),last=sh.getLastRow();if(last<2)return [];
+  const values=sh.getRange(1,1,last,sh.getLastColumn()).getDisplayValues(),head=values[0];
+  return values.slice(1).map(function(row){const o={};head.forEach(function(k,i){if(k)o[k]=row[i]||'';});return o;});
+}
+function writeTable_(name,fields,rows){
+  const data=[fields].concat(rows.map(function(o){return fields.map(function(k){return o[k]==null?'':String(o[k]);});}));
+  const sh=sheet_(name);sh.clearContents();sh.getRange(1,1,data.length,fields.length).setNumberFormat('@').setValues(data);
+}
 
+/* ===== คำสั่งทั้งหมดพร้อมสิทธิ์ที่ต้องมี: public (ไม่ต้องล็อกอิน) · staff (ผู้ใช้ทุกคนที่เปิดใช้งาน) · admin ===== */
 const GET_ACTIONS={
-  list:function(){return {ok:1,items:load_(),holidays:holidays_()};},
-  drugList:function(){return {ok:1,names:drugNames_()};}
+  patient:{role:'public',fn:function(p){return patient_(p.token);}},
+  list:{role:'staff',fn:function(p,u){return {ok:1,items:load_(),holidays:holidays_(),me:publicUser_(u)};}},
+  drugList:{role:'staff',fn:function(){return {ok:1,names:drugNames_()};}},
+  userList:{role:'admin',fn:function(){return {ok:1,users:users_().map(publicUser_)};}},
+  auditList:{role:'admin',fn:function(){return {ok:1,entries:auditList_()};}}
 };
 const POST_ACTIONS={
-  create:function(r){return create_(r.item);},
-  update:function(r){return update_(r.id,r.item);},
-  'delete':function(r){return remove_(r.id);},
-  'import':function(r){return import_(r.items);},
-  holidaySave:function(r){return holidaySave_(r.holidays);},
-  drugSave:function(r){return drugSave_(r.names);}
+  login:{role:'public',fn:function(r){return login_(r.username,r.password);}},
+  bootstrapAdmin:{role:'public',fn:function(r){return apiKeyOk_(r)?bootstrapAdmin_(r):{ok:0,err:'unauthorized'};}},
+  logout:{role:'staff',fn:function(r){cache_().remove('SESSION_'+String(r.session));return {ok:1};}},
+  changePassword:{role:'staff',fn:function(r,u){return changePassword_(u,r.oldPassword,r.newPassword);}},
+  create:{role:'staff',fn:function(r,u){return create_(r.item,u);}},
+  update:{role:'staff',fn:function(r,u){return update_(r.id,r.item,u);}},
+  'import':{role:'staff',fn:function(r,u){return import_(r.items,r.source,u);}},
+  drugSave:{role:'staff',fn:function(r,u){return drugSave_(r.names,u);}},
+  'delete':{role:'admin',fn:function(r,u){return remove_(r.id,u);}},
+  holidaySave:{role:'admin',fn:function(r,u){return holidaySave_(r.holidays,u);}},
+  userCreate:{role:'admin',fn:function(r,u){return userCreate_(r,u);}},
+  userUpdate:{role:'admin',fn:function(r,u){return userUpdate_(r,u);}},
+  userResetPassword:{role:'admin',fn:function(r,u){return userResetPassword_(r,u);}}
 };
+function dispatch_(table,req){
+  const action=Object.prototype.hasOwnProperty.call(table,req.action)?table[req.action]:null;
+  if(!action)return {ok:0,err:'unknown action'};
+  if(action.role==='public')return action.fn(req,null);
+  const user=sessionUser_(req.session);
+  if(!user)return {ok:0,err:'unauthorized'};
+  if(action.role==='admin'&&user.role!=='admin')return {ok:0,err:'forbidden'};
+  return action.fn(req,user);
+}
 function doGet(e){
-  const p=(e&&e.parameter)||{};
-  try{
-    if(p.action==='patient')return out(patient_(p.token));
-    if(p.action==='pinStatus')return out({ok:1,configured:!!props_().getProperty('PIN_HASH')});
-    if(!authorized_(p))return out({ok:0,err:'unauthorized'});
-    const action=GET_ACTIONS[p.action];
-    return out(action?action(p):{ok:0,err:'unknown action'});
-  }catch(err){return out({ok:0,err:String(err&&err.message||err)});}
+  try{return out(dispatch_(GET_ACTIONS,(e&&e.parameter)||{}));}
+  catch(err){return out({ok:0,err:String(err&&err.message||err)});}
 }
 function doPost(e){
   let req;
   try{req=JSON.parse(e.postData.contents);}catch(err){return out({ok:0,err:'bad_request'});}
-  try{
-    if(req.action==='login')return out(login_(req.pin));
-    if(req.action==='setPin')return out(apiKeyOk_(req)?setPin_(req.pin):{ok:0,err:'unauthorized'});
-    if(!authorized_(req))return out({ok:0,err:'unauthorized'});
-    const action=Object.prototype.hasOwnProperty.call(POST_ACTIONS,req.action)?POST_ACTIONS[req.action]:null;
-    return out(action?action(req):{ok:0,err:'unknown action'});
-  }catch(err){return out({ok:0,err:String(err&&err.message||err)});}
+  try{return out(dispatch_(POST_ACTIONS,req||{}));}
+  catch(err){return out({ok:0,err:String(err&&err.message||err)});}
 }
 
-/* ===== สิทธิ์: API key (ตั้ง PIN ครั้งแรก) และ PIN ส่วนกลาง (ใช้งานประจำวัน) ===== */
+/* ===== ผู้ใช้: แท็บ Users ===== */
 function apiKeyOk_(req){const key=props_().getProperty('API_KEY');return !!key&&key.length>=16&&!!req&&req.key===key;}
-function authorized_(req){return apiKeyOk_(req)||(!!req&&!!req.session&&cache_().get('SESSION_'+String(req.session))==='1');}
-function pinHash_(pin,salt){
-  const bytes=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,salt+'|'+pin,Utilities.Charset.UTF_8);
-  return bytes.map(function(v){const b=v<0?v+256:v;return ('0'+b.toString(16)).slice(-2);}).join('');
+function hash_(password,salt){
+  let text=salt+'|'+password;
+  for(let i=0;i<HASH_ROUNDS;i++){
+    const bytes=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,text,Utilities.Charset.UTF_8);
+    text=bytes.map(function(v){const b=v<0?v+256:v;return ('0'+b.toString(16)).slice(-2);}).join('');
+  }
+  return text;
 }
-function validPin_(pin){return /^\d{4,8}$/.test(pin);}
-function setPin_(pin){
-  pin=String(pin==null?'':pin).trim();
-  if(!validPin_(pin))return {ok:0,err:'invalid_pin'};
-  const salt=Utilities.getUuid();
-  props_().setProperties({PIN_SALT:salt,PIN_HASH:pinHash_(pin,salt)});
-  cache_().remove('LOGIN_FAILS');
-  return {ok:1};
+function users_(){return readTable_('Users').filter(function(u){return u.id;}).map(function(u){u.active=u.active!=='false';return u;});}
+function saveUsers_(list){writeTable_('Users',USER_FIELDS,list);}
+function publicUser_(u){return {id:u.id,username:u.username,name:u.name,role:u.role,active:u.active,createdAt:u.createdAt,lastLoginAt:u.lastLoginAt};}
+function validUsername_(v){return /^[a-z0-9._-]{3,30}$/.test(v);}
+function validPassword_(v){return typeof v==='string'&&v.length>=6&&v.length<=64;}
+function sessionUser_(token){
+  if(!token)return null;
+  const uid=cache_().get('SESSION_'+String(token));if(!uid)return null;
+  // อ่านผู้ใช้ทุกครั้ง การระงับผู้ใช้จึงมีผลทันทีแม้ยังเปิดหน้าเว็บค้างไว้
+  return users_().filter(function(u){return u.id===uid&&u.active;})[0]||null;
 }
-function login_(pin){
-  pin=String(pin==null?'':pin).trim();
-  const hash=props_().getProperty('PIN_HASH'),salt=props_().getProperty('PIN_SALT');
-  if(!hash||!salt)return {ok:0,err:'pin_not_set'};
-  const fails=Number(cache_().get('LOGIN_FAILS')||0);
+function login_(username,password){
+  username=clean_(username,30).toLowerCase();password=String(password==null?'':password);
+  const lockKey='LOGIN_FAILS_'+username,fails=Number(cache_().get(lockKey)||0);
   if(fails>=LOGIN_MAX_FAILS)return {ok:0,err:'locked'};
-  if(!validPin_(pin)||pinHash_(pin,salt)!==hash){cache_().put('LOGIN_FAILS',String(fails+1),LOGIN_LOCK_SECONDS);return {ok:0,err:'unauthorized'};}
-  cache_().remove('LOGIN_FAILS');
+  const list=users_();
+  if(!list.length)return {ok:0,err:'no_users'};
+  const user=list.filter(function(u){return u.username===username;})[0];
+  if(!user||!user.active||hash_(password,user.salt)!==user.hash){cache_().put(lockKey,String(fails+1),LOGIN_LOCK_SECONDS);return {ok:0,err:'unauthorized'};}
+  cache_().remove(lockKey);
+  user.lastLoginAt=now_();
+  withLock_(function(){const fresh=users_();fresh.forEach(function(u){if(u.id===user.id)u.lastLoginAt=user.lastLoginAt;});saveUsers_(fresh);});
   const token=Utilities.getUuid().replace(/-/g,'');
-  cache_().put('SESSION_'+token,'1',SESSION_SECONDS);
-  return {ok:1,session:token,expiresIn:SESSION_SECONDS};
+  cache_().put('SESSION_'+token,user.id,SESSION_SECONDS);
+  audit_(user,'login','','');
+  return {ok:1,session:token,expiresIn:SESSION_SECONDS,user:publicUser_(user)};
 }
+function newUser_(input,actor,list){
+  const salt=Utilities.getUuid();let id;
+  do{id='U-'+Utilities.getUuid().replace(/-/g,'').slice(-12);}while(list.some(function(u){return u.id===id;}));
+  return {id:id,username:input.username,name:input.name,role:input.role,active:true,salt:salt,hash:hash_(input.password,salt),createdAt:now_(),createdBy:actor?actor.name:'API key',lastLoginAt:''};
+}
+function userInput_(r){return {username:clean_(r.username,30).toLowerCase(),name:clean_(r.name,80),role:ROLES.indexOf(r.role)>=0?r.role:'staff',password:String(r.password==null?'':r.password)};}
+function checkNewUser_(input){
+  if(!validUsername_(input.username))return 'invalid_username';
+  if(!input.name)return 'invalid_name';
+  if(!validPassword_(input.password))return 'invalid_password';
+  return '';
+}
+// สร้างผู้ดูแลคนแรก หรือกู้คืนสิทธิ์ผู้ดูแลเมื่อลืมรหัส ต้องใช้ API key จาก Script Properties
+function bootstrapAdmin_(r){
+  const input=userInput_(r);input.role='admin';
+  const bad=checkNewUser_(input);if(bad)return {ok:0,err:bad};
+  return withLock_(function(){
+    const list=users_(),found=list.filter(function(u){return u.username===input.username;})[0];
+    let user;
+    if(found){found.salt=Utilities.getUuid();found.hash=hash_(input.password,found.salt);found.role='admin';found.active=true;found.name=input.name;user=found;}
+    else{user=newUser_(input,null,list);list.push(user);}
+    saveUsers_(list);cache_().remove('LOGIN_FAILS_'+input.username);
+    audit_({id:'',name:'API key'},'user',user.id,(found?'กู้คืนสิทธิ์ผู้ดูแล ':'สร้างผู้ดูแลคนแรก ')+user.name+' ('+user.username+')');
+    return {ok:1,user:publicUser_(user)};
+  });
+}
+function userCreate_(r,actor){
+  const input=userInput_(r),bad=checkNewUser_(input);if(bad)return {ok:0,err:bad};
+  return withLock_(function(){
+    const list=users_();
+    if(list.some(function(u){return u.username===input.username;}))return {ok:0,err:'username_taken'};
+    const user=newUser_(input,actor,list);list.push(user);saveUsers_(list);
+    audit_(actor,'user',user.id,'เพิ่มผู้ใช้ '+user.name+' ('+user.username+') สิทธิ์ '+user.role);
+    return {ok:1,user:publicUser_(user)};
+  });
+}
+function userUpdate_(r,actor){
+  return withLock_(function(){
+    const list=users_(),user=list.filter(function(u){return u.id===String(r.id||'');})[0];
+    if(!user)return {ok:0,err:'not_found'};
+    const next={name:r.name==null?user.name:clean_(r.name,80),role:ROLES.indexOf(r.role)>=0?r.role:user.role,active:r.active==null?user.active:!!r.active};
+    if(!next.name)return {ok:0,err:'invalid_name'};
+    // ผู้แก้ต้องเป็นผู้ดูแลอยู่แล้ว เมื่อห้ามลดสิทธิ์หรือระงับตัวเอง ระบบจึงเหลือผู้ดูแลอย่างน้อยหนึ่งคนเสมอ
+    if(user.id===actor.id&&(!next.active||next.role!=='admin'))return {ok:0,err:'cannot_change_self'};
+    const changes=[];
+    if(next.name!==user.name)changes.push('ชื่อ '+user.name+' → '+next.name);
+    if(next.role!==user.role)changes.push('สิทธิ์ '+user.role+' → '+next.role);
+    if(next.active!==user.active)changes.push(next.active?'เปิดใช้งาน':'ระงับการใช้งาน');
+    Object.assign(user,next);saveUsers_(list);
+    if(changes.length)audit_(actor,'user',user.id,user.username+': '+changes.join(', '));
+    return {ok:1,user:publicUser_(user)};
+  });
+}
+function userResetPassword_(r,actor){
+  const password=String(r.password==null?'':r.password);
+  if(!validPassword_(password))return {ok:0,err:'invalid_password'};
+  return withLock_(function(){
+    const list=users_(),user=list.filter(function(u){return u.id===String(r.id||'');})[0];
+    if(!user)return {ok:0,err:'not_found'};
+    user.salt=Utilities.getUuid();user.hash=hash_(password,user.salt);saveUsers_(list);
+    cache_().remove('LOGIN_FAILS_'+user.username);
+    audit_(actor,'user',user.id,'ตั้งรหัสผ่านใหม่ให้ '+user.username);
+    return {ok:1};
+  });
+}
+function changePassword_(actor,oldPassword,newPassword){
+  if(!validPassword_(String(newPassword==null?'':newPassword)))return {ok:0,err:'invalid_password'};
+  return withLock_(function(){
+    const list=users_(),user=list.filter(function(u){return u.id===actor.id;})[0];
+    if(!user||hash_(String(oldPassword==null?'':oldPassword),user.salt)!==user.hash)return {ok:0,err:'wrong_password'};
+    user.salt=Utilities.getUuid();user.hash=hash_(String(newPassword),user.salt);saveUsers_(list);
+    audit_(actor,'user',user.id,'เปลี่ยนรหัสผ่านของตัวเอง');
+    return {ok:1};
+  });
+}
+
+/* ===== บันทึกการใช้งาน: แท็บ AuditLog (ต่อท้ายทีละแถว) ===== */
+const AUDIT_FIELDS=['at','userId','userName','action','slipId','detail'];
+function audit_(actor,action,slipId,detail){
+  const sh=sheet_('AuditLog');
+  if(sh.getLastRow()===0)sh.getRange(1,1,1,AUDIT_FIELDS.length).setNumberFormat('@').setValues([AUDIT_FIELDS]);
+  const row=[now_(),actor?actor.id:'',actor?actor.name:'',action,slipId||'',clean_(detail,500)];
+  sh.getRange(sh.getLastRow()+1,1,1,row.length).setNumberFormat('@').setValues([row]);
+}
+function auditList_(){return readTable_('AuditLog').slice(-300).reverse();}
 
 /* ===== ใบแจ้ง: แท็บ Slips หนึ่งแถวต่อหนึ่งใบแจ้ง ===== */
 // ตรวจและจัดรูปข้อมูลจากภายนอกให้เป็นใบแจ้งที่ถูกต้อง
@@ -97,48 +216,77 @@ function item_(input,base){
 }
 function parseArray_(v){try{const x=JSON.parse(v||'[]');return Array.isArray(x)?x:[];}catch(e){return [];}}
 function load_(){
-  const sh=sheet_('Slips'),last=sh.getLastRow();if(last<2)return [];
-  const values=sh.getRange(1,1,last,sh.getLastColumn()).getDisplayValues(),head=values[0];
-  return values.slice(1).map(function(row){const o={};head.forEach(function(k,i){if(k)o[k]=row[i]||'';});JSON_FIELDS.forEach(function(k){o[k]=parseArray_(o[k]);});return o;}).filter(function(o){return o.id;});
+  return readTable_('Slips').map(function(o){JSON_FIELDS.forEach(function(k){o[k]=parseArray_(o[k]);});return o;}).filter(function(o){return o.id;});
 }
 function save_(items){
-  const rows=[FIELDS].concat(items.map(function(o){return FIELDS.map(function(k){return JSON_FIELDS.indexOf(k)>=0?JSON.stringify(o[k]||[]):String(o[k]==null?'':o[k]);});}));
-  const sh=sheet_('Slips');sh.clearContents();
-  sh.getRange(1,1,rows.length,FIELDS.length).setNumberFormat('@').setValues(rows);
+  writeTable_('Slips',FIELDS,items.map(function(o){const row=Object.assign({},o);JSON_FIELDS.forEach(function(k){row[k]=JSON.stringify(o[k]||[]);});return row;}));
 }
 function nextIds_(items,count){
   const year=Utilities.formatDate(new Date(),'GMT+7','yyyy');let seq=0;
   items.forEach(function(x){if(String(x.id||'').indexOf(year+'-')===0)seq=Math.max(seq,Number(String(x.id).split('-')[1])||0);});
   const ids=[];for(let i=1;i<=count;i++)ids.push(year+'-'+('000'+(seq+i)).slice(-3));return ids;
 }
-function newSlip_(input,id){
-  const now=new Date().toISOString();
-  return item_(input,{id:id,publicToken:Utilities.getUuid().replace(/-/g,''),createdAt:now,updatedAt:now,statusHistory:[{status:'created',at:now}]});
+function logEntry_(actor,what){return {at:now_(),by:actor.name,userId:actor.id,what:what};}
+function newSlip_(input,id,actor,what){
+  const at=now_();
+  return item_(input,{id:id,publicToken:Utilities.getUuid().replace(/-/g,''),createdAt:at,updatedAt:at,createdBy:actor.name,statusHistory:[{status:'created',at:at}],log:[logEntry_(actor,what)]});
 }
-function create_(input){
-  return withLock_(function(){const items=load_();const item=newSlip_(input,nextIds_(items,1)[0]);items.unshift(item);save_(items);return {ok:1,item:item};});
+function create_(input,actor){
+  return withLock_(function(){
+    const items=load_();const item=newSlip_(input,nextIds_(items,1)[0],actor,'สร้างใบแจ้ง');items.unshift(item);save_(items);
+    audit_(actor,'create',item.id,'สร้างใบแจ้ง '+(item.patient||'(ใบเปล่า)'));
+    return {ok:1,item:item};
+  });
 }
-// นำเข้ารายชื่อจาก Excel ทีละหลายคนในการล็อกครั้งเดียว
-function import_(list){
+// นำเข้ารายชื่อจาก Excel หรือจองเลขที่ใบเปล่า ทีละหลายใบในการล็อกครั้งเดียว
+function import_(list,source,actor){
   const input=(Array.isArray(list)?list:[]).slice(0,500);
   if(!input.length)return {ok:0,err:'empty_import'};
-  return withLock_(function(){const items=load_(),ids=nextIds_(items,input.length);const created=input.map(function(x,i){return newSlip_(x,ids[i]);});save_(created.slice().reverse().concat(items));return {ok:1,items:created};});
+  const what=source==='blank'?'จองเลขที่ใบเปล่า':'นำเข้าจาก Excel';
+  return withLock_(function(){
+    const items=load_(),ids=nextIds_(items,input.length);
+    const created=input.map(function(x,i){return newSlip_(x,ids[i],actor,what);});
+    save_(created.slice().reverse().concat(items));
+    audit_(actor,'import',ids[0]+(ids.length>1?'–'+ids[ids.length-1]:''),what+' '+ids.length+' ใบ');
+    return {ok:1,items:created};
+  });
 }
-function update_(id,input){
+const FIELD_TH={clinic:'คลินิก',hn:'HN',patient:'ชื่อ',phone1:'เบอร์โทร',phone2:'เบอร์สำรอง',address:'ที่อยู่',recipientName:'ผู้รับยาแทน',receiveMethod:'วิธีรับยา',note:'หมายเหตุ',firstDate:'วันที่จ่ายครั้งแรก'};
+// สรุปว่าการบันทึกครั้งนี้เปลี่ยนอะไร เพื่อเก็บเป็นประวัติที่คนอ่านเข้าใจ
+function describeChanges_(old,item){
+  const out=[],fields=Object.keys(FIELD_TH).filter(function(k){return String(old[k]||'')!==String(item[k]||'');});
+  if(fields.length)out.push('แก้'+fields.map(function(k){return FIELD_TH[k];}).join(', '));
+  const shape=function(s){return JSON.stringify({d:s.drugs,r:s.rounds.map(function(r){return [r.date,r.qty];})});};
+  if(shape(old)!==shape(item))out.push(old.drugs.length?'แก้รายการยา/ตารางนัด':'กรอกรายการยาและตารางนัด');
+  item.rounds.forEach(function(r,k){const before=old.rounds[k];if(before&&before.status!==r.status)out.push('นัดที่ '+(k+1)+' → '+STATUS_TH[r.status]);});
+  return out;
+}
+function update_(id,input,actor){
   return withLock_(function(){
     const items=load_();const at=items.map(function(x){return x.id;}).indexOf(String(id||'').toUpperCase());
     if(at<0)return {ok:0,err:'not_found'};
-    const old=items[at],now=new Date().toISOString();
-    const item=item_(input,{id:old.id,publicToken:old.publicToken,createdAt:old.createdAt,updatedAt:now});
+    const old=items[at],time=now_();
+    const item=item_(input,{id:old.id,publicToken:old.publicToken,createdAt:old.createdAt,createdBy:old.createdBy,updatedAt:time});
     const history=old.statusHistory.slice();
-    item.rounds.forEach(function(r,k){const before=old.rounds[k];if(!before||before.status!==r.status)history.push({round:k,status:r.status,at:now});});
-    item.statusHistory=history.slice(-200);items[at]=item;save_(items);return {ok:1,item:item};
+    item.rounds.forEach(function(r,k){const before=old.rounds[k];if(!before||before.status!==r.status)history.push({round:k,status:r.status,at:time,by:actor.name});});
+    item.statusHistory=history.slice(-200);
+    const changes=describeChanges_(old,item);
+    item.log=old.log.concat(changes.length?[logEntry_(actor,changes.join(' · '))]:[]).slice(-200);
+    items[at]=item;save_(items);
+    if(changes.length)audit_(actor,'update',item.id,changes.join(' · '));
+    return {ok:1,item:item};
   });
 }
-function remove_(id){
-  return withLock_(function(){const items=load_();const next=items.filter(function(x){return x.id!==String(id||'').toUpperCase();});if(next.length===items.length)return {ok:0,err:'not_found'};save_(next);return {ok:1};});
+function remove_(id,actor){
+  return withLock_(function(){
+    const items=load_(),target=items.filter(function(x){return x.id===String(id||'').toUpperCase();})[0];
+    if(!target)return {ok:0,err:'not_found'};
+    save_(items.filter(function(x){return x!==target;}));
+    audit_(actor,'delete',target.id,'ลบใบแจ้ง '+(target.patient||'(ใบเปล่า)')+(target.hn?' HN '+target.hn:''));
+    return {ok:1};
+  });
 }
-// หน้าผู้ป่วยเปิดได้โดยไม่ต้องล็อกอิน: ส่งเฉพาะข้อมูลที่จำเป็น ปิดนามสกุลที่ฝั่งเซิร์ฟเวอร์ ไม่ส่ง HN เบอร์โทร หรือที่อยู่
+// หน้าผู้ป่วยเปิดได้โดยไม่ต้องล็อกอิน: ส่งเฉพาะข้อมูลที่จำเป็น ปิดนามสกุลที่ฝั่งเซิร์ฟเวอร์ ไม่ส่ง HN เบอร์โทร ที่อยู่ หรือประวัติการแก้ไข
 function mask_(name){const first=String(name||'').trim().split(/\s+/)[0];return (first||'ผู้รับบริการ')+' XXX';}
 function patient_(token){
   token=String(token||'');
@@ -148,36 +296,27 @@ function patient_(token){
     drugs:item.drugs.map(function(d){return {name:d.name,unit:d.unit,got:d.got};}),rounds:item.rounds,updatedAt:item.updatedAt}};
 }
 
-/* ===== วันหยุดราชการ: แท็บ Holidays (date, name) แก้ได้จากหน้าเว็บหรือในชีต ===== */
-function holidayWrite_(list){
-  const rows=[['date','name']].concat(list.map(function(h){return [h.date,h.name];}));
-  const sh=sheet_('Holidays');sh.clearContents();sh.getRange(1,1,rows.length,2).setNumberFormat('@').setValues(rows);
-}
+/* ===== วันหยุดราชการ: แท็บ Holidays (date, name) แก้ได้จากหน้าเว็บ (ผู้ดูแล) หรือในชีต ===== */
 function holidays_(){
-  const sh=sheet_('Holidays');
-  if(sh.getLastRow()===0)holidayWrite_(DEFAULT_HOLIDAYS.map(function(h){return {date:h[0],name:h[1]};}));
-  const last=sh.getLastRow();if(last<2)return [];
-  return sh.getRange(2,1,last-1,2).getDisplayValues().map(function(r){return {date:date_(r[0]),name:clean_(r[1],80)};}).filter(function(h){return h.date&&h.name;});
+  if(sheet_('Holidays').getLastRow()===0)writeTable_('Holidays',['date','name'],DEFAULT_HOLIDAYS.map(function(h){return {date:h[0],name:h[1]};}));
+  return readTable_('Holidays').map(function(h){return {date:date_(h.date),name:clean_(h.name,80)};}).filter(function(h){return h.date&&h.name;});
 }
-function holidaySave_(input){
+function holidaySave_(input,actor){
   const seen={};
   const list=(Array.isArray(input)?input:[]).slice(0,400).map(function(h){h=h||{};return {date:date_(h.date),name:clean_(h.name,80)};})
     .filter(function(h){if(!h.date||!h.name||seen[h.date])return false;seen[h.date]=1;return true;})
     .sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0;});
-  return withLock_(function(){holidayWrite_(list);return {ok:1,holidays:list};});
+  return withLock_(function(){writeTable_('Holidays',['date','name'],list);audit_(actor,'holiday','','บันทึกวันหยุด '+list.length+' วัน');return {ok:1,holidays:list};});
 }
 
-/* ===== รายชื่อยาสำหรับช่องค้นหา: แท็บ DrugNames คอลัมน์ A ===== */
-function drugNames_(){
-  const sh=sheet_('DrugNames'),last=sh.getLastRow();if(last<2)return [];
-  return sh.getRange(2,1,last-1,1).getDisplayValues().map(function(r){return clean_(r[0],120);}).filter(Boolean);
-}
-function drugSave_(input){
+/* ===== รายชื่อยาสำหรับช่องค้นหา: แท็บ DrugNames ===== */
+function drugNames_(){return readTable_('DrugNames').map(function(r){return clean_(r['ชื่อยา'],120);}).filter(Boolean);}
+function drugSave_(input,actor){
   return withLock_(function(){
     const seen={},names=drugNames_().concat((Array.isArray(input)?input:[]).slice(0,5000).map(function(n){return clean_(n,120);}))
       .filter(function(n){const k=n.toLowerCase();if(!n||seen[k])return false;seen[k]=1;return true;});
-    const rows=[['ชื่อยา']].concat(names.map(function(n){return [n];}));
-    const sh=sheet_('DrugNames');sh.clearContents();sh.getRange(1,1,rows.length,1).setNumberFormat('@').setValues(rows);
+    writeTable_('DrugNames',['ชื่อยา'],names.map(function(n){return {'ชื่อยา':n};}));
+    audit_(actor,'drugs','','บันทึกรายชื่อยา '+names.length+' รายการ');
     return {ok:1,names:names};
   });
 }
