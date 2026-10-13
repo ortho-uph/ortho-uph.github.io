@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>ติดตามการรับยา | ห้องยา</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <style>
+    :root{--brand:#5b2186;--ink:#1f2433;--muted:#6b7385;--wait:#9a6200;--wait-bg:#fff4dc;--ready:#0b7a55;--ready-bg:#dcf5ea;--ship:#1b5fa8;--ship-bg:#e1eeff;--done:#4b5163;--done-bg:#eceef3}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:#f2f0f7;font-family:Sarabun,Tahoma,sans-serif;color:var(--ink)}
+    .hero{padding:26px 22px 82px;background:linear-gradient(155deg,#2a0f57,#6b2a9a);color:#fff}
+    .org{display:flex;align-items:center;gap:10px;font-size:13px;opacity:.92}
+    .org img{width:40px;height:40px;object-fit:contain;filter:drop-shadow(0 2px 4px #16052f66)}
+    .hero h1{margin:22px 0 2px;font-size:15px;font-weight:600;opacity:.85}
+    .hero .name{font-size:25px;font-weight:800;line-height:1.2}
+    .content{width:min(520px,calc(100% - 32px));margin:-58px auto 30px}
+    .card{background:#fff;border-radius:22px;box-shadow:0 10px 26px #26104c1c;padding:18px;margin-top:14px}
+    .status{text-align:center;padding:22px 20px;margin-top:0;box-shadow:0 14px 30px #26104c2b}
+    .status .ic{display:grid;place-items:center;width:66px;height:66px;margin:0 auto 10px;border-radius:50%;font-size:32px;font-weight:800}
+    .status h2{margin:0;font-size:23px;line-height:1.25}
+    .status .rn{display:inline-block;margin-top:8px;padding:3px 12px;border-radius:999px;background:#f3ecfa;color:var(--brand);font-weight:700;font-size:13px}
+    .status p{margin:9px 0 0;color:#5b6273;line-height:1.5;font-size:15px}
+    .t-waiting .ic{background:var(--wait-bg);color:var(--wait)}.t-waiting h2{color:var(--wait)}
+    .t-ready .ic{background:var(--ready-bg);color:var(--ready)}.t-ready h2{color:var(--ready)}
+    .t-delivery .ic{background:var(--ship-bg);color:var(--ship)}.t-delivery h2{color:var(--ship)}
+    .t-received .ic{background:var(--done-bg);color:var(--done)}.t-received h2{color:var(--done)}
+    .count{display:flex;align-items:center;gap:14px;margin-top:16px;padding:14px 16px;border-radius:16px;background:linear-gradient(160deg,#fff7e3,#ffe9b8);color:#6d4300;text-align:left}
+    .count b{font-size:46px;line-height:1;font-weight:800}
+    .count span{display:block;font-weight:800;font-size:16px}.count small{display:block;font-size:13.5px;margin-top:2px}
+    .card h3{margin:0 0 6px;font-size:15px}
+    .r{display:flex;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid #eef0f4;font-size:15px}
+    .r:last-child{border:0}.r span{color:var(--muted)}.r b{text-align:right;white-space:nowrap}
+    .sched{display:grid;grid-template-columns:24px 1fr auto;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #eef0f4;color:#9aa0ad}
+    .sched:last-child{border:0}
+    .sched i{width:22px;height:22px;border-radius:50%;border:2px solid #d6d9e2;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:800}
+    .sched b{display:block;font-size:15px}.sched small{display:block;font-size:13px;line-height:1.4}
+    .sched em{font-style:normal;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
+    .sched.done{color:var(--ink)}.sched.done i{background:var(--brand);border-color:var(--brand);color:#fff}.sched.done em{background:var(--done-bg);color:var(--done)}.sched.done small{color:var(--muted)}
+    .sched.cur{color:var(--ink)}.sched.cur i{border-color:var(--brand);color:var(--brand);box-shadow:0 0 0 3px #ece2f6}
+    .sched.cur em.waiting{background:var(--wait-bg);color:var(--wait)}.sched.cur em.ready{background:var(--ready-bg);color:var(--ready)}.sched.cur em.delivery{background:var(--ship-bg);color:var(--ship)}
+    .sched.next em{background:#f3ecfa;color:var(--brand)}
+    .note{margin-top:14px;padding:14px 16px;border-radius:16px;background:#fff6e5;color:#7a4b00;font-size:15px;line-height:1.5}
+    .note b{display:block;font-size:13px;margin-bottom:2px}
+    .steps{margin-top:14px;padding:14px 16px;border-radius:16px;background:#f0f4fc;color:#334f7e;font-size:14.5px;line-height:1.55}
+    .call{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:16px;padding:16px;border-radius:16px;background:var(--brand);color:#fff;font-weight:800;font-size:17px;text-decoration:none}
+    .callsub{text-align:center;font-size:13px;color:var(--muted);margin:8px 0 0}
+    .updated{text-align:center;font-size:12.5px;color:var(--muted);margin:14px 0 0}
+    .error{text-align:center;padding:26px 20px}.error h2{margin:0 0 8px}.error p{margin:0;color:var(--muted)}
+    .loading{color:#eadfff;text-align:center}
+  </style>
+</head>
+<body>
+  <header class="hero"><div class="org"><img src="../logo.png" alt="">ห้องยา โรงพยาบาลมหาวิทยาลัยพะเยา</div><h1>ติดตามการรับยาของ</h1><div class="name" id="name">…</div></header>
+  <main class="content" id="content"><p class="loading">กำลังตรวจสอบสถานะ…</p></main>
+  <script>
+    const C = RefillCore;
+    const $ = id => document.getElementById(id);
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const API = OWED_CONFIG.endpoint;
+    const PHONE = '<a class="call" href="tel:054466666">☎ โทรหาห้องยา</a><p class="callsub">054-466-666 ต่อ 7121, 7123, 7408</p>';
+    const token = new URLSearchParams(location.search).get('token');
+
+    function fail(title, message) { $('name').textContent = ''; $('content').innerHTML = `<section class="card error"><h2>${esc(title)}</h2><p>${esc(message)}</p></section>${PHONE}`; }
+
+    // ป้ายสถานะของนัดปัจจุบันในตารางนัด (ข้อความเดียวกับที่ผู้ป่วยเห็นด้านบน ไม่บอกว่ายาไม่พอ)
+    function currentLabel(s) {
+      const st = C.status(s);
+      if (st === 'ready') return s.receiveMethod === 'mail' ? 'พร้อมจัดส่ง' : 'พร้อมรับ';
+      if (st === 'delivery') return 'จัดส่งแล้ว';
+      return C.isDue(s) ? 'กำลังจัดเตรียม' : 'นัดถัดไป';
+    }
+    function render(s) {
+      const view = C.patientView(s), k = C.cur(s), round = C.curRound(s);
+      $('name').textContent = 'คุณ' + s.patient.replace(/^(นาย|นางสาว|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.)/, '');
+      const countdown = view.daysLeft ? `<div class="count"><b>${view.daysLeft}</b><div><span>วัน ถึงวันนัดรับยา</span><small>รับได้ตั้งแต่ ${C.dateLong(round.date)}</small></div></div>` : '';
+      const status = `<section class="card status t-${view.tone}"><div class="ic">${view.icon}</div><h2>${esc(view.title)}</h2>${view.round ? `<span class="rn">นัดที่ ${view.round.number} จาก ${view.round.total}</span>` : ''}<p>${esc(view.message)}</p>${countdown}</section>`;
+      const items = round && C.roundItems(s, round).length ? `<section class="card"><h3>ยาที่จะได้รับใน${view.round ? 'นัดนี้' : 'ครั้งนี้'}</h3>${s.drugs.map((d, j) => (round.qty[j] ? `<div class="r"><span>${esc(d.name)}</span><b>${round.qty[j]} ${esc(d.unit)}</b></div>` : '')).join('')}</section>` : '';
+      const rows = [];
+      if (s.firstDate) rows.push(`<div class="sched done"><i>✓</i><div><b>รับยาครั้งแรก</b><small>${C.dateLong(s.firstDate)}</small></div><em>รับแล้ว</em></div>`);
+      s.rounds.forEach((r, j) => {
+        const done = r.status === 'received', cur = j === k;
+        const label = done ? 'รับแล้ว' : cur ? currentLabel(s) : 'นัดถัดไป';
+        rows.push(`<div class="sched ${done ? 'done' : cur ? 'cur' : 'next'}"><i>${done ? '✓' : j + 1}</i><div><b>นัดที่ ${j + 1} · ตั้งแต่ ${C.dateShort(r.date)}</b><small>${esc(C.roundItems(s, r).join(' · '))}</small></div><em class="${cur ? r.status : ''}">${label}</em></div>`);
+      });
+      const schedule = rows.length > 1 || s.firstDate ? `<section class="card"><h3>ตารางนัดรับยา</h3>${rows.join('')}</section>` : '';
+      const note = s.note ? `<div class="note"><b>หมายเหตุจากห้องยา</b>${esc(s.note)}</div>` : '';
+      const steps = C.status(s) === 'received' ? '' : s.receiveMethod === 'mail'
+        ? '<div class="steps"><b>จัดส่งทางไปรษณีย์</b> · ค่าส่ง 55 บาท เก็บเงินปลายทาง</div>'
+        : '<div class="steps"><b>ขั้นตอนรับยา</b> 1) ลงทะเบียนที่ห้องเวชระเบียนเบอร์ 1 · 2) ยื่นใบแจ้งที่ห้องจ่ายยา โดยไม่ต้องพบแพทย์ · จันทร์–ศุกร์ 08:00–16:00 น. ยกเว้นวันหยุดราชการ · ใช้ใบแจ้งและ QR เดิมได้ทุกนัด</div>';
+      const updated = s.updatedAt ? `<p class="updated">อัปเดตล่าสุด ${new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(s.updatedAt))} · เลขที่ ${esc(s.id)}</p>` : '';
+      $('content').innerHTML = status + items + schedule + note + steps + PHONE + updated;
+    }
+
+    if (!token) fail('ไม่พบรายการ', 'กรุณาสแกน QR จากใบแจ้งของห้องยา');
+    else if (!API) fail('ระบบยังไม่พร้อมใช้งาน', 'กรุณาติดต่อห้องยา');
+    else fetch(API + '?action=patient&token=' + encodeURIComponent(token) + '&_=' + Date.now(), { cache: 'no-store' })
+      .then(r => r.json())
+      .then(data => { if (!data.ok) throw new Error('not_found'); render(data.item); })
+      .catch(error => (error.message === 'not_found' ? fail('ไม่พบรายการ', 'ใบแจ้งนี้อาจถูกยกเลิก กรุณาติดต่อห้องยา') : fail('ยังเชื่อมต่อไม่ได้', 'กรุณาลองใหม่ภายหลัง หรือติดต่อห้องยา')));
+  </script>
+</body>
+</html>

@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>ระบบยาค้างจ่าย | ห้องยา</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <style>
+    :root{--brand:#5b2186;--brand-2:#7a3aa3;--brand-soft:#f3ecfa;--ink:#1f2433;--muted:#6b7385;--line:#e6e8ef;--bg:#f6f5fa;--surface:#fff;--wait:#b26a00;--wait-bg:#fff4dc;--ready:#0b7a55;--ready-bg:#dcf5ea;--ship:#1b5fa8;--ship-bg:#e1eeff;--done:#4b5163;--done-bg:#eceef3;--draft:#6a4b8c;--draft-bg:#efe8f7;--late:#c03a46;--r:14px;--shadow:0 1px 2px #1b14330f,0 6px 20px #1b143312}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:Sarabun,Tahoma,sans-serif;font-size:15px}
+    button,input,select,textarea{font:inherit;color:inherit}
+    button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.55}
+    .hidden{display:none!important}
+
+    .access-gate{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:20px;background:linear-gradient(#f7f4ffde,#eef8ffeb),url('../welcome-background.png') center/cover no-repeat}
+    .access-gate.unlocked{display:none}
+    .access-box{width:min(430px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:30px;border-radius:24px;background:#fffffff2;box-shadow:0 22px 60px #3120522b}
+    .access-box h1{margin:0 0 7px;color:#32164f;font-size:27px}.access-box p{margin:0 0 18px;color:#687083;line-height:1.5}
+    .access-box label{display:block;font-size:13px;font-weight:700;margin:12px 0 5px}
+    .access-box input{width:100%;padding:11px 12px;border:1px solid #d9dce5;border-radius:10px}
+    .access-error{min-height:22px;margin:10px 0 0!important;color:#a52f3d!important;font-weight:600}
+    .link-btn{width:100%;border:0;background:transparent;color:var(--brand);font-weight:700;margin-top:6px}
+    .pin-setup{margin-top:16px;padding-top:16px;border-top:1px solid #ddd6eb}
+
+    .appbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:10px;padding:12px 24px;background:var(--surface);border-bottom:1px solid var(--line);flex-wrap:wrap}
+    .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;white-space:nowrap;color:inherit;text-decoration:none}
+    .logo i{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:linear-gradient(140deg,var(--brand),var(--brand-2));color:#fff;font-style:normal;font-size:19px}
+    .logo small{display:block;font-weight:500;font-size:12px;color:var(--muted)}
+    .clinic{padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;font-weight:700;color:var(--brand);max-width:230px}
+    .search{flex:1;min-width:220px;max-width:440px;position:relative}
+    .search input{width:100%;padding:10px 14px 10px 38px;border:1px solid var(--line);border-radius:12px;background:#f8f8fb}
+    .search input:focus{outline:2px solid #c9b2e3;background:#fff}
+    .search:before{content:"⌕";position:absolute;left:13px;top:50%;transform:translateY(-52%);font-size:19px;color:var(--muted)}
+    .btn{border:0;border-radius:11px;padding:10px 15px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap}
+    .btn-primary{background:var(--brand);color:#fff}.btn-primary:hover:not(:disabled){background:#4c1b70}
+    .btn-ghost{background:#f1f1f6}.btn-ghost:hover:not(:disabled){background:#e7e7ef}
+    .btn-outline{background:#fff;border:1px solid #d9cbea;color:var(--brand)}
+    .btn-danger{background:#fff0f0;color:#a62e2e}
+    .bar-end{margin-left:auto;display:flex;gap:6px}
+    .icon-btn{border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 10px;font-weight:700;font-size:13px;color:var(--muted);white-space:nowrap}
+
+    .conn{margin:0 0 14px;padding:11px 15px;border-radius:12px;background:#fff1e0;color:#8a4b00;font-weight:600}
+    .page{padding:22px 24px 60px;max-width:1440px;margin:auto}
+    .page-head h1{margin:0;font-size:24px}.page-head p{margin:3px 0 16px;color:var(--muted)}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-weight:700;font-size:13px;white-space:nowrap}
+    .pill:before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+    .s-draft{background:var(--draft-bg);color:var(--draft)}.s-waiting{background:var(--wait-bg);color:var(--wait)}.s-ready{background:var(--ready-bg);color:var(--ready)}.s-delivery{background:var(--ship-bg);color:var(--ship)}.s-received{background:var(--done-bg);color:var(--done)}
+    .due{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:6px;background:#fde8ea;color:var(--late);font-size:12px;font-weight:700;white-space:nowrap}
+    .muted{color:var(--muted);font-size:13px;white-space:nowrap}
+    .ctag{display:inline-block;padding:1px 7px;border-radius:6px;background:#f0f0f5;color:#5d6475;font-size:11.5px;font-weight:700;margin-left:4px;vertical-align:1px}
+    .rtag{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:#5b4a70;white-space:nowrap}
+    .dots{display:inline-flex;gap:3px}.dots i{width:8px;height:8px;border-radius:50%;background:#dcdfe7}.dots i.done{background:var(--brand)}.dots i.cur{background:#fff;box-shadow:inset 0 0 0 2px var(--brand)}
+    .more-drug{display:inline-block;padding:0 6px;border-radius:6px;background:var(--brand-soft);color:var(--brand);font-size:12px;font-weight:700}
+
+    .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+    .chip{display:flex;align-items:center;gap:8px;padding:8px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;font-weight:600}
+    .chip b{font-size:13px;min-width:24px;padding:1px 7px;border-radius:999px;background:#f0f0f5;text-align:center}
+    .chip.on{border-color:var(--brand);background:var(--brand-soft);color:var(--brand)}.chip.on b{background:var(--brand);color:#fff}
+    .banner{display:flex;align-items:center;gap:12px;padding:12px 16px;margin-bottom:14px;border-radius:13px;background:var(--draft-bg);color:#4a2f6a;font-weight:600}
+    .banner .btn{margin-left:auto;padding:7px 12px;font-size:13.5px}
+    .split{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:18px;align-items:start}
+    .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+    .table-wrap{overflow-x:auto;border-radius:var(--r)}
+    table{width:100%;border-collapse:collapse}
+    th{font-size:12.5px;color:var(--muted);font-weight:700;text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);background:#fbfbfd;white-space:nowrap}
+    td{padding:12px 14px;border-bottom:1px solid #f0f1f5;vertical-align:middle}
+    tr:last-child td{border-bottom:0}
+    #rows tr{cursor:pointer}#rows tr:hover{background:#faf8fd}#rows tr.sel{background:var(--brand-soft)}
+    .who b{display:block}.who small,.drug small{color:var(--muted);font-size:12.5px}
+    .drug b{display:block;font-weight:600}.drug .missing{color:var(--draft);font-weight:700}
+    .ref{font-weight:700;color:var(--brand);font-variant-numeric:tabular-nums;white-space:nowrap}
+    .act{border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 10px;font-size:13px;font-weight:700;white-space:nowrap}
+    .act.go-ready{border-color:#a8dcc3;color:var(--ready);background:#f2fbf7}.act.go-delivery{border-color:#b6d0f0;color:var(--ship);background:#f4f8ff}.act.go-received{border-color:#d7d9e2;color:var(--done)}.act.go-fill{border-color:#d9cbea;color:var(--draft);background:#faf6fe}
+    .empty{padding:40px;text-align:center;color:var(--muted)}
+
+    .panel{position:sticky;top:84px;padding:20px;max-height:calc(100vh - 100px);overflow:auto}
+    .panel h2{margin:0;font-size:20px}.panel .sub{color:var(--muted);font-size:13.5px;margin-top:2px}
+    .sec-title{display:flex;justify-content:space-between;align-items:center;margin:18px 0 8px;font-size:13px;font-weight:800;color:var(--muted)}
+    .sec-title button{border:0;background:none;color:var(--brand);font-weight:700;font-size:13px}
+    .mini{font-size:13.5px;border:1px solid var(--line);border-radius:12px;border-collapse:separate;border-spacing:0;overflow:hidden}
+    .mini th{padding:7px 10px;font-size:12px}.mini td{padding:7px 10px}.mini td.owe{color:var(--wait);font-weight:800;white-space:nowrap}
+    .rounds{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+    .rd{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid #f0f1f5;color:#9aa0ad}
+    .rd:last-child{border:0}
+    .rd>i{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;border:2px solid #d6d9e2;font-style:normal;font-size:12px;font-weight:800;background:#fff}
+    .rd b{display:block;font-size:14px}.rd small{font-size:12.5px}
+    .rd.done{color:var(--ink)}.rd.done>i{background:var(--brand);border-color:var(--brand);color:#fff}.rd.done small{color:var(--muted)}
+    .rd.cur{background:#faf6fe;color:var(--ink)}.rd.cur>i{border-color:var(--brand);color:var(--brand);box-shadow:0 0 0 3px #ece2f6}.rd.cur b{color:var(--brand)}
+    .draft-box{padding:16px;border-radius:12px;background:var(--draft-bg);color:#4a2f6a;font-size:14px;line-height:1.5}
+    .kv{display:grid;grid-template-columns:96px 1fr;gap:7px 12px;margin:14px 0;font-size:14px}
+    .kv dt{color:var(--muted)}.kv dd{margin:0;font-weight:600;word-break:break-word}
+    .big-act{width:100%;padding:13px;font-size:15.5px;margin-top:12px}
+    .pt-preview{margin-top:14px;padding:11px 13px;border-radius:12px;background:#eef6ff;border:1px solid #cfe2fa;font-size:14px}
+    .pt-preview small{display:block;color:#4d6b91;font-size:12px;font-weight:700}.pt-preview b{color:#1b4f8a}
+    .qrrow{display:flex;gap:14px;align-items:center;padding:14px;border-radius:12px;background:#f8f7fb;margin:14px 0}
+    .qrrow canvas{width:88px!important;height:88px!important;flex:none;background:#fff;border-radius:8px;padding:4px}
+    .qrrow p{margin:0;font-size:13px;color:var(--muted)}
+    .row-btns{display:flex;gap:8px;flex-wrap:wrap}.row-btns .btn{flex:1}
+
+    .scrim{position:fixed;inset:0;background:#1a12302e;opacity:0;pointer-events:none;transition:.2s;z-index:60}
+    .drawer{position:fixed;top:0;right:0;bottom:0;width:min(780px,100%);background:#fff;z-index:61;transform:translateX(100%);transition:.25s ease;display:flex;flex-direction:column;box-shadow:-12px 0 40px #1a123026}
+    .modal{position:fixed;left:50%;top:50%;width:min(1040px,94vw);max-height:92vh;transform:translate(-50%,-46%);opacity:0;pointer-events:none;transition:.22s;background:#fff;border-radius:20px;z-index:61;display:flex;flex-direction:column;box-shadow:0 30px 80px #1a12304d}
+    .modal.small{width:min(680px,94vw)}.modal.print{width:min(900px,96vw)}
+    .ov-drawer .scrim,.ov-imp .scrim,.ov-hol .scrim,.ov-print .scrim,.ov-settings .scrim{opacity:1;pointer-events:auto}
+    .ov-drawer .drawer{transform:none}
+    .ov-imp .modal.imp,.ov-hol .modal.hol,.ov-print .modal.print,.ov-settings .modal.settings{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
+    .drawer header,.modal header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 24px;border-bottom:1px solid var(--line)}
+    .drawer header h2,.modal header h2{margin:0;font-size:19px}.drawer header small,.modal header small{color:var(--muted)}
+    .x{border:0;background:#f1f1f6;width:34px;height:34px;border-radius:10px;font-size:18px;flex:none}
+    .drawer form{flex:1;overflow:auto;padding:6px 24px 20px}
+    .modal .body{overflow:auto;padding:20px 24px}
+    .drawer footer,.modal footer{display:flex;gap:10px;align-items:center;padding:14px 24px;border-top:1px solid var(--line);background:#fbfbfd}
+    .drawer footer .btn{flex:1;padding:12px}
+    .grow{flex:1;color:var(--muted);font-size:13.5px}
+    .fs{padding:16px 0;border-bottom:1px dashed var(--line)}.fs:last-child{border:0}
+    .fs h3{margin:0 0 10px;font-size:14px;color:var(--brand);display:flex;align-items:center;gap:8px}
+    .fs h3 i{display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:var(--brand-soft);font-style:normal;font-size:12px}
+    .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}.g4{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:12px}
+    .f{margin-bottom:12px}.f label{display:block;font-size:13px;font-weight:700;color:#4a5164;margin:0 0 5px}
+    .f input,.f select,.f textarea{width:100%;padding:10px 12px;border:1px solid #d9dce5;border-radius:10px;background:#fff}
+    .f input:focus,.f select:focus,.f textarea:focus{outline:2px solid #c9b2e3;border-color:#b796da}
+    .f textarea{min-height:64px;resize:vertical}
+    .opt{font-weight:400;color:#8a90a0}
+    .seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .seg label{display:flex;align-items:center;gap:10px;padding:11px 13px;border:1.5px solid #d9dce5;border-radius:12px;cursor:pointer;font-weight:700;font-size:14px;margin:0;color:var(--ink)}
+    .seg label small{display:block;font-weight:500;color:var(--muted);font-size:12px}
+    .seg input{display:none}.seg label:has(input:checked){border-color:var(--brand);background:var(--brand-soft)}
+    .warn{margin:-4px 0 10px;padding:8px 11px;border-radius:9px;background:#fff4dc;color:#7a4b00;font-size:12.5px;font-weight:600}
+    .dgrid{display:grid;grid-template-columns:1fr 92px 82px 82px 84px 30px;gap:7px;align-items:center;margin-bottom:7px}
+    .dgrid input,.dgrid select{width:100%;padding:8px 10px;border:1px solid #d9dce5;border-radius:9px;background:#fff}
+    .dgrid output{font-weight:800;color:var(--brand);font-size:14px;white-space:nowrap}
+    .dgrid button,.rgrid button{border:0;background:#f4f4f8;border-radius:8px;height:34px;color:#8a90a0}
+    .dhead,.rhead{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:5px}
+    .rhead span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .splitter{display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding:10px 12px;border-radius:12px;background:#f6f2fb;font-size:13.5px;margin-bottom:10px}
+    .splitter input{width:58px;padding:6px 8px;border:1px solid #d9cbea;border-radius:8px;text-align:center}
+    .splitter input[type=date]{width:auto}
+    .splitter button{margin-left:auto;border:0;background:var(--brand);color:#fff;border-radius:8px;padding:6px 12px;font-weight:700;font-size:13px}
+    .rgrid-wrap{overflow-x:auto}
+    .rgrid{display:grid;gap:7px;align-items:center;margin-bottom:3px;min-width:420px}
+    .rgrid .rno{font-size:13px;font-weight:800;color:#5b4a70}
+    .rgrid input{width:100%;padding:8px 9px;border:1px solid #d9dce5;border-radius:9px}
+    .rgrid input:disabled{background:#f3f4f7;color:#8a90a0}
+    .rgrid .lock{font-size:12px;color:var(--ready);font-weight:800;text-align:center}
+    .rnote{margin:0 0 9px 69px;font-size:12.5px;font-weight:600}
+    .rnote.ok{color:var(--muted);font-weight:500}.rnote.moved{color:#1b5fa8}.rnote.off{color:var(--late)}
+    .rnote button{margin-left:6px;border:1px solid #f0b5ba;background:#fff;color:var(--late);border-radius:7px;padding:2px 8px;font-weight:700;font-size:12px}
+    .add-row{border:1.5px dashed #cdbfe0;background:#fff;color:var(--brand);border-radius:10px;padding:8px;width:100%;font-weight:700;font-size:13.5px;margin-top:4px}
+    .sumcheck{margin-top:6px;font-size:13px;font-weight:700;padding:7px 10px;border-radius:9px}
+    .sumcheck.ok{background:#e8f7f0;color:var(--ready)}.sumcheck.bad{background:#fff1e0;color:#9a5a00}
+    .ziphint{display:block;margin-top:5px;font-size:12.5px;font-weight:700;color:var(--muted)}.ziphint.ok{color:#1b5fa8}.ziphint.wa{color:#9a5a00}
+
+    .drop{display:grid;place-items:center;text-align:center;gap:6px;padding:46px 20px;border:2px dashed #cdbfe0;border-radius:16px;background:#fbf9fe;color:#4b4560;cursor:pointer}
+    .drop.over{background:var(--brand-soft);border-color:var(--brand)}.drop b{font-size:18px}.drop small{color:var(--muted)}.drop .ic{font-size:38px}
+    .filebar{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:#f6f7fa;margin-bottom:16px;font-size:14px}
+    .filebar button{margin-left:auto;border:0;background:none;color:var(--brand);font-weight:700}
+    .maprow{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+    .map{padding:6px 11px;border-radius:999px;background:#e8f7f0;color:var(--ready);font-size:13px;font-weight:700}.map.miss{background:#f3f4f7;color:#8a90a0}
+    .batch{padding:14px 16px;border-radius:14px;background:#f6f2fb;margin-bottom:16px}
+    .batch h4{margin:0 0 3px;font-size:14px;color:var(--brand)}.batch p{margin:0 0 12px;font-size:13px;color:var(--muted)}.batch .f{margin-bottom:0}
+    .istats{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;font-size:13.5px;font-weight:700}
+    .istats .ok{color:var(--ready)}.istats .wa{color:#9a5a00}.istats .sk{color:var(--late)}.istats .zp{color:#1b5fa8}
+    .itable{border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:340px}
+    .itable table{font-size:13.5px}.itable th{position:sticky;top:0;z-index:1}.itable td{padding:8px 12px;vertical-align:top}
+    .itable tr.skip td{color:#a2a7b4;background:#fafafb}.itable .addr{max-width:320px;color:#5d6475}
+    .flag{display:inline-block;margin:2px 4px 0 0;padding:1px 7px;border-radius:6px;font-size:11.5px;font-weight:700;white-space:nowrap}
+    .flag.wa{background:#fff1e0;color:#9a5a00}.flag.sk{background:#fde8ea;color:var(--late)}.flag.fx{background:#eef6ff;color:#1b5fa8}.flag.ok{background:#e8f7f0;color:var(--ready)}
+    mark.zip{background:#e3f0ff;color:#1b5fa8;font-weight:800;padding:0 4px;border-radius:4px}
+    .holadd{display:grid;grid-template-columns:170px 1fr auto;gap:8px}
+    .holadd input,.settings input{padding:10px 12px;border:1px solid #d9dce5;border-radius:10px;width:100%}
+    #holRows tr.past td{color:#a2a7b4}
+
+    .modal.print .body{background:#e9e7ef;padding:18px}
+    .ps-sheet{position:relative;width:794px;height:1123px;margin:0 auto;background:#fff;box-shadow:0 4px 20px #0002;color:#0d2a6b}
+    .ps-bg{position:absolute;inset:0;width:100%;height:100%}
+    .pf{position:absolute;font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;font-weight:600}
+    .pf.b{font-weight:800}.pf.lg{font-size:16px}.pf.sm{font-size:11.5px}.pf.xs{font-size:10.5px;color:#222;font-weight:500}
+    .pf.tick{font-size:22px;font-weight:800}
+    .pf.addr{white-space:normal;line-height:28.6px;height:86px;text-indent:8px}
+    .pf.qr canvas{width:100%!important;height:auto!important;display:block}
+    .pf.box{white-space:normal;font-size:11.5px;color:#111}.pf.box b{display:block;font-size:12.5px;margin-bottom:3px;color:#0d2a6b}
+    .ps-t{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:4px}
+    .ps-t th,.ps-t td{border:1px solid #9aa3b5;padding:2px 5px;text-align:left;white-space:nowrap;background:#fff;color:#111}
+    .ps-t th{background:#f1f3f8;color:#333;font-size:10.5px;white-space:normal;line-height:1.15}.ps-t td:first-child{white-space:normal}
+
+    .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:#1d1830;color:#fff;padding:12px 18px;border-radius:12px;font-weight:600;opacity:0;transition:.25s;z-index:10000;pointer-events:none;max-width:90vw}
+    .toast.show{opacity:1;transform:translate(-50%,0)}.toast.err{background:#9b2531}
+
+    @media(max-width:1180px){.split{grid-template-columns:1fr}.panel{position:static;max-height:none}}
+    @media(max-width:700px){.appbar{padding:10px 14px}.page{padding:16px 14px 50px}.g2,.g3,.g4{grid-template-columns:1fr}.dgrid{grid-template-columns:1fr 1fr}.bar-end{margin-left:0}}
+    @media print{
+      @page{size:A4 portrait;margin:0}
+      body{background:#fff}
+      body>*:not(#overlay),#overlay>*:not(.modal.print){display:none!important}
+      .modal.print{position:static;transform:none!important;opacity:1;box-shadow:none;width:auto;max-height:none;border-radius:0}
+      .modal.print header,.modal.print footer{display:none!important}
+      .modal.print .body{padding:0;background:#fff;overflow:visible}
+      .ps-sheet{width:210mm;height:297mm;box-shadow:none;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    }
+  </style>
+</head>
+<body>
+  <section class="access-gate" id="accessGate" aria-label="เข้าสู่ระบบเจ้าหน้าที่">
+    <div class="access-box">
+      <h1>เข้าสู่ระบบเจ้าหน้าที่</h1>
+      <p>กรอก PIN เพื่อจัดการข้อมูลยาค้างจ่าย</p>
+      <form id="accessForm"><label for="accessCode">PIN 4–8 หลัก</label><input id="accessCode" type="password" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="current-password" required autofocus><button class="btn btn-primary" type="submit" style="width:100%;margin-top:16px">เข้าสู่ระบบ</button><p class="access-error" id="accessError" role="alert"></p></form>
+      <button class="link-btn" id="togglePinSetup" type="button">ตั้งหรือเปลี่ยน PIN</button>
+      <form class="pin-setup" id="pinSetupForm" hidden><p>ใช้ API key ยืนยันสิทธิ์เพียงครั้งเดียว</p><label for="setupUrl">Web App URL</label><input id="setupUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" required><label for="setupApiKey">API key</label><input id="setupApiKey" type="password" autocomplete="off" required><label for="newPin">PIN ใหม่ 4–8 หลัก</label><input id="newPin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" required><label for="confirmPin">ยืนยัน PIN ใหม่</label><input id="confirmPin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" required><button class="btn btn-primary" type="submit" style="width:100%;margin-top:16px">บันทึก PIN ใหม่</button><p class="access-error" id="pinSetupError" role="alert"></p></form>
+    </div>
+  </section>
+
+  <header class="appbar">
+    <a class="logo" href="../"><i>℞</i><div>ระบบยาค้างจ่าย<small>ห้องยา · โรงพยาบาลมหาวิทยาลัยพะเยา</small></div></a>
+    <select class="clinic" id="clinic" aria-label="คลินิก"></select>
+    <label class="search"><input id="q" placeholder="ค้นหา HN, ชื่อ, เลขที่ใบแจ้ง หรือชื่อยา (กด /)"></label>
+    <button class="btn btn-ghost" id="holBtn" type="button">📅 วันหยุด</button>
+    <button class="btn btn-outline" id="impBtn" type="button" data-needs-db>⇪ นำเข้าจาก Excel</button>
+    <button class="btn btn-primary" id="newBtn" type="button" data-needs-db>＋ บันทึกยาค้างจ่าย</button>
+    <div class="bar-end"><button class="icon-btn" id="settingsBtn" type="button" title="ตั้งค่าการเชื่อมต่อและรายชื่อยา">⚙ ตั้งค่า</button><button class="icon-btn" id="changeCodeBtn" type="button">เปลี่ยน PIN</button><button class="icon-btn" id="logoutBtn" type="button">ออกจากระบบ</button></div>
+  </header>
+
+  <main class="page">
+    <div class="page-head"><h1>รายการยาค้างจ่าย</h1><p>ผู้ป่วยที่ได้รับยาไม่ครบตามแพทย์สั่ง · หนึ่งใบแจ้งมีได้หลายรายการยาและหลายนัด · กดปุ่มด้านขวาของแถวเพื่อเลื่อนสถานะนัดปัจจุบัน</p></div>
+    <div class="conn hidden" id="conn"></div>
+    <div id="draftBanner"></div>
+    <div class="chips" id="chips"></div>
+    <div class="split">
+      <div class="card table-wrap"><table><thead><tr><th>เลขที่</th><th>ผู้ป่วย</th><th>รายการยา</th><th>นัด</th><th>นัดรับหลัง</th><th>สถานะนัดนี้</th><th></th></tr></thead><tbody id="rows"></tbody></table><div class="empty hidden" id="empty">ไม่พบรายการ</div></div>
+      <aside class="card panel" id="panel"><div class="empty">เลือกรายการเพื่อดูรายละเอียด</div></aside>
+    </div>
+  </main>
+
+  <div id="overlay">
+    <div class="scrim" data-close></div>
+
+    <aside class="drawer" aria-label="ฟอร์มยาค้างจ่าย">
+      <header><div><h2 id="dTitle">บันทึกยาค้างจ่าย</h2><small id="dSub"></small></div><button class="x" data-close type="button">✕</button></header>
+      <form id="form" autocomplete="off">
+        <div class="fs"><h3><i>1</i>ผู้ป่วย</h3>
+          <div class="g2"><div class="f"><label>HN</label><input name="hn" maxlength="20" placeholder="เช่น 680003221" required></div><div class="f"><label>ชื่อ-นามสกุล</label><input name="patient" placeholder="ชื่อผู้ป่วย" required></div></div>
+          <div class="g3"><div class="f"><label>เบอร์โทรศัพท์</label><input name="phone1" inputmode="tel" placeholder="081-234-5678"></div><div class="f"><label>เบอร์สำรอง <span class="opt">(ถ้ามี)</span></label><input name="phone2" inputmode="tel"></div><div class="f"><label>คลินิก</label><input name="clinic" list="clinicList" required></div></div>
+        </div>
+        <div class="fs"><h3><i>2</i>ยาที่จ่ายไม่ครบ <span class="opt" style="font-size:12px">(เพิ่มได้หลายรายการ)</span></h3>
+          <div class="dgrid dhead"><span>รายการยา</span><span>หน่วย</span><span>แพทย์สั่ง</span><span>จ่ายแล้ว</span><span>ค้างจ่าย</span><span></span></div>
+          <div id="drugRows"></div>
+          <button type="button" class="add-row" id="addDrug">＋ เพิ่มรายการยา</button>
+        </div>
+        <div class="fs"><h3><i>3</i>นัดรับยาส่วนที่เหลือ</h3>
+          <div class="splitter">แบ่งยาทุกตัวเป็น <input id="spN" type="number" min="1" max="12" value="1"> นัด ห่างกัน <input id="spD" type="number" min="1" value="28"> วัน เริ่ม <input id="spStart" type="date"><button type="button" id="spGo">สร้างตารางนัด</button></div>
+          <div class="rgrid-wrap"><div id="roundRows"></div></div>
+          <button type="button" class="add-row" id="addRound">＋ เพิ่มนัด</button>
+          <div id="sumcheck"></div>
+        </div>
+        <div class="fs"><h3><i>4</i>การรับยา</h3>
+          <div class="seg f"><label><input type="radio" name="receiveMethod" value="self" checked><span>🏥 มารับเองที่ห้องยา<small>ผู้ป่วยหรือญาติมารับ</small></span></label><label><input type="radio" name="receiveMethod" value="mail"><span>📦 ส่งทางไปรษณีย์<small>ค่าส่ง 55 บาท เก็บปลายทาง</small></span></label></div>
+          <div class="f"><label>ชื่อผู้รับยาแทน <span class="opt">(ถ้าไม่ใช่ผู้ป่วย)</span></label><input name="recipientName" placeholder="เว้นว่างถ้าผู้ป่วยรับเอง"></div>
+          <div class="f"><label>ที่อยู่ <span class="opt">(พิมพ์ลงใบแจ้ง · ไม่ต้องใส่รหัสไปรษณีย์ ระบบเติมให้)</span></label><textarea name="address" placeholder="บ้านเลขที่ หมู่ ต. อ. จ."></textarea><small class="ziphint" id="zipHint"></small></div>
+        </div>
+        <div class="fs"><h3><i>5</i>หมายเหตุถึงผู้ป่วย <span class="opt" style="font-size:12px">(แสดงในหน้า QR)</span></h3>
+          <p class="warn">⚠ ผู้ป่วยอ่านข้อความนี้ได้ ไม่ควรเขียนว่ายาหมด ยาไม่พอ หรือรอยาเข้า</p>
+          <div class="f"><textarea name="note" placeholder="เช่น รับยาได้ในเวลาราชการ 08:00–16:00 น."></textarea></div>
+        </div>
+      </form>
+      <footer><button class="btn btn-ghost" type="button" id="saveOnly">บันทึก</button><button class="btn btn-primary" type="button" id="savePrint">🖨 บันทึกและพิมพ์ใบแจ้ง</button></footer>
+    </aside>
+
+    <section class="modal imp" aria-label="นำเข้ารายชื่อผู้ป่วย">
+      <header><div><h2>นำเข้ารายชื่อผู้ป่วยจาก Excel</h2><small>รองรับ .xlsx .xls .csv · หาคอลัมน์ HN ชื่อ เบอร์โทร ที่อยู่ให้อัตโนมัติ · อ่านไฟล์ในเครื่องนี้ และส่งเฉพาะรายชื่อที่เลือกไปฐานข้อมูลกลาง</small></div><button class="x" data-close type="button">✕</button></header>
+      <div class="body">
+        <div id="impStep1"><label class="drop" id="drop"><input type="file" id="impFile" accept=".xlsx,.xls,.csv" hidden><span class="ic">📄</span><b>ลากไฟล์ Excel มาวางที่นี่</b><small>หรือคลิกเพื่อเลือกไฟล์ เช่น “นัด refill URO.xlsx”</small></label></div>
+        <div id="impStep2" class="hidden">
+          <div class="filebar">📄 <div><b id="impName"></b><br><span id="impMeta" class="muted"></span></div><button type="button" id="impReset">เปลี่ยนไฟล์</button></div>
+          <div class="maprow" id="impMap"></div>
+          <div class="batch"><h4>ข้อมูลที่ใช้ร่วมกันทั้งชุด</h4><p>รายชื่อจะอยู่ในสถานะ “รอกรอกข้อมูล” แล้วค่อยกรอกรายการยาและวันนัดทีละคน · ยังไม่แจ้งผู้ป่วยจนกว่าจะพิมพ์ใบแจ้ง</p>
+            <div class="g4"><div class="f"><label>คลินิก</label><input id="impClinic" list="clinicList"></div><div class="f"><label>วิธีรับยา</label><select id="impMethod"><option value="self">มารับเอง</option><option value="mail">ส่งไปรษณีย์</option></select></div></div>
+          </div>
+          <div class="istats" id="impStats"></div>
+          <div class="itable"><table><thead><tr><th style="width:34px"><input type="checkbox" id="impAll" checked></th><th>HN</th><th>ชื่อ</th><th>เบอร์โทร</th><th>ที่อยู่</th><th>ตรวจสอบ</th></tr></thead><tbody id="impRows"></tbody></table></div>
+        </div>
+      </div>
+      <footer><span class="grow" id="impFoot">เลือกไฟล์เพื่อดูตัวอย่างก่อนนำเข้า</span><button class="btn btn-ghost" type="button" data-close>ยกเลิก</button><button class="btn btn-primary" type="button" id="impGo" disabled>นำเข้า</button></footer>
+    </section>
+
+    <section class="modal small hol" aria-label="วันหยุดราชการ">
+      <header><div><h2>📅 วันหยุดราชการ</h2><small>ตอนสร้างตารางนัด ระบบเลี่ยงวันเสาร์–อาทิตย์และวันในรายการนี้ให้อัตโนมัติ</small></div><button class="x" data-close type="button">✕</button></header>
+      <div class="body">
+        <div class="holadd"><input type="date" id="holDate"><input id="holName" placeholder="ชื่อวันหยุด เช่น วันมาฆบูชา หรือวันหยุดพิเศษตามมติ ครม."><button class="btn btn-primary" id="holAdd" type="button" data-needs-db>＋ เพิ่ม</button></div>
+        <p class="warn" style="margin:12px 0">วันหยุดตามจันทรคติ (มาฆบูชา วิสาขบูชา อาสาฬหบูชา เข้าพรรษา) และวันหยุดพิเศษ ต้องเพิ่มเองตามประกาศ ครม. ทุกปี</p>
+        <div class="itable"><table><thead><tr><th>วันที่</th><th>วันหยุด</th><th></th></tr></thead><tbody id="holRows"></tbody></table></div>
+      </div>
+    </section>
+
+    <section class="modal print" aria-label="ตัวอย่างใบแจ้งก่อนพิมพ์">
+      <header><div><h2 id="psTitle">ตัวอย่างใบแจ้ง</h2><small>วางข้อมูลลงแบบฟอร์ม A4 · พิมพ์แบบไม่มีขอบกระดาษ</small></div><button class="x" data-close type="button">✕</button></header>
+      <div class="body"><div class="ps-sheet" id="psSheet"></div></div>
+      <footer><span class="grow" id="psFoot"></span><button class="btn btn-ghost" type="button" data-close>ปิด</button><button class="btn btn-primary" type="button" id="psPrint">🖨 พิมพ์</button></footer>
+    </section>
+
+    <section class="modal small settings" aria-label="ตั้งค่า">
+      <header><div><h2>⚙ ตั้งค่า</h2><small>การเชื่อมต่อฐานข้อมูลกลาง (Google Apps Script) และรายชื่อยา</small></div><button class="x" data-close type="button">✕</button></header>
+      <div class="body">
+        <div class="f"><label for="dbUrl">Web App URL</label><input id="dbUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></div>
+        <div class="f"><label for="dbKey">API key</label><input id="dbKey" type="password" placeholder="API key ของ Google Apps Script"></div>
+        <div class="row-btns"><button class="btn btn-primary" type="button" id="dbSave">เชื่อมต่อ</button><button class="btn btn-ghost" type="button" id="dbRefresh">ดึงข้อมูลล่าสุด</button></div>
+        <p class="muted" id="dbState" style="white-space:normal"></p>
+        <div class="f" style="margin-top:18px"><label for="drugImport">นำเข้ารายชื่อยา (.txt หรือ .csv คอลัมน์แรกเป็นชื่อยา)</label><input id="drugImport" type="file" accept=".txt,.csv,text/plain,text/csv"></div>
+        <p class="muted" id="drugState" style="white-space:normal"></p>
+      </div>
+    </section>
+  </div>
+  <datalist id="drugList"></datalist><datalist id="clinicList"></datalist>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    const C = RefillCore;
+    const $ = s => document.querySelector(s);
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    /* ===== สถานะของหน้า ===== */
+    const state = { items: [], holidays: [], drugNames: [], filter: 'all', sel: null, online: false, busy: false };
+    let zipIndex = null, imp = null, editing = null, formDrugs = [], formRounds = [];
+
+    function toast(text, isError) { const el = $('#toast'); el.textContent = text; el.className = 'toast show' + (isError ? ' err' : ''); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), isError ? 6000 : 3500); }
+    const overlay = name => { $('#overlay').className = name ? 'ov-' + name : ''; };
+
+    /* ===== ฐานข้อมูลกลาง (Google Apps Script) ===== */
+    // ชื่อคีย์ขึ้นต้นด้วย owed เพื่อไม่ชนกับระบบอื่นบนโดเมนเดียวกัน
+    const KEYS = { endpoint: 'owedEndpoint', apiKey: 'owedApiKey', session: 'owedSession', unlocked: 'owedUnlocked', clinic: 'owedClinic' };
+    const endpoint = () => localStorage.getItem(KEYS.endpoint) || OWED_CONFIG.endpoint;
+    const apiKey = () => localStorage.getItem(KEYS.apiKey) || '';
+    const sessionToken = () => sessionStorage.getItem(KEYS.session) || '';
+    const hasCredentials = () => Boolean(endpoint() && (apiKey() || sessionToken()));
+    async function fetchTimed(url, options = {}, timeout = 25000) {
+      const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), timeout);
+      try { return await fetch(url, Object.assign({}, options, { signal: controller.signal })); }
+      catch (error) { if (error.name === 'AbortError') throw new Error('central_timeout'); throw error; }
+      finally { clearTimeout(timer); }
+    }
+    async function call(action, payload) {
+      const address = new URL(endpoint());
+      let options = { cache: 'no-store' };
+      if (payload) {
+        const body = Object.assign({ action }, payload);
+        if (apiKey()) body.key = apiKey(); if (sessionToken()) body.session = sessionToken();
+        options = { method: 'POST', headers: { 'content-type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) };
+      } else {
+        address.searchParams.set('action', action);
+        if (apiKey()) address.searchParams.set('key', apiKey()); if (sessionToken()) address.searchParams.set('session', sessionToken());
+      }
+      const response = await fetchTimed(address.toString(), options);
+      if (response.status === 404) throw new Error('deployment_not_found');
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) throw new Error(data.err || data.error || 'connection_failed');
+      return data;
+    }
+    const ERRORS = { locked: 'กรอก PIN ผิดหลายครั้ง ระบบล็อกไว้ 15 นาที', central_timeout: 'ฐานข้อมูลกลางตอบช้า กรุณาลองใหม่', unauthorized: 'สิทธิ์เข้าใช้หมดอายุ กรุณาเข้าสู่ระบบใหม่', deployment_not_found: 'ไม่พบ Deployment ของ Apps Script', 'unknown action': 'Apps Script ยังเป็นเวอร์ชันเก่า กรุณา Deploy เป็น New version', not_found: 'ไม่พบรายการนี้ในฐานข้อมูลกลาง' };
+    const errText = e => ERRORS[e && e.message] || 'ติดต่อฐานข้อมูลกลางไม่ได้ (' + (e && e.message || 'unknown') + ')';
+    function setOnline(online, message) {
+      state.online = online;
+      document.querySelectorAll('[data-needs-db]').forEach(b => { b.disabled = !online; });
+      $('#conn').classList.toggle('hidden', online); $('#conn').textContent = message || '';
+      $('#dbState').textContent = online ? 'เชื่อมต่อฐานข้อมูลกลางแล้ว' : (message || '');
+    }
+    async function loadRemote() {
+      if (!hasCredentials()) { setOnline(false, 'ยังไม่ได้เชื่อมต่อฐานข้อมูลกลาง กรุณาเข้าสู่ระบบด้วย PIN'); throw new Error('central_not_connected'); }
+      try {
+        const data = await call('list');
+        state.items = data.items || []; state.holidays = data.holidays || [];
+        setOnline(true); render(); loadDrugNames().catch(() => {});
+        return state.items;
+      } catch (error) {
+        setOnline(false, errText(error) + ' · ปิดการแก้ไขข้อมูลชั่วคราว');
+        if (error.message === 'unauthorized' && sessionToken()) lockStaff(false, 'สิทธิ์เข้าสู่ระบบหมดอายุ กรุณากรอก PIN อีกครั้ง');
+        throw error;
+      }
+    }
+    async function loadDrugNames() {
+      const data = await call('drugList');
+      state.drugNames = data.names || []; renderDatalists();
+    }
+    // ทุกการแก้ไขผ่านฟังก์ชันนี้: ล็อกปุ่มระหว่างรอ และแจ้งผลเป็นข้อความเดียวกันทุกที่
+    async function mutate(action, payload, onDone) {
+      if (!state.online) { toast('ติดต่อฐานข้อมูลกลางไม่ได้ ยังบันทึกไม่ได้', true); return null; }
+      if (state.busy) return null;
+      state.busy = true; document.body.style.cursor = 'progress';
+      try { const data = await call(action, payload); const result = onDone(data); render(); return result; }
+      catch (error) { toast('บันทึกไม่สำเร็จ: ' + errText(error), true); return null; }
+      finally { state.busy = false; document.body.style.cursor = ''; }
+    }
+    const upsert = item => { const at = state.items.findIndex(x => x.id === item.id); if (at >= 0) state.items[at] = item; else state.items.unshift(item); return item; };
+
+    /* ===== ล็อกอินด้วย PIN ส่วนกลาง ===== */
+    const gate = $('#accessGate');
+    const unlockStaff = () => { gate.classList.add('unlocked'); sessionStorage.setItem(KEYS.unlocked, '1'); };
+    function lockStaff(showSetup, message) {
+      sessionStorage.removeItem(KEYS.unlocked); sessionStorage.removeItem(KEYS.session);
+      state.items = []; render(); gate.classList.remove('unlocked');
+      $('#accessCode').value = ''; $('#accessError').textContent = message || ''; $('#pinSetupForm').hidden = !showSetup; $('#pinSetupError').textContent = ''; $('#setupUrl').value = endpoint();
+      setTimeout(() => (showSetup ? $('#setupApiKey') : $('#accessCode')).focus(), 0);
+    }
+    $('#accessForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      const code = $('#accessCode').value.trim(), box = $('#accessError'), button = event.submitter;
+      if (!/^\d{4,8}$/.test(code)) { box.textContent = 'กรุณากรอก PIN ตัวเลข 4–8 หลัก'; return; }
+      if (!endpoint()) { box.textContent = 'ยังไม่ได้ตั้งค่า Web App URL กรุณากรอกในส่วน “ตั้งหรือเปลี่ยน PIN”'; $('#pinSetupForm').hidden = false; $('#setupUrl').focus(); return; }
+      box.textContent = 'กำลังตรวจสอบ PIN…'; if (button) button.disabled = true;
+      try {
+        const response = await fetchTimed(endpoint(), { method: 'POST', headers: { 'content-type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'login', pin: code }) });
+        const data = await response.json();
+        if (!response.ok || !data.ok || !data.session) throw new Error(data.err || 'unauthorized');
+        sessionStorage.setItem(KEYS.session, data.session); unlockStaff(); box.textContent = '';
+        loadRemote().catch(() => {});
+      } catch (error) {
+        if (error.message === 'central_timeout') box.textContent = 'ฐานข้อมูลกลางตอบช้า กรุณาลองใหม่อีกครั้ง';
+        else if (error.message === 'pin_not_set') { box.textContent = 'ยังไม่ได้ตั้ง PIN กรุณากด “ตั้งหรือเปลี่ยน PIN”'; $('#pinSetupForm').hidden = false; }
+        else if (error.message === 'locked') box.textContent = 'กรอก PIN ผิดหลายครั้ง ระบบล็อกไว้ 15 นาที กรุณารอแล้วลองใหม่';
+        else if (error.message === 'unknown action') box.textContent = ERRORS['unknown action'];
+        else box.textContent = 'PIN ไม่ถูกต้อง กรุณาตรวจสอบแล้วลองใหม่';
+      } finally { if (button) button.disabled = false; }
+    });
+    $('#togglePinSetup').addEventListener('click', () => { const f = $('#pinSetupForm'); f.hidden = !f.hidden; $('#setupUrl').value = endpoint(); if (!f.hidden) (endpoint() ? $('#setupApiKey') : $('#setupUrl')).focus(); });
+    $('#pinSetupForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      const url = $('#setupUrl').value.trim(), key = $('#setupApiKey').value.trim(), pin = $('#newPin').value.trim(), box = $('#pinSetupError');
+      localStorage.setItem(KEYS.endpoint, url);
+      if (!/^\d{4,8}$/.test(pin)) { box.textContent = 'PIN ต้องเป็นตัวเลข 4–8 หลัก'; return; }
+      if (pin !== $('#confirmPin').value.trim()) { box.textContent = 'PIN ทั้งสองช่องไม่ตรงกัน'; return; }
+      box.textContent = 'กำลังบันทึก PIN…';
+      try {
+        const post = body => fetchTimed(endpoint(), { method: 'POST', headers: { 'content-type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) }).then(r => r.json());
+        const set = await post({ action: 'setPin', key, pin }); if (!set.ok) throw new Error(set.err || 'unauthorized');
+        const login = await post({ action: 'login', pin }); if (!login.ok || !login.session) throw new Error(login.err || 'login_failed');
+        localStorage.setItem(KEYS.apiKey, key); sessionStorage.setItem(KEYS.session, login.session);
+        unlockStaff(); $('#pinSetupForm').reset(); box.textContent = ''; loadRemote().catch(() => {});
+      } catch (error) { box.textContent = error.message === 'unauthorized' ? 'API key ไม่ตรงกับค่า API_KEY ใน Apps Script' : 'ตั้ง PIN ไม่สำเร็จ: ' + error.message; }
+    });
+    $('#logoutBtn').onclick = () => lockStaff(false);
+    $('#changeCodeBtn').onclick = () => lockStaff(true);
+
+    /* ===== ตัวช่วยแสดงผล ===== */
+    const STATUS_KEYS = Object.keys(C.STATUS);
+    const pill = s => `<span class="pill s-${s}">${C.STATUS[s]}</span>`;
+    const ctag = i => `<span class="ctag">${esc(i.clinic)}</span>`;
+    const mLabel = m => (m === 'mail' ? '📦 ไปรษณีย์' : '🏥 มารับเอง');
+    const offTag = d => { const why = C.offReason(d, state.holidays); return why ? `<span class="due" title="ห้องยาปิด">⚠ ${esc(why)}</span>` : ''; };
+    const dots = i => `<span class="dots">${i.rounds.map((r, k) => `<i class="${r.status === 'received' ? 'done' : k === C.cur(i) ? 'cur' : ''}"></i>`).join('')}</span>`;
+    const roundTag = i => (C.isDraft(i) ? '<span class="muted">—</span>' : `<span class="rtag">${dots(i)}${C.cur(i) < 0 ? `ครบ ${i.rounds.length} นัด` : `${C.cur(i) + 1}/${i.rounds.length}`}</span>`);
+    const drugTitle = i => esc(i.drugs[0].name) + (i.drugs.length > 1 ? ` <span class="more-drug">+${i.drugs.length - 1} รายการ</span>` : '');
+    const leftText = i => (i.drugs.length > 1 ? `ค้างจ่าย ${i.drugs.length} รายการ` : `ค้างจ่าย ${C.leftOf(i, 0)} ${esc(i.drugs[0].unit)}`);
+    const drugCell = i => (C.isDraft(i) ? '<b class="missing">ยังไม่ระบุยา/วันนัด</b><small>รอกรอกข้อมูล</small>' : `<b>${drugTitle(i)}</b><small>${leftText(i)}</small>`);
+    const dateCell = i => { const r = C.curRound(i); if (C.isDraft(i) || !r) return '<span class="muted">—</span>'; return C.dateDay(r.date) + (C.isDue(i) ? '<span class="due">ถึงวันนัดแล้ว</span>' : offTag(r.date)); };
+    function actButton(i) {
+      if (C.isDraft(i)) return `<button class="act go-fill" data-edit="${esc(i.id)}" type="button">กรอกข้อมูลยา →</button>`;
+      const n = C.next(i); return n ? `<button class="act go-${n[0]}" data-move="${esc(i.id)}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>${n[1]} →</button>` : '';
+    }
+    const inClinic = i => $('#clinic').value === 'all' || i.clinic === $('#clinic').value;
+    function matches(i) {
+      if (!inClinic(i)) return false;
+      const q = $('#q').value.trim().toLowerCase();
+      return !q || [i.id, i.hn, i.patient, ...i.drugs.map(d => d.name)].some(v => String(v).toLowerCase().includes(q));
+    }
+    const statusUrl = i => new URL('status.html?token=' + encodeURIComponent(i.publicToken), location.href).toString();
+
+    /* ===== หน้าหลัก: ตาราง + แผงรายละเอียด ===== */
+    function renderDatalists() {
+      $('#drugList').innerHTML = [...new Set([...state.drugNames, ...state.items.flatMap(i => i.drugs.map(d => d.name))])].sort((a, b) => a.localeCompare(b, 'th')).map(n => `<option value="${esc(n)}">`).join('');
+      const clinics = [...new Set([...Object.keys(C.CLINICS), ...state.items.map(i => i.clinic).filter(Boolean)])];
+      $('#clinicList').innerHTML = clinics.map(c => `<option value="${esc(c)}">${esc(C.clinicName(c))}</option>`).join('');
+      const current = $('#clinic').value || localStorage.getItem(KEYS.clinic) || 'all';
+      $('#clinic').innerHTML = `<option value="all">ทุกคลินิก</option>` + clinics.map(c => `<option value="${esc(c)}">${esc(C.clinicName(c))}</option>`).join('');
+      $('#clinic').value = clinics.includes(current) ? current : 'all';
+    }
+    function render() {
+      renderDatalists();
+      const scoped = state.items.filter(inClinic);
+      const drafts = scoped.filter(C.isDraft).length;
+      $('#draftBanner').innerHTML = drafts ? `<div class="banner">📥 มี ${drafts} รายชื่อที่ยังไม่มีรายการยาหรือวันนัด<button class="btn btn-primary" data-filter="draft" type="button">ดูรายการ</button></div>` : '';
+      const counts = { all: scoped.length }; STATUS_KEYS.forEach(s => { counts[s] = scoped.filter(i => C.status(i) === s).length; });
+      $('#chips').innerHTML = [['all', 'ทั้งหมด'], ...STATUS_KEYS.filter(s => s !== 'draft' || counts.draft).map(s => [s, C.STATUS[s]])].map(([k, l]) => `<button class="chip ${state.filter === k ? 'on' : ''}" data-filter="${k}" type="button">${l}<b>${counts[k]}</b></button>`).join('');
+      const rows = state.items.filter(i => (state.filter === 'all' || C.status(i) === state.filter) && matches(i));
+      $('#rows').innerHTML = rows.map(i => `<tr class="${i.id === state.sel ? 'sel' : ''}" data-open="${esc(i.id)}"><td class="ref">${esc(i.id)}</td><td class="who"><b>${esc(i.patient)}</b><small>HN ${esc(i.hn)}${ctag(i)}</small></td><td class="drug">${drugCell(i)}</td><td>${roundTag(i)}</td><td>${dateCell(i)}</td><td>${pill(C.status(i))}</td><td style="text-align:right">${actButton(i)}</td></tr>`).join('');
+      $('#empty').classList.toggle('hidden', rows.length > 0);
+      $('#empty').textContent = state.items.length ? 'ไม่พบรายการที่ตรงกับคำค้นหรือตัวกรอง' : (state.online ? 'ยังไม่มีรายการ · กด “บันทึกยาค้างจ่าย” หรือ “นำเข้าจาก Excel”' : 'ยังไม่ได้เชื่อมต่อฐานข้อมูลกลาง');
+      const i = rows.find(x => x.id === state.sel) || rows[0];
+      state.sel = i ? i.id : null;
+      renderPanel(i);
+    }
+    function renderPanel(i) {
+      if (!i) { $('#panel').innerHTML = '<div class="empty">เลือกรายการเพื่อดูรายละเอียด</div>'; return; }
+      const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div><h2>${esc(i.patient)}</h2><div class="sub">HN ${esc(i.hn)} · เลขที่ ${esc(i.id)} · ${mLabel(i.receiveMethod)}${ctag(i)}</div></div>${pill(C.status(i))}</div>`;
+      const contact = `<dl class="kv"><dt>โทรศัพท์</dt><dd>${esc([i.phone1, i.phone2].filter(Boolean).join(', ') || '-')}</dd><dt>ที่อยู่</dt><dd>${esc(i.address || '-')}</dd>${i.recipientName ? `<dt>ผู้รับยาแทน</dt><dd>${esc(i.recipientName)}</dd>` : ''}${i.note ? `<dt>หมายเหตุ</dt><dd>${esc(i.note)}</dd>` : ''}</dl>`;
+      const del = `<button class="btn btn-danger" data-delete="${esc(i.id)}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>ลบ</button>`;
+      if (C.isDraft(i)) {
+        $('#panel').innerHTML = `${head}${contact}<div class="draft-box">ยังไม่มี<b>รายการยา</b>และ<b>วันนัด</b> กรอกให้ครบก่อน จึงจะพิมพ์ใบแจ้งและ QR ได้</div><button class="btn btn-primary big-act" data-edit="${esc(i.id)}" type="button">กรอกรายการยาและวันนัด →</button><div class="row-btns" style="margin-top:10px">${del}</div>`;
+        return;
+      }
+      const n = C.next(i);
+      const drugTable = `<table class="mini"><thead><tr><th>รายการยา</th><th>สั่ง</th><th>รับแล้ว</th><th>ค้าง</th></tr></thead><tbody>${i.drugs.map((d, j) => { const left = C.leftOf(i, j); return `<tr><td>${esc(d.name)}</td><td>${d.rx || '-'}</td><td>${C.receivedOf(i, j)}</td><td class="${left ? 'owe' : ''}">${left} ${esc(d.unit)}</td></tr>`; }).join('')}</tbody></table>`;
+      const roundRows = (i.firstDate ? [`<div class="rd done"><i>✓</i><div><b>จ่ายครั้งแรก · ${C.dateDay(i.firstDate)}</b><small>${esc(i.drugs.map(d => `${d.name} ${d.got} ${d.unit}`).join(' · '))}</small></div><span></span></div>`] : [])
+        .concat(i.rounds.map((r, k) => { const isCur = k === C.cur(i), done = r.status === 'received'; return `<div class="rd ${done ? 'done' : isCur ? 'cur' : ''}"><i>${done ? '✓' : k + 1}</i><div><b>นัดที่ ${k + 1} · หลัง ${C.dateDay(r.date)}${done ? '' : offTag(r.date)}</b><small>${esc(C.roundItems(i, r).join(' · ') || '—')}${done ? ' · รับแล้ว' : ''}</small></div>${isCur ? pill(r.status) : ''}</div>`; }));
+      $('#panel').innerHTML = `${head}
+        <div class="sec-title"><span>รายการยา (${i.drugs.length})</span></div>${drugTable}
+        <div class="sec-title"><span>ตารางนัด</span><button data-edit="${esc(i.id)}" type="button">＋ เพิ่ม/แก้นัด</button></div><div class="rounds">${roundRows.join('')}</div>
+        ${n ? `<button class="btn btn-primary big-act" data-move="${esc(i.id)}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>นัดที่ ${C.cur(i) + 1}: ${n[1]} → ${n[0] === 'received' ? 'รับนัดนี้แล้ว' : C.STATUS[n[0]]}</button>` : ''}
+        <div class="pt-preview"><small>ผู้ป่วยเห็นข้อความว่า</small><b>“${esc(C.patientHeadline(i))}”</b></div>
+        ${contact}
+        <div class="qrrow"><canvas id="panelQr"></canvas><p><b style="color:var(--ink)">QR เดียวใช้ได้ทุกนัด</b><br>ผู้ป่วยสแกนเพื่อดูสถานะ ยาที่จะได้รับ และวันนัดถัดไป</p></div>
+        <div class="row-btns"><button class="btn btn-ghost" data-edit="${esc(i.id)}" type="button">✎ แก้ไข</button><button class="btn btn-ghost" data-print="${esc(i.id)}" type="button">🖨 พิมพ์ใบแจ้ง</button>${del}</div>`;
+      if (i.publicToken && window.QRious) new QRious({ element: $('#panelQr'), size: 200, level: 'M', value: statusUrl(i) });
+    }
+
+    /* ===== เลื่อนสถานะนัดปัจจุบัน ===== */
+    function moveRound(id) {
+      const i = state.items.find(x => x.id === id), k = C.cur(i), n = C.next(i);
+      if (!n) return;
+      const rounds = i.rounds.map((r, j) => (j === k ? Object.assign({}, r, { status: n[0] }) : r));
+      mutate('update', { id, item: Object.assign({}, i, { rounds }) }, data => {
+        const saved = upsert(data.item); state.sel = saved.id;
+        const after = n[0] !== 'received' ? C.STATUS[n[0]] : C.cur(saved) < 0 ? `รับครบทุกนัดแล้ว (${saved.rounds.length} นัด)` : `ไปนัดที่ ${C.cur(saved) + 1} หลัง ${C.dateShort(C.curRound(saved).date)}`;
+        toast(`✓ ${saved.id} ${saved.patient} · นัดที่ ${k + 1} → ${after}`);
+      });
+    }
+    function deleteSlip(id) {
+      const i = state.items.find(x => x.id === id);
+      if (!i || !confirm(`ลบใบแจ้ง ${i.id} ของ ${i.patient} ออกจากฐานข้อมูลกลางใช่หรือไม่?\nQR ของใบแจ้งนี้จะใช้ไม่ได้อีก`)) return;
+      mutate('delete', { id }, () => { state.items = state.items.filter(x => x.id !== id); state.sel = null; toast(`✓ ลบใบแจ้ง ${id} แล้ว`); });
+    }
+
+    /* ===== ฟอร์ม: ยาหลายรายการ × นัดหลายรอบ (นัดที่รับแล้วล็อกไว้) ===== */
+    const F = () => $('#form');
+    const blankDrug = () => ({ name: '', unit: 'เม็ด', rx: '', got: '' });
+    const formLeft = j => { const d = formDrugs[j]; return d.rx === '' ? 0 : Math.max(0, (+d.rx || 0) - (+d.got || 0)); };
+    function renderDrugRows() {
+      $('#drugRows').innerHTML = formDrugs.map((d, k) => `<div class="dgrid"><input list="drugList" data-dk="${k}" data-df="name" value="${esc(d.name)}" placeholder="พิมพ์ชื่อยา"><select data-dk="${k}" data-df="unit">${['เม็ด', 'ซอง', 'แคปซูล', 'ขวด', 'หลอด', 'กล่อง'].map(u => `<option ${u === d.unit ? 'selected' : ''}>${u}</option>`).join('')}</select><input type="number" min="0" data-dk="${k}" data-df="rx" value="${esc(d.rx)}" placeholder="0"><input type="number" min="0" data-dk="${k}" data-df="got" value="${esc(d.got)}" placeholder="0"><output data-left="${k}">${d.rx === '' ? '—' : formLeft(k) + ' ' + esc(d.unit)}</output>${formDrugs.length > 1 ? `<button type="button" data-deldrug="${k}" title="ลบยานี้">✕</button>` : '<span></span>'}</div>`).join('');
+    }
+    function roundNote(r, k) {
+      if (r.movedFrom) return `<div class="rnote moved">↪ ${C.dateDay(r.movedFrom)} ตรงกับ${esc(C.offReason(r.movedFrom, state.holidays))} เลื่อนเป็น ${C.dateDay(r.date)}</div>`;
+      const why = C.offReason(r.date, state.holidays);
+      if (why) return `<div class="rnote off">⚠ ${C.dateDay(r.date)} ตรงกับ${esc(why)} ห้องยาปิด <button type="button" data-fixday="${k}">เลื่อนเป็น ${C.dateDay(C.nextWorkday(r.date, state.holidays))}</button></div>`;
+      return `<div class="rnote ok">${r.date ? C.dateDay(r.date) : 'ยังไม่ได้เลือกวันที่'}</div>`;
+    }
+    function renderRoundRows() {
+      const cols = `62px 132px repeat(${Math.max(1, formDrugs.length)},minmax(82px,1fr)) 30px`;
+      $('#roundRows').innerHTML = `<div class="rgrid rhead" style="grid-template-columns:${cols}"><span>นัด</span><span>หลังวันที่</span>${formDrugs.map(d => `<span title="${esc(d.name)}">${esc(d.name || 'ยา')}</span>`).join('')}<span></span></div>`
+        + formRounds.map((r, k) => { const locked = r.status === 'received'; return `<div class="rgrid" style="grid-template-columns:${cols}"><span class="rno">นัดที่ ${k + 1}</span><input type="date" data-k="${k}" data-f="date" value="${r.date}" ${locked ? 'disabled' : ''}>${formDrugs.map((d, j) => `<input type="number" min="0" data-k="${k}" data-f="q${j}" value="${r.qty[j] || ''}" placeholder="0" ${locked ? 'disabled' : ''}>`).join('')}${locked ? '<span class="lock" title="รับแล้ว">✓</span>' : `<button type="button" data-delround="${k}" title="ลบนัดนี้">✕</button>`}</div>${locked ? '' : roundNote(r, k)}`; }).join('');
+      $('#sumcheck').innerHTML = formDrugs.map((d, j) => {
+        if (d.rx === '') return '';
+        const sum = formRounds.reduce((a, r) => a + (+r.qty[j] || 0), 0), need = formLeft(j), name = esc(d.name || 'ยาที่ ' + (j + 1));
+        return sum === need ? `<div class="sumcheck ok">✓ ${name}: นัดรวม ${sum} ${esc(d.unit)} ตรงกับยอดค้าง</div>` : `<div class="sumcheck bad">${name}: นัดรวม ${sum}/${need} ${esc(d.unit)} · ${sum < need ? 'ยังขาด ' + (need - sum) : 'เกิน ' + (sum - need)}</div>`;
+      }).join('');
+    }
+    function planRounds() {
+      const n = Math.max(1, +$('#spN').value || 1), gap = Math.max(1, +$('#spD').value || 28), start = $('#spStart').value || C.today();
+      const kept = formRounds.filter(r => r.status === 'received');
+      const remaining = formDrugs.map((d, j) => Math.max(0, formLeft(j) - kept.reduce((a, r) => a + (r.qty[j] || 0), 0)));
+      formRounds = kept.concat(C.planRounds(remaining, n, gap, start, state.holidays));
+      renderRoundRows();
+    }
+    function openForm(item) {
+      const f = F(); f.reset(); editing = item ? item.id : null; $('#zipHint').textContent = '';
+      $('#dTitle').textContent = !item ? 'บันทึกยาค้างจ่าย' : (C.isDraft(item) ? 'กรอกข้อมูลยา · ' : 'แก้ไขใบแจ้ง ') + item.id;
+      $('#dSub').textContent = !item ? 'เลขที่ใบแจ้งและ QR สร้างให้อัตโนมัติเมื่อบันทึก' : C.isDraft(item) ? 'ข้อมูลผู้ป่วยมาจาก Excel แล้ว เหลือกรอกรายการยาและวันนัด' : 'QR เดิมยังใช้ได้ ผู้ป่วยเห็นข้อมูลใหม่ทันทีหลังบันทึก';
+      f.clinic.value = item ? item.clinic : ($('#clinic').value === 'all' ? 'ORTHO' : $('#clinic').value);
+      if (item) ['hn', 'patient', 'phone1', 'phone2', 'address', 'recipientName', 'note'].forEach(k => { f[k].value = item[k] || ''; });
+      f.receiveMethod.value = item ? item.receiveMethod : 'self';
+      formDrugs = item && item.drugs.length ? item.drugs.map(d => ({ name: d.name, unit: d.unit, rx: String(d.rx), got: String(d.got) })) : [blankDrug()];
+      formRounds = item ? item.rounds.map(r => ({ date: r.date, status: r.status, qty: formDrugs.map((_, j) => r.qty[j] || 0) })) : [];
+      $('#spN').value = item ? Math.max(1, item.rounds.filter(r => r.status !== 'received').length) : 1;
+      $('#spStart').value = C.nextWorkday(C.addDays(C.today(), 28), state.holidays);
+      renderDrugRows(); if (formRounds.length) renderRoundRows(); else planRounds();
+      overlay('drawer');
+      setTimeout(() => (item && C.isDraft(item) ? $('#drugRows input') : f.hn).focus(), 250);
+    }
+    function formSlip() {
+      const f = F();
+      if (!f.reportValidity()) return null;
+      const keep = formDrugs.map((d, j) => (d.name.trim() ? j : -1)).filter(j => j >= 0);
+      if (!keep.length) { toast('กรุณาใส่รายการยาอย่างน้อย 1 รายการ', true); return null; }
+      const drugs = keep.map(j => ({ name: formDrugs[j].name.trim(), unit: formDrugs[j].unit, rx: +formDrugs[j].rx || 0, got: +formDrugs[j].got || 0 }));
+      const rounds = formRounds.filter(r => r.date && keep.some(j => +r.qty[j] > 0)).map(r => ({ date: r.date, status: r.status, qty: keep.map(j => +r.qty[j] || 0) }));
+      if (!rounds.length) { toast('กรุณาเพิ่มนัดรับยาส่วนที่เหลืออย่างน้อย 1 นัด', true); return null; }
+      const old = editing ? state.items.find(x => x.id === editing) : null;
+      return {
+        clinic: f.clinic.value.trim(), hn: f.hn.value.trim(), patient: C.cleanText(f.patient.value), phone1: f.phone1.value.trim(), phone2: f.phone2.value.trim(),
+        address: C.cleanAddress(f.address.value), recipientName: f.recipientName.value.trim(), receiveMethod: f.receiveMethod.value, note: f.note.value.trim(),
+        firstDate: drugs.some(d => d.got) ? ((old && old.firstDate) || C.today()) : '', drugs, rounds,
+      };
+    }
+    async function saveForm() {
+      const slip = formSlip(); if (!slip) return null;
+      const wasDraft = editing && C.isDraft(state.items.find(x => x.id === editing));
+      return mutate(editing ? 'update' : 'create', editing ? { id: editing, item: slip } : { item: slip }, data => {
+        const saved = upsert(data.item); overlay(null);
+        let message = `✓ บันทึก ${saved.id} แล้ว · ยา ${saved.drugs.length} รายการ ${saved.rounds.length} นัด`;
+        // กรอกรายชื่อที่นำเข้าทีละคน: บันทึกแล้วไปคนถัดไปในตัวกรองเดิม
+        if (wasDraft && state.filter === 'draft') { const rest = state.items.filter(x => C.isDraft(x) && matches(x)); state.sel = rest[0] ? rest[0].id : saved.id; if (rest.length) message += ` · เหลือรอกรอกข้อมูลอีก ${rest.length} คน`; else state.filter = 'all'; }
+        else { state.sel = saved.id; if (state.filter !== 'all' && C.status(saved) !== state.filter) state.filter = 'all'; }
+        toast(message);
+        return saved;
+      });
+    }
+    $('#saveOnly').onclick = () => saveForm();
+    $('#savePrint').onclick = async () => { const saved = await saveForm(); if (saved) openPrint(saved); };
+    $('#addDrug').onclick = () => { formDrugs.push(blankDrug()); formRounds.forEach(r => r.qty.push(0)); renderDrugRows(); renderRoundRows(); $(`#drugRows [data-dk="${formDrugs.length - 1}"][data-df="name"]`).focus(); };
+    $('#addRound').onclick = () => { const last = formRounds[formRounds.length - 1]; formRounds.push({ date: C.nextWorkday(last ? C.addDays(last.date, +$('#spD').value || 28) : $('#spStart').value, state.holidays), status: 'waiting', qty: formDrugs.map(() => 0) }); renderRoundRows(); };
+    $('#spGo').onclick = planRounds;
+    $('#drugRows').addEventListener('input', e => {
+      const k = e.target.dataset.dk; if (k === undefined) return;
+      formDrugs[k][e.target.dataset.df] = e.target.value;
+      const d = formDrugs[k]; $(`#drugRows [data-left="${k}"]`).textContent = d.rx === '' ? '—' : formLeft(k) + ' ' + d.unit;
+      renderRoundRows();
+    });
+    $('#roundRows').addEventListener('input', e => {
+      const k = e.target.dataset.k; if (k === undefined) return;
+      const field = e.target.dataset.f, pos = e.target.selectionStart;
+      if (field === 'date') { formRounds[k].date = e.target.value; formRounds[k].movedFrom = null; } else formRounds[k].qty[+field.slice(1)] = +e.target.value;
+      renderRoundRows();
+      const el = $(`#roundRows [data-k="${k}"][data-f="${field}"]`); el.focus(); try { el.setSelectionRange(pos, pos); } catch (err) { /* date inputs have no caret */ }
+    });
+    F().address.addEventListener('blur', async e => {
+      const value = C.cleanAddress(e.target.value), hint = $('#zipHint');
+      hint.className = 'ziphint'; hint.textContent = '';
+      if (!value) return;
+      try { await loadZip(); } catch (err) { hint.textContent = 'โหลดฐานรหัสไปรษณีย์ไม่ได้'; return; }
+      const z = C.findZip(zipIndex, value);
+      if (z.zip) { e.target.value = value + ' ' + z.zip; hint.className = 'ziphint ' + (z.guess ? 'wa' : 'ok'); hint.textContent = z.guess ? `📮 ไม่พบ ต.${z.guess} จึงใช้รหัสของอำเภอ ${z.zip} กรุณาตรวจการสะกด` : `📮 เติมรหัสไปรษณีย์ ${z.zip} ให้แล้ว`; }
+      else if (z.multi) { hint.className = 'ziphint wa'; hint.textContent = `ตำบลนี้มีหลายรหัส: ${z.multi.join(', ')} กรุณาใส่เอง`; }
+      else if (!z.has) { hint.className = 'ziphint wa'; hint.textContent = 'หารหัสไปรษณีย์ไม่เจอ ตรวจการสะกด ต./อ./จ.'; }
+    });
+
+    /* ===== รหัสไปรษณีย์ (thai-address-database) ===== */
+    async function loadZip() {
+      if (zipIndex) return zipIndex;
+      const raw = await fetch('https://cdn.jsdelivr.net/npm/thai-address-database@0.0.33/database/db.json').then(r => { if (!r.ok) throw new Error('zip_db'); return r.json(); });
+      zipIndex = C.buildZipIndex(raw); return zipIndex;
+    }
+
+    /* ===== นำเข้า Excel ===== */
+    const COLS = [['hn', 'HN', /^\s*hn\b|เลขประจำตัว/i], ['patient', 'ชื่อ', /ชื่อ(?!ยา)|name/i], ['phone', 'เบอร์โทร', /โทร|เบอร์|phone|tel/i], ['address', 'ที่อยู่', /ที่อยู่|address/i]];
+    function openImport() { imp = null; $('#impStep1').classList.remove('hidden'); $('#impStep2').classList.add('hidden'); $('#impGo').disabled = true; $('#impGo').textContent = 'นำเข้า'; $('#impFoot').textContent = 'เลือกไฟล์เพื่อดูตัวอย่างก่อนนำเข้า'; $('#impFile').value = ''; overlay('imp'); }
+    async function readImportFile(file) {
+      try {
+        const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+        await parseImport(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' }), file.name);
+      } catch (error) { toast('อ่านไฟล์ไม่ได้: ' + error.message, true); }
+    }
+    async function parseImport(aoa, fileName) {
+      let zipOk = true; try { await loadZip(); } catch (err) { zipOk = false; }
+      const hi = Math.max(0, aoa.slice(0, 10).findIndex(r => r.some(c => /^\s*hn\s*$/i.test(String(c)))));
+      const head = (aoa[hi] || []).map(c => String(c ?? '').trim());
+      const map = {}; COLS.forEach(([k, , re]) => { const idx = head.findIndex((h, n) => re.test(h) && !Object.values(map).includes(n)); if (idx >= 0) map[k] = idx; });
+      const active = new Map(state.items.filter(i => C.status(i) !== 'received').map(i => [String(i.hn), i.id]));
+      const seen = new Set();
+      const rows = aoa.slice(hi + 1).filter(r => r.some(c => String(c ?? '').trim())).map(r => {
+        const g = k => (map[k] == null ? '' : r[map[k]]);
+        const hn = String(g('hn') ?? '').replace(/\D/g, ''), phone = C.cleanPhone(g('phone'));
+        const row = { hn, patient: C.cleanText(g('patient')), phone: phone.value, address: C.cleanAddress(g('address')), zipAdded: '', flags: [], on: true };
+        if (!hn) { row.flags.push(['sk', 'ไม่มี HN']); row.on = false; }
+        else if (seen.has(hn)) { row.flags.push(['sk', 'HN ซ้ำในไฟล์']); row.on = false; }
+        else if (active.has(hn)) { row.flags.push(['sk', 'มีใบแจ้งค้างอยู่แล้ว ' + active.get(hn)]); row.on = false; }
+        if (!row.patient) row.flags.push(['wa', 'ไม่มีชื่อ']);
+        if (!phone.value) row.flags.push(['wa', 'ไม่มีเบอร์โทร']); else if (phone.bad) row.flags.push(['wa', 'เบอร์โทรไม่ครบ 10 หลัก']); else if (phone.fixed) row.flags.push(['fx', 'เติม 0 หน้าเบอร์ให้แล้ว']);
+        if (row.address) {
+          const z = zipOk ? C.findZip(zipIndex, row.address) : {};
+          if (z.zip) { row.address += ' ' + z.zip; row.zipAdded = z.zip; row.flags.push(z.guess ? ['wa', `ไม่พบ ต.${z.guess} ใช้รหัสของอำเภอ ${z.zip}`] : ['fx', 'เติมรหัสไปรษณีย์ ' + z.zip]); }
+          else if (z.multi) row.flags.push(['wa', 'ตำบลนี้มีหลายรหัส: ' + z.multi.join(', ')]);
+          else if (!z.has) row.flags.push(['wa', zipOk ? 'หารหัสไปรษณีย์ไม่เจอ' : 'โหลดฐานรหัสไปรษณีย์ไม่ได้']);
+        }
+        seen.add(hn); return row;
+      });
+      const clinicFromName = /uro/i.test(fileName) ? 'URO' : /ortho|กระดูก/i.test(fileName) ? 'ORTHO' : ($('#clinic').value === 'all' ? '' : $('#clinic').value);
+      imp = { fileName, map, head, rows }; $('#impClinic').value = clinicFromName;
+      renderImport();
+    }
+    function renderImport() {
+      $('#impStep1').classList.add('hidden'); $('#impStep2').classList.remove('hidden');
+      $('#impName').textContent = imp.fileName; $('#impMeta').textContent = `พบ ${imp.rows.length} แถว · หัวตาราง: ${imp.head.filter(Boolean).join(', ')}`;
+      $('#impMap').innerHTML = COLS.map(([k, label]) => `<span class="map ${imp.map[k] == null ? 'miss' : ''}">${imp.map[k] == null ? '— ' + label + ' (ไม่มีในไฟล์)' : '✓ ' + label + ' ← ' + esc(imp.head[imp.map[k]])}</span>`).join('');
+      const on = imp.rows.filter(r => r.on), skipped = imp.rows.filter(r => r.flags.some(f => f[0] === 'sk')).length, warned = on.filter(r => r.flags.some(f => f[0] === 'wa')).length, zipped = on.filter(r => r.zipAdded).length;
+      $('#impStats').innerHTML = `<span class="ok">✓ พร้อมนำเข้า ${on.length}</span>${zipped ? `<span class="zp">📮 เติมรหัสไปรษณีย์ให้ ${zipped}</span>` : ''}${warned ? `<span class="wa">⚠ ควรตรวจ ${warned}</span>` : ''}${skipped ? `<span class="sk">⊘ ข้ามไว้ ${skipped}</span>` : ''}`;
+      $('#impRows').innerHTML = imp.rows.map((r, k) => `<tr class="${r.on ? '' : 'skip'}"><td><input type="checkbox" data-imp="${k}" ${r.on ? 'checked' : ''}></td><td class="ref">${esc(r.hn || '-')}</td><td>${esc(r.patient || '-')}</td><td style="white-space:nowrap">${esc(r.phone || '-')}</td><td class="addr">${r.zipAdded ? esc(r.address.slice(0, -6)) + ' <mark class="zip">' + r.zipAdded + '</mark>' : esc(r.address || '-')}</td><td>${r.flags.map(f => `<span class="flag ${f[0]}">${esc(f[1])}</span>`).join('') || '<span class="flag ok">ครบ</span>'}</td></tr>`).join('');
+      $('#impAll').checked = imp.rows.every(r => r.on);
+      $('#impFoot').textContent = `จะสร้าง ${on.length} รายชื่อในสถานะ “รอกรอกข้อมูล” · ยังไม่แจ้งผู้ป่วย`;
+      $('#impGo').disabled = !on.length || !state.online; $('#impGo').textContent = `นำเข้า ${on.length} รายชื่อ`;
+    }
+    function runImport() {
+      const clinic = $('#impClinic').value.trim(); if (!clinic) { toast('กรุณาระบุคลินิกของรายชื่อชุดนี้', true); $('#impClinic').focus(); return; }
+      const method = $('#impMethod').value;
+      const items = imp.rows.filter(r => r.on).map(r => ({ clinic, hn: r.hn, patient: r.patient || '(ไม่มีชื่อ)', phone1: r.phone, address: r.address, receiveMethod: method, drugs: [], rounds: [] }));
+      mutate('import', { items }, data => {
+        data.items.slice().reverse().forEach(upsert);
+        overlay(null); localStorage.setItem(KEYS.clinic, clinic); $('#clinic').value = clinic; state.filter = 'draft'; state.sel = data.items[0].id;
+        const first = data.items[0].id, last = data.items[data.items.length - 1].id;
+        toast(`✓ นำเข้า ${data.items.length} รายชื่อ (${first === last ? first : first + '–' + last}) เข้าคลินิก ${C.clinicName(clinic)} แล้ว`);
+      });
+    }
+    $('#impBtn').onclick = openImport; $('#impReset').onclick = openImport; $('#impGo').onclick = runImport;
+    $('#impFile').addEventListener('change', e => e.target.files[0] && readImportFile(e.target.files[0]));
+    const drop = $('#drop');
+    ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+    ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+    drop.addEventListener('drop', e => e.dataTransfer.files[0] && readImportFile(e.dataTransfer.files[0]));
+    $('#impRows').addEventListener('change', e => { const k = e.target.dataset.imp; if (k !== undefined) { imp.rows[k].on = e.target.checked; renderImport(); } });
+    $('#impAll').addEventListener('change', e => { imp.rows.forEach(r => { r.on = e.target.checked && !r.flags.some(f => f[0] === 'sk'); }); renderImport(); });
+
+    /* ===== วันหยุดราชการ ===== */
+    function renderHolidays() {
+      const today = C.today();
+      $('#holRows').innerHTML = state.holidays.map((h, k) => `<tr class="${h.date < today ? 'past' : ''}"><td>${C.dateDay(h.date)}</td><td>${esc(h.name)}</td><td style="text-align:right"><button type="button" class="act" data-delhol="${k}" ${state.online ? '' : 'disabled'}>ลบ</button></td></tr>`).join('') || '<tr><td colspan="3" class="muted">ยังไม่มีรายการ</td></tr>';
+    }
+    const saveHolidays = (list, message) => mutate('holidaySave', { holidays: list }, data => { state.holidays = data.holidays; renderHolidays(); toast(message); });
+    $('#holBtn').onclick = () => { renderHolidays(); overlay('hol'); };
+    $('#holAdd').onclick = () => {
+      const date = $('#holDate').value, name = $('#holName').value.trim();
+      if (!date || !name) { toast('กรุณาใส่วันที่และชื่อวันหยุด', true); return; }
+      saveHolidays(state.holidays.filter(h => h.date !== date).concat({ date, name }), `✓ เพิ่มวันหยุด ${C.dateDay(date)} ${name} แล้ว`).then(() => { $('#holName').value = ''; });
+    };
+
+    /* ===== ใบแจ้ง A4: วางข้อมูลลงแบบฟอร์มตามตำแหน่ง (% ของหน้ากระดาษ) ===== */
+    function openPrint(i) {
+      if (C.isDraft(i)) { toast('กรอกรายการยาและวันนัดก่อน จึงจะพิมพ์ใบแจ้งได้', true); return; }
+      const r = C.curRound(i), name = i.recipientName || i.patient;
+      const list = f => esc(i.drugs.map((d, j) => `${d.name} ${f(d, j)} ${d.unit}`).join(' · '));
+      const pending = i.rounds.map((x, k) => Object.assign({ k }, x)).filter(x => x.status !== 'received');
+      const roundTable = `<table class="ps-t"><thead><tr><th>นัด</th><th>รับได้หลังวันที่</th>${i.drugs.map(d => `<th>${esc(d.name)}</th>`).join('')}</tr></thead><tbody>${pending.map(x => `<tr><td>${x.k + 1}</td><td>${C.dateDay(x.date)}</td>${i.drugs.map((d, j) => `<td>${x.qty[j] ? x.qty[j] + ' ' + esc(d.unit) : '-'}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+      const drugTable = `<table class="ps-t"><thead><tr><th>รายการยา</th><th>แพทย์สั่ง</th><th>ได้รับแล้ว</th><th>ค้างจ่าย</th></tr></thead><tbody>${i.drugs.map((d, j) => `<tr><td>${esc(d.name)}</td><td>${d.rx} ${esc(d.unit)}</td><td>${C.receivedOf(i, j)} ${esc(d.unit)}</td><td>${C.leftOf(i, j)} ${esc(d.unit)}</td></tr>`).join('')}</tbody></table>`;
+      const at = (left, top, cls, html, extra = '') => `<span class="pf ${cls}" style="left:${left}%;top:${top}%;${extra}">${html}</span>`;
+      const mail = i.receiveMethod === 'mail';
+      $('#psSheet').innerHTML = '<img class="ps-bg" src="assets/notice-template.png" alt="">'
+        + at(9.6, 7.75, 'b', esc(i.id))
+        + at(31.6, 7.75, '', r ? C.dateShort(r.date) : '')
+        + at(4.75, mail ? 17.45 : 10.85, 'tick', '✓')
+        + at(9.6, mail ? 22.85 : 14.1, '', esc(name), 'width:26%')
+        + at(12.4, 28.8, '', esc(i.phone1))
+        + at(12.4, 31.65, '', esc(i.phone2))
+        + at(5.6, 37.0, 'addr', esc(i.address), 'width:41.5%')
+        + (i.drugs.length === 1
+          ? at(16.6, 44.4, 'sm', list(d => d.rx), 'width:30.5%') + at(11.4, 46.9, 'sm', list((d, j) => C.receivedOf(i, j)), 'width:35.5%') + at(12.6, 49.4, 'sm', list((d, j) => C.leftOf(i, j)), 'width:34.5%')
+          : at(16.6, 44.4, 'sm', `ยา ${i.drugs.length} รายการ · ดูตารางด้านขวา`, 'width:30.5%'))
+        + `<div class="pf box" style="left:49.3%;top:27.2%;width:45%"><b>${esc(i.patient)} · HN ${esc(i.hn)} · ${esc(C.clinicName(i.clinic))}</b>${drugTable}<b style="margin-top:6px">นัดรับยาส่วนที่เหลือ</b>${roundTable}</div>`
+        + at(86.9, 57.85, 'b', esc(i.id))
+        + at(18.9, 65.4, 'b lg', r ? C.dateDay(r.date) : '')
+        + '<div class="pf qr" style="left:5.8%;top:75.4%;width:12.6%"><canvas id="printQr"></canvas></div>'
+        + at(3.6, 86.4, 'xs', 'สแกนติดตามสถานะยา', 'width:17%;text-align:center')
+        + `<div class="pf box" style="left:22%;top:75.4%;width:73%"><b>ตารางนัดรับยาส่วนที่เหลือ · ${esc(name)}</b>${roundTable}</div>`;
+      new QRious({ element: $('#printQr'), size: 300, level: 'M', value: statusUrl(i) });
+      $('#psTitle').textContent = 'ตัวอย่างใบแจ้ง ' + i.id;
+      $('#psFoot').textContent = i.address ? '' : '⚠ ใบแจ้งนี้ยังไม่มีที่อยู่';
+      overlay('print');
+    }
+    $('#psPrint').onclick = () => window.print();
+
+    /* ===== ตั้งค่า ===== */
+    $('#settingsBtn').onclick = () => { $('#dbUrl').value = endpoint(); $('#dbKey').value = apiKey(); overlay('settings'); };
+    $('#dbSave').onclick = () => { localStorage.setItem(KEYS.endpoint, $('#dbUrl').value.trim()); localStorage.setItem(KEYS.apiKey, $('#dbKey').value.trim()); $('#dbState').textContent = 'กำลังเชื่อมต่อ…'; loadRemote().then(() => toast('✓ เชื่อมต่อฐานข้อมูลกลางแล้ว')).catch(() => {}); };
+    $('#dbRefresh').onclick = () => loadRemote().then(() => toast('✓ ดึงข้อมูลล่าสุดแล้ว')).catch(() => {});
+    $('#drugImport').addEventListener('change', async event => {
+      const file = event.target.files && event.target.files[0]; if (!file) return;
+      const header = new Set(['ชื่อยา', 'รายการยา', 'drug', 'drug name', 'name']);
+      const names = (await file.text()).split(/\r?\n/).map(line => line.split(/[\t,;]/)[0].trim().replace(/^"|"$/g, '')).filter(n => n && !header.has(n.toLowerCase()));
+      await mutate('drugSave', { names: [...new Set([...state.drugNames, ...names])] }, data => { state.drugNames = data.names || []; $('#drugState').textContent = `นำเข้า ${names.length} รายการ · รายชื่อยาส่วนกลางทั้งหมด ${state.drugNames.length} รายการ`; });
+      event.target.value = '';
+    });
+
+    /* ===== เหตุการณ์ ===== */
+    document.addEventListener('click', e => {
+      const t = e.target.closest('[data-close],[data-filter],[data-move],[data-open],[data-edit],[data-print],[data-delete],[data-delround],[data-deldrug],[data-fixday],[data-delhol]');
+      if (!t) return;
+      const d = t.dataset;
+      if (t.hasAttribute('data-close')) overlay(null);
+      else if (d.filter) { state.filter = d.filter; render(); }
+      else if (d.move) { e.stopPropagation(); moveRound(d.move); }
+      else if (d.edit) { e.stopPropagation(); openForm(state.items.find(x => x.id === d.edit)); }
+      else if (d.print) openPrint(state.items.find(x => x.id === d.print));
+      else if (d.delete) deleteSlip(d.delete);
+      else if (d.delround) { formRounds.splice(+d.delround, 1); renderRoundRows(); }
+      else if (d.deldrug) { const j = +d.deldrug; formDrugs.splice(j, 1); formRounds.forEach(r => r.qty.splice(j, 1)); renderDrugRows(); renderRoundRows(); }
+      else if (d.fixday) { const r = formRounds[+d.fixday]; r.movedFrom = r.date; r.date = C.nextWorkday(r.date, state.holidays); renderRoundRows(); }
+      else if (d.delhol) { const h = state.holidays[+d.delhol]; saveHolidays(state.holidays.filter(x => x !== h), `✓ ลบวันหยุด ${C.dateDay(h.date)} แล้ว`); }
+      else if (d.open) { state.sel = d.open; render(); }
+    });
+    $('#newBtn').onclick = () => openForm(null);
+    $('#q').addEventListener('input', render);
+    $('#clinic').addEventListener('change', () => { localStorage.setItem(KEYS.clinic, $('#clinic').value); state.filter = 'all'; render(); });
+    document.addEventListener('keydown', e => {
+      if (e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) { e.preventDefault(); $('#q').focus(); }
+      if (e.key === 'Escape') overlay(null);
+    });
+    window.addEventListener('online', () => { if (!state.online && gate.classList.contains('unlocked')) loadRemote().catch(() => {}); });
+    setInterval(() => { if (!state.online && gate.classList.contains('unlocked') && hasCredentials()) loadRemote().catch(() => {}); }, 30000);
+
+    setOnline(false, 'กำลังเชื่อมต่อฐานข้อมูลกลาง…'); render();
+    if (sessionStorage.getItem(KEYS.unlocked) === '1' && hasCredentials()) { unlockStaff(); loadRemote().catch(() => {}); }
+  </script>
+</body>
+</html>
