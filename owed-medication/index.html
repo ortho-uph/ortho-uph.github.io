@@ -342,7 +342,6 @@
       <header><div><h2>⚙ ตั้งค่า</h2><small>การเชื่อมต่อฐานข้อมูลกลาง (Google Apps Script) และรายชื่อยา</small></div><button class="x" data-close type="button">✕</button></header>
       <div class="body">
         <div class="f"><label for="dbUrl">Web App URL</label><input id="dbUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></div>
-        <div class="f"><label for="dbKey">API key</label><input id="dbKey" type="password" placeholder="API key ของ Google Apps Script"></div>
         <div class="row-btns"><button class="btn btn-primary" type="button" id="dbSave">เชื่อมต่อ</button><button class="btn btn-ghost" type="button" id="dbRefresh">ดึงข้อมูลล่าสุด</button></div>
         <p class="muted" id="dbState" style="white-space:normal"></p>
         <div class="f" style="margin-top:18px"><label for="drugImport">นำเข้ารายชื่อยา (.txt หรือ .csv คอลัมน์แรกเป็นชื่อยา)</label><input id="drugImport" type="file" accept=".txt,.csv,text/plain,text/csv"></div>
@@ -369,11 +368,13 @@
 
     /* ===== ฐานข้อมูลกลาง (Google Apps Script) ===== */
     // ชื่อคีย์ขึ้นต้นด้วย owed เพื่อไม่ชนกับระบบอื่นบนโดเมนเดียวกัน
-    const KEYS = { endpoint: 'owedEndpoint', apiKey: 'owedApiKey', session: 'owedSession', unlocked: 'owedUnlocked', clinic: 'owedClinic', sender: 'owedSender' };
+    const KEYS = { endpoint: 'owedEndpoint', clinic: 'owedClinic', sender: 'owedSender' };
+    // รุ่นก่อนเก็บ API key และสิทธิ์เข้าใช้ไว้ในเครื่อง ทำให้เปิดหน้าใหม่แล้วไม่ต้องใส่ PIN จึงลบทิ้งทุกครั้งที่เปิดหน้า
+    localStorage.removeItem('owedApiKey'); sessionStorage.removeItem('owedSession'); sessionStorage.removeItem('owedUnlocked');
     const endpoint = () => localStorage.getItem(KEYS.endpoint) || OWED_CONFIG.endpoint;
-    const apiKey = () => localStorage.getItem(KEYS.apiKey) || '';
-    const sessionToken = () => sessionStorage.getItem(KEYS.session) || '';
-    const hasCredentials = () => Boolean(endpoint() && (apiKey() || sessionToken()));
+    // สิทธิ์เข้าใช้อยู่ในหน่วยความจำของหน้านี้เท่านั้น ปิด รีเฟรช หรือออกจากหน้าแล้วต้องใส่ PIN ใหม่
+    let session = '';
+    const hasCredentials = () => Boolean(endpoint() && session);
     async function fetchTimed(url, options = {}, timeout = 25000) {
       const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), timeout);
       try { return await fetch(url, Object.assign({}, options, { signal: controller.signal })); }
@@ -385,11 +386,11 @@
       let options = { cache: 'no-store' };
       if (payload) {
         const body = Object.assign({ action }, payload);
-        if (apiKey()) body.key = apiKey(); if (sessionToken()) body.session = sessionToken();
+        body.session = session;
         options = { method: 'POST', headers: { 'content-type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) };
       } else {
         address.searchParams.set('action', action);
-        if (apiKey()) address.searchParams.set('key', apiKey()); if (sessionToken()) address.searchParams.set('session', sessionToken());
+        address.searchParams.set('session', session);
       }
       const response = await fetchTimed(address.toString(), options);
       if (response.status === 404) throw new Error('deployment_not_found');
@@ -419,7 +420,7 @@
       } catch (error) {
         if (seq !== loadSeq) return state.items;
         setOnline(false, errText(error) + ' · ปิดการแก้ไขข้อมูลชั่วคราว');
-        if (error.message === 'unauthorized' && sessionToken()) lockStaff(false, 'สิทธิ์เข้าสู่ระบบหมดอายุ กรุณากรอก PIN อีกครั้ง');
+        if (error.message === 'unauthorized' && session) lockStaff(false, 'สิทธิ์เข้าสู่ระบบหมดอายุ กรุณากรอก PIN อีกครั้ง');
         throw error;
       }
     }
@@ -440,9 +441,9 @@
 
     /* ===== ล็อกอินด้วย PIN ส่วนกลาง ===== */
     const gate = $('#accessGate');
-    const unlockStaff = () => { gate.classList.add('unlocked'); sessionStorage.setItem(KEYS.unlocked, '1'); };
+    const unlockStaff = () => { gate.classList.add('unlocked'); };
     function lockStaff(showSetup, message) {
-      sessionStorage.removeItem(KEYS.unlocked); sessionStorage.removeItem(KEYS.session);
+      session = ''; setOnline(false, 'กรุณาเข้าสู่ระบบด้วย PIN');
       state.items = []; render(); gate.classList.remove('unlocked');
       $('#accessCode').value = ''; $('#accessError').textContent = message || ''; $('#pinSetupForm').hidden = !showSetup; $('#pinSetupError').textContent = ''; $('#setupUrl').value = endpoint();
       setTimeout(() => (showSetup ? $('#setupApiKey') : $('#accessCode')).focus(), 0);
@@ -457,7 +458,7 @@
         const response = await fetchTimed(endpoint(), { method: 'POST', headers: { 'content-type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'login', pin: code }) });
         const data = await response.json();
         if (!response.ok || !data.ok || !data.session) throw new Error(data.err || 'unauthorized');
-        sessionStorage.setItem(KEYS.session, data.session); unlockStaff(); box.textContent = '';
+        session = data.session; unlockStaff(); box.textContent = '';
         loadRemote().catch(() => {});
       } catch (error) {
         if (error.message === 'central_timeout') box.textContent = 'ฐานข้อมูลกลางตอบช้า กรุณาลองใหม่อีกครั้ง';
@@ -479,7 +480,7 @@
         const post = body => fetchTimed(endpoint(), { method: 'POST', headers: { 'content-type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) }).then(r => r.json());
         const set = await post({ action: 'setPin', key, pin }); if (!set.ok) throw new Error(set.err || 'unauthorized');
         const login = await post({ action: 'login', pin }); if (!login.ok || !login.session) throw new Error(login.err || 'login_failed');
-        localStorage.setItem(KEYS.apiKey, key); sessionStorage.setItem(KEYS.session, login.session);
+        session = login.session;
         unlockStaff(); $('#pinSetupForm').reset(); box.textContent = ''; loadRemote().catch(() => {});
       } catch (error) { box.textContent = error.message === 'unauthorized' ? 'API key ไม่ตรงกับค่า API_KEY ใน Apps Script' : 'ตั้ง PIN ไม่สำเร็จ: ' + error.message; }
     });
@@ -850,8 +851,8 @@
     };
 
     /* ===== ตั้งค่า ===== */
-    $('#settingsBtn').onclick = () => { $('#dbUrl').value = endpoint(); $('#dbKey').value = apiKey(); $('#senderText').value = senderText(); overlay('settings'); };
-    $('#dbSave').onclick = () => { localStorage.setItem(KEYS.endpoint, $('#dbUrl').value.trim()); localStorage.setItem(KEYS.apiKey, $('#dbKey').value.trim()); $('#dbState').textContent = 'กำลังเชื่อมต่อ…'; loadRemote().then(() => toast('✓ เชื่อมต่อฐานข้อมูลกลางแล้ว')).catch(() => {}); };
+    $('#settingsBtn').onclick = () => { $('#dbUrl').value = endpoint(); $('#senderText').value = senderText(); overlay('settings'); };
+    $('#dbSave').onclick = () => { localStorage.setItem(KEYS.endpoint, $('#dbUrl').value.trim()); $('#dbState').textContent = 'กำลังเชื่อมต่อ…'; loadRemote().then(() => toast('✓ เชื่อมต่อฐานข้อมูลกลางแล้ว')).catch(() => {}); };
     $('#dbRefresh').onclick = () => loadRemote().then(() => toast('✓ ดึงข้อมูลล่าสุดแล้ว')).catch(() => {});
     $('#drugImport').addEventListener('change', async event => {
       const file = event.target.files && event.target.files[0]; if (!file) return;
@@ -892,7 +893,8 @@
     setInterval(() => { if (!state.online && gate.classList.contains('unlocked') && hasCredentials()) loadRemote().catch(() => {}); }, 30000);
 
     setOnline(false, 'กำลังเชื่อมต่อฐานข้อมูลกลาง…'); render();
-    if (sessionStorage.getItem(KEYS.unlocked) === '1' && hasCredentials()) { unlockStaff(); loadRemote().catch(() => {}); }
+    // กดย้อนกลับมาที่หน้านี้ เบราว์เซอร์อาจคืนหน้าเดิมจากหน่วยความจำ จึงล็อกใหม่ทุกครั้ง
+    window.addEventListener('pageshow', e => { if (e.persisted) lockStaff(false); });
   </script>
 </body>
 </html>
