@@ -66,6 +66,21 @@
     .chip.on{border-color:var(--brand);background:var(--brand-soft);color:var(--brand)}.chip.on b{background:var(--brand);color:#fff}
     .banner{display:flex;align-items:center;gap:12px;padding:12px 16px;margin-bottom:14px;border-radius:13px;background:var(--draft-bg);color:#4a2f6a;font-weight:600}
     .banner .btn{margin-left:auto;padding:7px 12px;font-size:13.5px}
+    .banner.ship{background:var(--ship-bg);color:#123f72}
+    .lbl{position:relative;width:378px;height:567px;margin:0 auto;padding:14px 16px;background:#fff;color:#000;box-shadow:0 4px 20px #0002;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+    .lbl+.lbl{margin-top:18px}
+    .lbl-from{font-size:11.5px;line-height:1.35;padding-bottom:8px;border-bottom:1.5px dashed #000;white-space:pre-line}
+    .lbl-from b,.lbl-to small{display:block;font-size:11px;font-weight:800;letter-spacing:.04em}
+    .lbl-to{flex:1;min-height:0}
+    .lbl-name{font-size:27px;font-weight:800;line-height:1.2;margin-top:2px}
+    .lbl-addr{font-size:21px;line-height:1.45;margin-top:8px;word-break:break-word}
+    .lbl-tel{font-size:19px;font-weight:700;margin-top:10px}
+    .lbl-zip{display:flex;gap:5px;justify-content:flex-end}
+    .lbl-zip span{display:grid;place-items:center;width:38px;height:44px;border:2px solid #000;font-size:28px;font-weight:800}
+    .lbl-cod{border:3px solid #000;padding:7px 10px;text-align:center;font-size:19px;font-weight:800;line-height:1.25}
+    .lbl-cod small{display:block;font-size:12px;font-weight:600}
+    .lbl-ref{display:flex;justify-content:space-between;font-size:13px;font-weight:700;border-top:1.5px solid #000;padding-top:6px}
+    .lbl-warn{color:#b00020;font-size:15px;font-weight:800}
     .split{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:18px;align-items:start}
     .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
     .table-wrap{overflow-x:auto;border-radius:var(--r)}
@@ -199,7 +214,6 @@
     @media(max-width:1180px){.split{grid-template-columns:1fr}.panel{position:static;max-height:none}}
     @media(max-width:700px){.appbar{padding:10px 14px}.page{padding:16px 14px 50px}.g2,.g3,.g4{grid-template-columns:1fr}.dgrid{grid-template-columns:1fr 1fr}.bar-end{margin-left:0}}
     @media print{
-      @page{size:A4 portrait;margin:0}
       body{background:#fff}
       body>*:not(#overlay),#overlay>*:not(.modal.print){display:none!important}
       .modal.print{position:static;transform:none!important;opacity:1;box-shadow:none;width:auto;max-height:none;border-radius:0}
@@ -207,6 +221,9 @@
       .modal.print .body{padding:0;background:#fff;overflow:visible}
       .ps-sheet{width:210mm;height:297mm;box-shadow:none;break-after:page;page-break-after:always;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .ps-sheet+.ps-sheet{margin-top:0}
+      .lbl{width:100mm;height:150mm;box-shadow:none;break-after:page;page-break-after:always}
+      .lbl+.lbl{margin-top:0}
+      .lbl:last-child{break-after:auto;page-break-after:auto}
       .ps-sheet:last-child{break-after:auto;page-break-after:auto}
     }
   </style>
@@ -236,6 +253,7 @@
   <main class="page">
     <div class="page-head"><h1>รายการยาค้างจ่าย</h1><p>ผู้ป่วยที่ได้รับยาไม่ครบตามแพทย์สั่ง · หนึ่งใบแจ้งมีได้หลายรายการยาและหลายนัด · กดปุ่มด้านขวาของแถวเพื่อเลื่อนสถานะนัดปัจจุบัน</p></div>
     <div class="conn hidden" id="conn"></div>
+    <div id="shipBanner"></div>
     <div id="draftBanner"></div>
     <div class="chips" id="chips"></div>
     <div class="split">
@@ -329,11 +347,13 @@
         <p class="muted" id="dbState" style="white-space:normal"></p>
         <div class="f" style="margin-top:18px"><label for="drugImport">นำเข้ารายชื่อยา (.txt หรือ .csv คอลัมน์แรกเป็นชื่อยา)</label><input id="drugImport" type="file" accept=".txt,.csv,text/plain,text/csv"></div>
         <p class="muted" id="drugState" style="white-space:normal"></p>
+        <div class="f" style="margin-top:18px"><label for="senderText">ที่อยู่ผู้ส่งบนจ่าหน้าซอง <span class="opt">(บันทึกในเครื่องนี้)</span></label><textarea id="senderText" rows="3"></textarea></div>
       </div>
     </section>
   </div>
   <datalist id="drugList"></datalist><datalist id="clinicList"></datalist>
   <div class="toast" id="toast" role="status"></div>
+  <style id="pageSize">@media print{@page{size:A4 portrait;margin:0}}</style>
 
   <script>
     const C = RefillCore;
@@ -349,7 +369,7 @@
 
     /* ===== ฐานข้อมูลกลาง (Google Apps Script) ===== */
     // ชื่อคีย์ขึ้นต้นด้วย owed เพื่อไม่ชนกับระบบอื่นบนโดเมนเดียวกัน
-    const KEYS = { endpoint: 'owedEndpoint', apiKey: 'owedApiKey', session: 'owedSession', unlocked: 'owedUnlocked', clinic: 'owedClinic' };
+    const KEYS = { endpoint: 'owedEndpoint', apiKey: 'owedApiKey', session: 'owedSession', unlocked: 'owedUnlocked', clinic: 'owedClinic', sender: 'owedSender' };
     const endpoint = () => localStorage.getItem(KEYS.endpoint) || OWED_CONFIG.endpoint;
     const apiKey = () => localStorage.getItem(KEYS.apiKey) || '';
     const sessionToken = () => sessionStorage.getItem(KEYS.session) || '';
@@ -505,6 +525,8 @@
       renderDatalists();
       const scoped = state.items.filter(inClinic);
       const drafts = scoped.filter(C.isDraft).length;
+      const shipping = scoped.filter(i => i.receiveMethod === 'mail' && C.status(i) === 'ready').length;
+      $('#shipBanner').innerHTML = shipping ? `<div class="banner ship">📦 มี ${shipping} ใบพร้อมส่งไปรษณีย์<button class="btn btn-primary" data-labels type="button">🖨 พิมพ์จ่าหน้าซอง ${shipping} ดวง</button></div>` : '';
       $('#draftBanner').innerHTML = drafts ? `<div class="banner">📥 มี ${drafts} ใบที่ยังไม่มีรายการยาหรือวันนัด<button class="btn btn-ghost" data-printdrafts type="button">🖨 พิมพ์ทั้งหมด ${drafts} ใบ</button><button class="btn btn-primary" data-filter="draft" type="button" style="margin-left:0">ดูรายการ</button></div>` : '';
       const counts = { all: scoped.length }; STATUS_KEYS.forEach(s => { counts[s] = scoped.filter(i => C.status(i) === s).length; });
       $('#chips').innerHTML = [['all', 'ทั้งหมด'], ...STATUS_KEYS.filter(s => s !== 'draft' || counts.draft).map(s => [s, C.STATUS[s]])].map(([k, l]) => `<button class="chip ${state.filter === k ? 'on' : ''}" data-filter="${k}" type="button">${l}<b>${counts[k]}</b></button>`).join('');
@@ -537,7 +559,7 @@
         <div class="pt-preview"><small>ผู้ป่วยเห็นข้อความว่า</small><b>“${esc(C.patientHeadline(i))}”</b></div>
         ${contact}
         <div class="qrrow"><canvas id="panelQr"></canvas><p><b style="color:var(--ink)">QR เดียวใช้ได้ทุกนัด</b><br>ผู้ป่วยสแกนเพื่อดูสถานะ ยาที่จะได้รับ และวันนัดถัดไป</p></div>
-        <div class="row-btns"><button class="btn btn-ghost" data-edit="${esc(i.id)}" type="button">✎ แก้ไข</button><button class="btn btn-ghost" data-print="${esc(i.id)}" type="button">🖨 พิมพ์ใบแจ้ง</button>${del}</div>`;
+        <div class="row-btns"><button class="btn btn-ghost" data-edit="${esc(i.id)}" type="button">✎ แก้ไข</button><button class="btn btn-ghost" data-print="${esc(i.id)}" type="button">🖨 พิมพ์ใบแจ้ง</button>${i.receiveMethod === 'mail' ? `<button class="btn btn-ghost" data-label="${esc(i.id)}" type="button">📦 จ่าหน้าซอง</button>` : ''}${del}</div>`;
       if (i.publicToken && window.QRious) new QRious({ element: $('#panelQr'), size: 200, level: 'M', value: statusUrl(i) });
     }
 
@@ -776,7 +798,9 @@
         + qr
         + `<div class="pf box" style="left:22%;top:75.4%;width:73%"><b>ตารางนัดรับยาส่วนที่เหลือ · ${esc(name)}</b>${roundTable}</div></div>`;
     }
+    const pageSize = size => { $('#pageSize').textContent = `@media print{@page{size:${size};margin:0}}`; };
     function openPrint(list) {
+      pageSize('A4 portrait');
       $('#psSheets').innerHTML = list.map(sheetHtml).join('');
       list.forEach((i, n) => new QRious({ element: $(`#psSheets [data-qr="${n}"]`), size: 300, level: 'M', value: statusUrl(i) }));
       const blank = list.filter(C.isDraft).length;
@@ -785,6 +809,31 @@
       overlay('print');
     }
     $('#psPrint').onclick = () => window.print();
+
+    /* ===== จ่าหน้าซองพัสดุ 10×15 ซม. (เครื่องพิมพ์ความร้อน) ===== */
+    const senderText = () => localStorage.getItem(KEYS.sender) || OWED_CONFIG.sender || '';
+    function labelHtml(i) {
+      const zip = (i.address.match(/(\d{5})(?!.*\d{5})/) || [])[1] || '';
+      const address = zip ? i.address.replace(new RegExp('\\s*' + zip + '(?!.*\\d{5})'), '') : i.address;
+      const k = C.cur(i), round = k >= 0 && i.rounds.length ? ` · นัดที่ ${k + 1}/${i.rounds.length}` : '';
+      return `<div class="lbl"><div class="lbl-from"><b>ผู้ส่ง</b>${esc(senderText())}</div>`
+        + `<div class="lbl-to"><small>ผู้รับ</small><div class="lbl-name">${esc(i.recipientName || i.patient)}</div>`
+        + (address ? `<div class="lbl-addr">${esc(address)}</div>` : '<div class="lbl-warn">⚠ ยังไม่มีที่อยู่</div>')
+        + `<div class="lbl-tel">โทร ${esc([i.phone1, i.phone2].filter(Boolean).join(', ') || '-')}</div></div>`
+        + (zip ? `<div class="lbl-zip">${[...zip].map(d => `<span>${d}</span>`).join('')}</div>` : '')
+        + '<div class="lbl-cod">เก็บเงินปลายทาง (COD) 55 บาท<small>ผู้รับชำระค่าจัดส่งเมื่อได้รับพัสดุ</small></div>'
+        + `<div class="lbl-ref"><span>เลขที่ ${esc(i.id)}${round}</span><span>${C.dateShort(C.today())}</span></div></div>`;
+    }
+    function openLabels(list) {
+      if (!list.length) { toast('ไม่มีใบที่ต้องส่งไปรษณีย์', true); return; }
+      pageSize('100mm 150mm');
+      $('#psSheets').innerHTML = list.map(labelHtml).join('');
+      const missing = list.filter(i => !i.address).map(i => i.id);
+      $('#psTitle').textContent = list.length === 1 ? 'จ่าหน้าซอง ' + list[0].id : `จ่าหน้าซอง ${list.length} ดวง`;
+      $('#psFoot').textContent = missing.length ? `⚠ ยังไม่มีที่อยู่: ${missing.join(', ')}` : 'ตั้งค่าเครื่องพิมพ์เป็นกระดาษ 100×150 มม. ไม่มีขอบ';
+      overlay('print');
+    }
+    $('#senderText').addEventListener('change', e => { localStorage.setItem(KEYS.sender, e.target.value.trim()); toast('✓ บันทึกที่อยู่ผู้ส่งแล้ว'); });
 
     /* ===== ใบเปล่า: จองเลขที่และ QR ไว้ก่อน แล้วพิมพ์ทั้งชุด ===== */
     $('#blankBtn').onclick = () => { $('#blankClinic').value = $('#clinic').value === 'all' ? '' : $('#clinic').value; $('#blankFoot').textContent = ''; overlay('blank'); };
@@ -801,7 +850,7 @@
     };
 
     /* ===== ตั้งค่า ===== */
-    $('#settingsBtn').onclick = () => { $('#dbUrl').value = endpoint(); $('#dbKey').value = apiKey(); overlay('settings'); };
+    $('#settingsBtn').onclick = () => { $('#dbUrl').value = endpoint(); $('#dbKey').value = apiKey(); $('#senderText').value = senderText(); overlay('settings'); };
     $('#dbSave').onclick = () => { localStorage.setItem(KEYS.endpoint, $('#dbUrl').value.trim()); localStorage.setItem(KEYS.apiKey, $('#dbKey').value.trim()); $('#dbState').textContent = 'กำลังเชื่อมต่อ…'; loadRemote().then(() => toast('✓ เชื่อมต่อฐานข้อมูลกลางแล้ว')).catch(() => {}); };
     $('#dbRefresh').onclick = () => loadRemote().then(() => toast('✓ ดึงข้อมูลล่าสุดแล้ว')).catch(() => {});
     $('#drugImport').addEventListener('change', async event => {
@@ -814,10 +863,12 @@
 
     /* ===== เหตุการณ์ ===== */
     document.addEventListener('click', e => {
-      const t = e.target.closest('[data-close],[data-filter],[data-move],[data-open],[data-edit],[data-print],[data-delete],[data-delround],[data-deldrug],[data-fixday],[data-delhol],[data-printdrafts]');
+      const t = e.target.closest('[data-close],[data-filter],[data-move],[data-open],[data-edit],[data-print],[data-delete],[data-delround],[data-deldrug],[data-fixday],[data-delhol],[data-printdrafts],[data-label],[data-labels]');
       if (!t) return;
       const d = t.dataset;
       if (t.hasAttribute('data-close')) overlay(null);
+      else if (d.label) openLabels([state.items.find(x => x.id === d.label)]);
+      else if (t.hasAttribute('data-labels')) openLabels(state.items.filter(x => inClinic(x) && x.receiveMethod === 'mail' && C.status(x) === 'ready').sort((a, b) => a.id.localeCompare(b.id)));
       else if (t.hasAttribute('data-printdrafts')) openPrint(state.items.filter(x => inClinic(x) && C.isDraft(x)).sort((a, b) => a.id.localeCompare(b.id)));
       else if (d.filter) { state.filter = d.filter; render(); }
       else if (d.move) { e.stopPropagation(); moveRound(d.move); }
