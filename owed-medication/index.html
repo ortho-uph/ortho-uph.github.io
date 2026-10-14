@@ -874,7 +874,9 @@
       const name = i.recipientName || i.patient;
       const person = (name ? at(9.6, i.receiveMethod === 'mail' ? 22.85 : 14.1, '', esc(name), 'width:26%') : '')
         + at(12.4, 28.8, '', esc(i.phone1)) + at(12.4, 31.65, '', esc(i.phone2)) + at(5.6, 37.0, 'addr', esc(i.address), 'width:41.5%');
-      const ids = at(9.6, 7.75, 'b', esc(i.id)) + at(86.9, 57.85, 'b', esc(i.id));
+      // ชื่อและ HN ใต้หัวส่วนผู้ป่วย (บรรทัดที่เคยเป็นข้อความ "ยาหมดชั่วคราว")
+      const patientLine = i.patient || i.hn ? at(16.4, 59.75, 'b lg', `ชื่อ ${esc(i.patient || '-')}&emsp;HN ${esc(i.hn || '-')}`, 'width:52%') : '';
+      const ids = at(9.6, 7.75, 'b', esc(i.id)) + at(86.9, 57.85, 'b', esc(i.id)) + patientLine;
       const staffLine = i.hn || i.patient ? `<div class="pf box" style="left:49.3%;top:27.2%;width:45%"><b>${esc(i.patient)} · HN ${esc(i.hn)} · ${esc(clinicName(i.clinic))}</b></div>` : '';
       if (C.isDraft(i)) return `<div class="ps-sheet"><img class="ps-bg" src="assets/notice-template.png" alt="">${ids}${person}${staffLine}${qr}</div>`;
       const r = C.curRound(i);
