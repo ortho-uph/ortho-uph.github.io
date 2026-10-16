@@ -86,13 +86,13 @@
       s.rounds.forEach((r, j) => {
         const done = r.status === 'received', cur = j === k;
         const label = done ? 'รับแล้ว' : cur ? currentLabel(s) : 'นัดถัดไป';
-        rows.push(`<div class="sched ${done ? 'done' : cur ? 'cur' : 'next'}"><i>${done ? '✓' : j + 1}</i><div><b>นัดที่ ${j + 1} · ตั้งแต่ ${C.dateShort(r.date)}</b><small>${esc(C.roundItems(s, r).join(' · '))}</small></div><em class="${cur ? r.status : ''}">${label}</em></div>`);
+        rows.push(`<div class="sched ${done ? 'done' : cur ? 'cur' : 'next'}"><i>${done ? '✓' : j + 1}</i><div><b>นัดที่ ${j + 1} · ตั้งแต่ ${C.dateShort(r.date)}</b></div><em class="${cur ? r.status : ''}">${label}</em></div>`);
       });
       const schedule = rows.length > 1 || s.firstDate ? `<section class="card"><h3>ตารางนัดรับยา</h3>${rows.join('')}</section>` : '';
       const note = s.note ? `<div class="note"><b>หมายเหตุจากห้องยา</b>${esc(s.note)}</div>` : '';
       const steps = C.status(s) === 'received' ? '' : s.receiveMethod === 'mail'
         ? '<div class="steps"><b>จัดส่งทางไปรษณีย์</b> · ค่าส่ง 55 บาท เก็บเงินปลายทาง</div>'
-        : '<div class="steps"><b>ขั้นตอนรับยา</b> 1) ลงทะเบียนที่ห้องเวชระเบียนเบอร์ 1 · 2) ยื่นใบแจ้งที่ห้องจ่ายยา โดยไม่ต้องพบแพทย์ · จันทร์–ศุกร์ 08:00–16:00 น. ยกเว้นวันหยุดราชการ · ใช้ใบแจ้งและ QR เดิมได้ทุกนัด</div>';
+        : '<div class="steps"><b>ขั้นตอนรับยา</b><div>1) ลงทะเบียนที่ห้องเวชระเบียนเบอร์ 1</div><div>2) ยื่นใบแจ้งที่ห้องจ่ายยา โดยไม่ต้องพบแพทย์</div><div>จันทร์–ศุกร์ 08:00–16:00 น. ยกเว้นวันหยุดราชการ</div><div>ใช้ใบแจ้งและ QR เดิมได้ทุกนัด</div></div>';
       const updated = s.updatedAt ? `<p class="updated">อัปเดตล่าสุด ${new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(s.updatedAt))} · เลขที่ ${esc(s.id)}</p>` : '';
       $('content').innerHTML = status + items + schedule + note + steps + PHONE + updated;
     }
