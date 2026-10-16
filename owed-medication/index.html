@@ -304,8 +304,8 @@
     .nv-address{padding:5px 10px;flex:1.1;position:relative;font-size:16px}.nv-address-text{margin-top:5px;line-height:25px;min-height:75px;background:repeating-linear-gradient(to bottom,transparent 0,transparent 24px,#aaa 24px,#aaa 25px);font-size:17px;overflow-wrap:anywhere}
     .nv-staff-right{min-height:0;display:flex;flex-direction:column}.nv-staff-dates{padding:5px 10px 7px;border-bottom:1px solid #888;height:42%;overflow:visible}.nv-appointment{display:flex;align-items:baseline;gap:4px;min-height:32px;padding-top:5px;font-size:17px;white-space:nowrap}.nv-sign{width:65px;min-height:19px;border-bottom:1px dotted #555}.nv-drugs{padding:5px 10px;flex:1;min-height:0}.nv-drugs>div:not(.nv-drug-row){font-size:16px;color:#555}.nv-drug-row{height:27px;display:flex;align-items:baseline;gap:4px;padding-top:4px;font-size:17px}.nv-drug-row>span{flex:1;border-bottom:1px dotted #555;min-height:17px}.nv-drug-filled{display:block;height:auto;min-height:29px;overflow-wrap:anywhere;line-height:1.35;font-size:16px}
     .nv-staff-grid h3,.nv-staff-grid .nv-appointment,.nv-staff-grid .nv-drug-row,.nv-staff-grid .nv-drug-filled,.nv-staff-grid .nv-drugs>div:not(.nv-drug-row){font-size:14px}
-    .nv-staff-grid .nv-appointment{min-height:24px;padding-top:3px}.nv-staff-right .nv-drug-row{height:23px;padding-top:3px}.nv-staff-right .nv-drug-filled{height:auto;min-height:23px;line-height:1.35}
-    .nv-staff-grid .nv-staff-left,.nv-staff-grid .nv-staff-right{display:grid;grid-template-rows:22% 26% 52%}
+    .nv-staff-grid .nv-appointment{min-height:24px;padding-top:3px}.nv-staff-right .nv-drug-row{height:22px;padding-top:3px}.nv-staff-right .nv-drug-filled{height:auto;min-height:22px;line-height:1.35}
+    .nv-staff-grid .nv-staff-left,.nv-staff-grid .nv-staff-right{display:grid;grid-template-rows:21% 24% 55%}
     .nv-staff-grid .nv-staff-dates{height:auto;border-bottom:0}.nv-staff-grid .nv-address{border-bottom:1px solid #888}.nv-staff-grid .nv-address-text{line-height:23px;min-height:69px;background:repeating-linear-gradient(to bottom,transparent 0,transparent 22px,#aaa 22px,#aaa 23px)}
     .nv-separated .nv-staff{top:2%;height:94%}
     .nv-separated .nv-staff-grid .nv-staff-left,.nv-separated .nv-staff-grid .nv-staff-right{grid-template-rows:93px 110px minmax(0,1fr)}
@@ -1016,7 +1016,16 @@
       second.append(patient); sheet.after(second);
       [sheet, second].forEach((page, k) => { const footer = document.createElement('div'); footer.className = 'nv-page-footer'; const id = document.createElement('span'); id.textContent = ref; const number = document.createElement('span'); number.textContent = 'หน้า ' + (k + 1) + ' / 2'; footer.append(id, number); page.append(footer); });
     }
-    const needsTwoPrintPages = item => item.rounds.length > 5 || item.drugs.length > 6;
+    const needsTwoPrintPages = item => item.rounds.length > 6 || item.drugs.length > 8;
+    function checkPrintedDrugLines() {
+      document.querySelectorAll('#psSheets .nv-sheet:not(.nv-separated)').forEach(sheet => {
+        const lines = [...sheet.querySelectorAll('.nv-drug-row')].reduce((sum, row) => {
+          const style = getComputedStyle(row), height = row.getBoundingClientRect().height - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+          return sum + Math.max(1, Math.round(height / (parseFloat(style.lineHeight) || 19)));
+        }, 0);
+        if (lines > 8) expandPrintSheet(sheet);
+      });
+    }
     function openPrint(list) {
       pageSize('A4 portrait');
       $('#psSheets').innerHTML = list.map(sheetHtml).join('');
@@ -1026,8 +1035,9 @@
       $('#psTitle').textContent = list.length === 1 ? 'ตัวอย่างใบแจ้ง ' + list[0].id : `ใบแจ้ง ${list.length} ใบ (${list[0].id}–${list[list.length - 1].id})`;
       $('#psFoot').textContent = blank ? `${blank} ใบยังไม่มีรายการยา ช่องที่ว่างไว้ให้เขียนมือ แล้วค้นด้วยเลขที่เพื่อกรอกในเว็บภายหลัง` : list.some(i => !i.address) ? '⚠ บางใบยังไม่มีที่อยู่' : '';
       overlay('print');
+      document.fonts.ready.then(() => requestAnimationFrame(checkPrintedDrugLines));
     }
-    $('#psPrint').onclick = async () => { await document.fonts.ready; window.print(); };
+    $('#psPrint').onclick = async () => { await document.fonts.ready; checkPrintedDrugLines(); window.print(); };
 
     /* ===== จ่าหน้าซองพัสดุ 10×15 ซม. (เครื่องพิมพ์ความร้อน) ===== */
     const senderText = () => localStorage.getItem(KEYS.sender) || OWED_CONFIG.sender || '';
