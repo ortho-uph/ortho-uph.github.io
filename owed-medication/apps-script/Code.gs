@@ -344,3 +344,39 @@ function drugSave_(input,actor){
     return {ok:1,names:names};
   });
 }
+
+/* ===== ยืนยันรับยาทางไปรษณีย์อัตโนมัติหลังจัดส่งครบ 72 ชั่วโมง ===== */
+function completeDeliveredRounds_(item, time) {
+  if(item.receiveMethod!=='mail')return [];
+  const changed=[],history=item.statusHistory||[];
+  item.rounds.forEach(function(round,k){
+    if(round.status!=='delivery'||item.rounds.slice(0,k).some(function(r){return r.status!=='received';}))return;
+    const last=history.filter(function(h){return Number(h.round)===k;}).slice(-1)[0];
+    if(!last||last.status!=='delivery')return;
+    const shipped=Date.parse(last.at),now=Date.parse(time);
+    if(!isFinite(shipped)||!isFinite(now)||now-shipped<3*24*60*60*1000)return;
+    round.status='received';changed.push(k);
+  });
+  return changed;
+}
+function autoCompleteDeliveries() {
+  return withLock_(function(){
+    const items=load_(),time=now_(),actor={id:'system',name:'ระบบอัตโนมัติ'};let count=0;
+    const audits=[];
+    items.forEach(function(item){
+      const changed=completeDeliveredRounds_(item,time);if(!changed.length)return;
+      const detail=changed.map(function(k){return 'นัดที่ '+(k+1)+' → รับครบแล้ว (จัดส่งครบ 3 วัน)';}).join(' · ');
+      item.statusHistory=(item.statusHistory||[]).concat(changed.map(function(k){return {round:k,status:'received',at:time,by:actor.name};})).slice(-200);
+      item.updatedAt=time;item.log=(item.log||[]).concat([{at:time,by:actor.name,userId:actor.id,what:detail}]).slice(-200);
+      audits.push({id:item.id,detail:detail});count+=changed.length;
+    });
+    if(count){save_(items);audits.forEach(function(a){audit_(actor,'autoReceived',a.id,a.detail);});}
+    return {ok:1,completedRounds:count};
+  });
+}
+// เรียกครั้งเดียวจาก Apps Script Editor เพื่อติดตั้งตัวตรวจทุกชั่วโมง
+function installAutoCompleteDeliveries() {
+  const exists=ScriptApp.getProjectTriggers().some(function(t){return t.getHandlerFunction()==='autoCompleteDeliveries';});
+  if(!exists)ScriptApp.newTrigger('autoCompleteDeliveries').timeBased().everyHours(1).create();
+  return {ok:1,installed:true};
+}
