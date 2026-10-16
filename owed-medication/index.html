@@ -681,11 +681,9 @@
     const offTag = d => { const why = C.offReason(d, state.holidays); return why ? `<span class="due" title="ห้องยาปิด">⚠ ${esc(why)}</span>` : ''; };
     const dots = i => `<span class="dots">${i.rounds.map((r, k) => `<i class="${r.status === 'received' ? 'done' : k === C.cur(i) ? 'cur' : ''}"></i>`).join('')}</span>`;
     const roundTag = i => (C.isDraft(i) ? '<span class="muted">—</span>' : `<span class="rtag">${dots(i)}${C.cur(i) < 0 ? `ครบ ${i.rounds.length} นัด` : `${C.cur(i) + 1}/${i.rounds.length}`}</span>`);
-    const drugTitle = i => esc(i.drugs[0].name) + (i.drugs.length > 1 ? ` <span class="more-drug">+${i.drugs.length - 1} รายการ</span>` : '');
-    const leftText = i => (i.drugs.length > 1 ? `รอนัดรับยา ${i.drugs.length} รายการ` : `รอนัดรับยา ${C.leftOf(i, 0)} ${esc(i.drugs[0].unit)}`);
     const isBlank = i => !i.hn && !i.patient;
     const whoCell = i => (isBlank(i) ? `<b><span class="blank-tag">ใบเปล่า</span></b><small>ยังไม่กรอกข้อมูล${ctag(i)}</small>` : `<b>${esc(i.patient)}</b><small>HN ${esc(i.hn)}${ctag(i)}</small>`);
-    const drugCell = i => (C.isDraft(i) ? '<b class="missing">ยังไม่ระบุยา/วันนัด</b><small>รอกรอกข้อมูล</small>' : `<b>${drugTitle(i)}</b><small>${leftText(i)}</small>`);
+    const drugCell = i => `<span class="rtag">${i.drugs.length} รายการ</span>`;
     const dateCell = i => { const r = C.curRound(i); if (C.isDraft(i) || !r) return '<span class="muted">—</span>'; return C.dateDay(r.date) + (C.isDue(i) ? '<span class="due">ถึงวันนัดแล้ว</span>' : offTag(r.date)); };
     function actButton(i) {
       if (C.isDraft(i)) return `<button class="act go-fill" data-edit="${esc(i.id)}" type="button">กรอกข้อมูลยา →</button>`;
