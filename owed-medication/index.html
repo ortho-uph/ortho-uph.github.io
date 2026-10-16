@@ -166,7 +166,7 @@
     .seg label small{display:block;font-weight:500;color:var(--muted);font-size:12px}
     .seg input{display:none}.seg label:has(input:checked){border-color:var(--brand);background:var(--brand-soft)}
     .warn{margin:-4px 0 10px;padding:8px 11px;border-radius:9px;background:#fff4dc;color:#7a4b00;font-size:12.5px;font-weight:600}
-    .dgrid{display:grid;grid-template-columns:1fr 92px 82px 82px 84px 30px;gap:7px;align-items:center;margin-bottom:7px}
+    .dgrid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) 90px 30px;gap:7px;align-items:center;margin-bottom:7px}
     .dgrid input,.dgrid select{width:100%;padding:8px 10px;border:1px solid #d9dce5;border-radius:9px;background:#fff}
     .dgrid output{font-weight:800;color:var(--brand);font-size:14px;white-space:nowrap}
     .dgrid button,.rgrid button{border:0;background:#f4f4f8;border-radius:8px;height:34px;color:#8a90a0}
@@ -328,7 +328,7 @@
     <button class="btn btn-ghost" id="holBtn" type="button">📅 วันหยุด</button>
     <button class="btn btn-outline" id="blankBtn" type="button" data-needs-db>🖨 พิมพ์ใบเปล่า</button>
     <button class="btn btn-outline" id="impBtn" type="button" data-needs-db>⇪ นำเข้าจาก Excel</button>
-    <button class="btn btn-primary" id="newBtn" type="button" data-needs-db>＋ บันทึกยาค้างจ่าย</button>
+    <button class="btn btn-primary" id="newBtn" type="button" data-needs-db>＋ บันทึกนัดเติมยา</button>
     <div class="bar-end"><span class="me" id="me"></span><button class="icon-btn" id="usersBtn" type="button" hidden>👥 ผู้ใช้</button><button class="icon-btn" id="settingsBtn" type="button" title="ตั้งค่าการเชื่อมต่อ รายชื่อยา และที่อยู่ผู้ส่ง">⚙ ตั้งค่า</button><button class="icon-btn" id="passBtn" type="button">🔑 รหัสผ่าน</button><button class="icon-btn" id="logoutBtn" type="button">ออกจากระบบ</button></div>
   </header>
 
@@ -347,21 +347,21 @@
   <div id="overlay">
     <div class="scrim" data-close></div>
 
-    <aside class="drawer" aria-label="ฟอร์มยาค้างจ่าย">
-      <header><div><h2 id="dTitle">บันทึกยาค้างจ่าย</h2><small id="dSub"></small></div><button class="x" data-close type="button">✕</button></header>
+    <aside class="drawer" aria-label="ฟอร์มนัดเติมยา">
+      <header><div><h2 id="dTitle">บันทึกนัดเติมยา</h2><small id="dSub"></small></div><button class="x" data-close type="button">✕</button></header>
       <form id="form" autocomplete="off">
         <div class="fs"><h3><i>1</i>ผู้ป่วย</h3>
           <div class="g2"><div class="f"><label>HN</label><input name="hn" maxlength="20" placeholder="เช่น 680003221" required></div><div class="f"><label>ชื่อ-นามสกุล</label><input name="patient" placeholder="ชื่อผู้ป่วย" required></div></div>
           <div class="g3"><div class="f"><label>เบอร์โทรศัพท์</label><input name="phone1" inputmode="tel" placeholder="081-234-5678"></div><div class="f"><label>เบอร์สำรอง <span class="opt">(ถ้ามี)</span></label><input name="phone2" inputmode="tel"></div><div class="f"><label>คลินิก</label><select name="clinic" required></select></div></div>
         </div>
         <div class="fs"><h3><i>2</i>ยาที่นัดรับเพิ่ม <span class="opt" style="font-size:12px">(เพิ่มได้หลายรายการ)</span></h3>
-          <div class="dgrid dhead"><span>ชื่อยา / วิธีใช้ / จำนวน</span><span>หน่วย</span><span>แพทย์สั่ง</span><span>จ่ายแล้ว</span><span>ค้างจ่าย</span><span></span></div>
+          <div class="dgrid dhead"><span>รายการยา</span><span>วิธีใช้</span><span>จำนวนต่อรอบ</span><span></span></div>
           <div id="drugRows"></div>
           <button type="button" class="add-row" id="addDrug">＋ เพิ่มรายการยา</button>
-          <div class="f" style="max-width:240px;margin-top:12px"><label>จ่ายยาครั้งแรกวันที่</label><input type="date" name="firstDate"></div>
+          <div class="f" style="max-width:240px;margin-top:12px" hidden><label>จ่ายยาครั้งแรกวันที่</label><input type="date" name="firstDate"></div>
         </div>
-        <div class="fs"><h3><i>3</i>นัดรับยาส่วนที่เหลือ</h3>
-          <div class="splitter">แบ่งยาทุกตัวเป็น <input id="spN" type="number" min="1" max="12" value="1"> นัด ห่างกัน <input id="spD" type="number" min="1" value="28"> วัน เริ่ม <input id="spStart" type="date"><button type="button" id="spGo">สร้างตารางนัด</button></div>
+        <div class="fs"><h3><i>3</i>นัดรับยาตามนัด</h3>
+          <div class="splitter">นัดเติมยาจำนวน <input id="spN" type="number" min="1" max="12" value="1"> นัด ห่างกัน <input id="spD" type="number" min="1" value="28"> วัน เริ่ม <input id="spStart" type="date"><button type="button" id="spGo">สร้างตารางนัด</button></div>
           <div class="rgrid-wrap"><div id="roundRows"></div></div>
           <button type="button" class="add-row" id="addRound">＋ เพิ่มนัด</button>
           <div id="sumcheck"></div>
@@ -437,7 +437,7 @@
       </div>
     </section>
 
-    <section class="modal small roundstatus" aria-label="แก้ไขสถานะนัด"><header><div><h2 id="roundStatusTitle">แก้ไขสถานะนัด</h2><small>เลือกสถานะที่ถูกต้อง ระบบเก็บประวัติการแก้ไข</small></div><button class="x" data-close type="button">✕</button></header><div class="body"><div class="f"><label for="roundStatusValue">สถานะ</label><select id="roundStatusValue"></select></div><p class="warn">เมื่อย้อนสถานะ นัดถัดไปที่เริ่มดำเนินการแล้วจะกลับเป็นค้างจ่าย เพื่อจัดการตามลำดับอีกครั้ง</p></div><footer><button class="btn btn-ghost" data-close type="button">ยกเลิก</button><button class="btn btn-primary" id="roundStatusSave" data-needs-db type="button">บันทึกสถานะ</button></footer></section>
+    <section class="modal small roundstatus" aria-label="แก้ไขสถานะนัด"><header><div><h2 id="roundStatusTitle">แก้ไขสถานะนัด</h2><small>เลือกสถานะที่ถูกต้อง ระบบเก็บประวัติการแก้ไข</small></div><button class="x" data-close type="button">✕</button></header><div class="body"><div class="f"><label for="roundStatusValue">สถานะ</label><select id="roundStatusValue"></select></div><p class="warn">เมื่อย้อนสถานะ นัดถัดไปที่เริ่มดำเนินการแล้วจะกลับเป็นรอนัดรับยา เพื่อจัดการตามลำดับอีกครั้ง</p></div><footer><button class="btn btn-ghost" data-close type="button">ยกเลิก</button><button class="btn btn-primary" id="roundStatusSave" data-needs-db type="button">บันทึกสถานะ</button></footer></section>
     <section class="modal small pass" aria-label="เปลี่ยนรหัสผ่าน">
       <header><div><h2>🔑 เปลี่ยนรหัสผ่านของฉัน</h2><small id="passWho"></small></div><button class="x" data-close type="button">✕</button></header>
       <form class="body" id="passForm" autocomplete="off"><div class="f"><label>รหัสผ่านปัจจุบัน</label><input name="old" type="password" autocomplete="current-password" required></div><div class="g2"><div class="f"><label>รหัสผ่านใหม่ (อย่างน้อย 6 ตัว)</label><input name="next" type="password" minlength="6" autocomplete="new-password" required></div><div class="f"><label>ยืนยันรหัสผ่านใหม่</label><input name="again" type="password" minlength="6" autocomplete="new-password" required></div></div></form>
@@ -656,7 +656,7 @@
     const dots = i => `<span class="dots">${i.rounds.map((r, k) => `<i class="${r.status === 'received' ? 'done' : k === C.cur(i) ? 'cur' : ''}"></i>`).join('')}</span>`;
     const roundTag = i => (C.isDraft(i) ? '<span class="muted">—</span>' : `<span class="rtag">${dots(i)}${C.cur(i) < 0 ? `ครบ ${i.rounds.length} นัด` : `${C.cur(i) + 1}/${i.rounds.length}`}</span>`);
     const drugTitle = i => esc(i.drugs[0].name) + (i.drugs.length > 1 ? ` <span class="more-drug">+${i.drugs.length - 1} รายการ</span>` : '');
-    const leftText = i => (i.drugs.length > 1 ? `ค้างจ่าย ${i.drugs.length} รายการ` : `ค้างจ่าย ${C.leftOf(i, 0)} ${esc(i.drugs[0].unit)}`);
+    const leftText = i => (i.drugs.length > 1 ? `รอนัดรับยา ${i.drugs.length} รายการ` : `รอนัดรับยา ${C.leftOf(i, 0)} ${esc(i.drugs[0].unit)}`);
     const isBlank = i => !i.hn && !i.patient;
     const whoCell = i => (isBlank(i) ? `<b><span class="blank-tag">ใบเปล่า</span></b><small>ยังไม่กรอกข้อมูล${ctag(i)}</small>` : `<b>${esc(i.patient)}</b><small>HN ${esc(i.hn)}${ctag(i)}</small>`);
     const drugCell = i => (C.isDraft(i) ? '<b class="missing">ยังไม่ระบุยา/วันนัด</b><small>รอกรอกข้อมูล</small>' : `<b>${drugTitle(i)}</b><small>${leftText(i)}</small>`);
@@ -697,7 +697,7 @@
       const rows = state.items.filter(i => (state.filter === 'all' || C.status(i) === state.filter) && matches(i));
       $('#rows').innerHTML = rows.map(i => `<tr class="${i.id === state.sel ? 'sel' : ''}" data-open="${esc(i.id)}"><td class="ref">${esc(i.id)}</td><td class="who">${whoCell(i)}</td><td class="drug">${drugCell(i)}</td><td>${roundTag(i)}</td><td>${dateCell(i)}</td><td>${pill(C.status(i))}</td><td style="text-align:right">${actButton(i)}</td></tr>`).join('');
       $('#empty').classList.toggle('hidden', rows.length > 0);
-      $('#empty').textContent = state.items.length ? 'ไม่พบรายการที่ตรงกับคำค้นหรือตัวกรอง' : (state.online ? 'ยังไม่มีรายการ · กด “บันทึกยาค้างจ่าย” หรือ “นำเข้าจาก Excel”' : 'ยังไม่ได้เชื่อมต่อฐานข้อมูลกลาง');
+      $('#empty').textContent = state.items.length ? 'ไม่พบรายการที่ตรงกับคำค้นหรือตัวกรอง' : (state.online ? 'ยังไม่มีรายการ · กด “บันทึกนัดเติมยา” หรือ “นำเข้าจาก Excel”' : 'ยังไม่ได้เชื่อมต่อฐานข้อมูลกลาง');
       const i = rows.find(x => x.id === state.sel) || rows[0];
       state.sel = i ? i.id : null;
       renderPanel(i);
@@ -714,7 +714,7 @@
         return;
       }
       const n = C.next(i);
-      const drugTable = `<table class="mini"><thead><tr><th>รายการยา</th><th>สั่ง</th><th>รับแล้ว</th><th>ค้าง</th></tr></thead><tbody>${i.drugs.map((d, j) => { const left = C.leftOf(i, j); return `<tr><td>${esc(d.name)}</td><td>${d.rx || '-'}</td><td>${C.receivedOf(i, j)}</td><td class="${left ? 'owe' : ''}">${left} ${esc(d.unit)}</td></tr>`; }).join('')}</tbody></table>`;
+      const drugTable = `<table class="mini"><thead><tr><th>รายการยา</th><th>วิธีใช้</th><th>จำนวน</th></tr></thead><tbody>${i.drugs.map(d => { const info = readDrugDescription(d.name); return `<tr><td>${esc(info.name)}</td><td>${esc(info.usage || '—')}</td><td>${(i.rounds.find(r => r.status !== 'received') || i.rounds[0] || {qty:[]}).qty[i.drugs.indexOf(d)] || 0} ${esc(d.unit)} ต่อรอบ</td></tr>`; }).join('')}</tbody></table>`;
       const roundRows = (i.firstDate ? [`<div class="rd done"><i>✓</i><div><b>จ่ายครั้งแรก · ${C.dateDay(i.firstDate)}</b><small>${esc(i.drugs.map(d => `${d.name} ${d.got} ${d.unit}`).join(' · '))}</small></div><span></span></div>`] : [])
         .concat(i.rounds.map((r, k) => { const isCur = k === C.cur(i), done = r.status === 'received'; return `<div class="rd ${done ? 'done' : isCur ? 'cur' : ''}"><i>${done ? '✓' : k + 1}</i><div><b>นัดที่ ${k + 1} · หลัง ${C.dateDay(r.date)}${done ? '' : offTag(r.date)}</b><small>${esc(C.roundItems(i, r).join(' · ') || '—')}${done ? ' · รับแล้ว' : ''}</small></div>${isCur ? `<div class="round-actions">${pill(r.status)}${n ? `<button class="btn btn-primary" data-move="${esc(i.id)}" data-round="${k}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>${n[1]} →</button>` : ''}<button class="btn btn-ghost" data-roundstatus="${esc(i.id)}" data-round="${k}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>แก้ไขสถานะ</button></div>` : done ? `<div class="round-actions"><span class="round-received">✓ รับยาแล้ว</span><button class="btn btn-ghost" data-roundstatus="${esc(i.id)}" data-round="${k}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>แก้ไขสถานะ</button></div>` : ''}</div>`; }));
       $('#panel').innerHTML = `${head}
@@ -760,7 +760,7 @@
       if (!allowed.includes(status)) return;
       if (status === item.rounds[index].status) { overlay(null); return; }
       const reset = status !== 'received' && item.rounds.slice(index + 1).some(r => r.status !== 'waiting');
-      if (reset && !confirm('ย้อนสถานะนัดที่ ' + (index + 1) + ' และเปลี่ยนนัดถัดไปที่เริ่มดำเนินการแล้วให้กลับเป็นค้างจ่าย ใช่หรือไม่?')) return;
+      if (reset && !confirm('ย้อนสถานะนัดที่ ' + (index + 1) + ' และเปลี่ยนนัดถัดไปที่เริ่มดำเนินการแล้วให้กลับเป็นรอนัดรับยา ใช่หรือไม่?')) return;
       const rounds = item.rounds.map((r, k) => k === index ? { ...r, status } : k > index && status !== 'received' ? { ...r, status: 'waiting' } : r);
       await mutate('update', { id, item: { ...item, rounds } }, data => { const saved = upsert(data.item); state.sel = saved.id; overlay(null); editingRoundStatus = null; toast('✓ แก้ไขสถานะนัดที่ ' + (index + 1) + ' แล้ว'); });
     };
@@ -772,10 +772,14 @@
 
     /* ===== ฟอร์ม: ยาหลายรายการ × นัดหลายรอบ (นัดที่รับแล้วล็อกไว้) ===== */
     const F = () => $('#form');
-    const blankDrug = () => ({ name: '', unit: 'เม็ด', rx: '', got: '' });
-    const formLeft = j => { const d = formDrugs[j]; return d.rx === '' ? 0 : Math.max(0, (+d.rx || 0) - (+d.got || 0)); };
+    // Keep usage with the medicine description so existing Apps Script deployments preserve it.
+    const drugUsageSeparator = ' | วิธีใช้: ';
+    const readDrugDescription = value => { const text = String(value || ''), at = text.indexOf(drugUsageSeparator); return at < 0 ? { name: text, usage: '' } : { name: text.slice(0, at), usage: text.slice(at + drugUsageSeparator.length) }; };
+    const writeDrugDescription = d => d.name.trim() + (d.usage.trim() ? drugUsageSeparator + d.usage.trim() : '');
+    const blankDrug = () => ({ name: '', usage: '', quantity: '', unit: 'เม็ด', got: '0' });
+    const formLeft = j => Math.max(0, +formDrugs[j].quantity || 0);
     function renderDrugRows() {
-      $('#drugRows').innerHTML = formDrugs.map((d, k) => `<div class="dgrid"><input list="drugList" data-dk="${k}" data-df="name" value="${esc(d.name)}" placeholder="เช่น Ibu 1*3 pc 20" aria-label="ชื่อยา / วิธีใช้ / จำนวน"><select data-dk="${k}" data-df="unit">${['เม็ด', 'ซอง', 'แคปซูล', 'ขวด', 'หลอด', 'กล่อง'].map(u => `<option ${u === d.unit ? 'selected' : ''}>${u}</option>`).join('')}</select><input type="number" min="0" data-dk="${k}" data-df="rx" value="${esc(d.rx)}" placeholder="0"><input type="number" min="0" data-dk="${k}" data-df="got" value="${esc(d.got)}" placeholder="0"><output data-left="${k}">${d.rx === '' ? '—' : formLeft(k) + ' ' + esc(d.unit)}</output>${formDrugs.length > 1 ? `<button type="button" data-deldrug="${k}" title="ลบยานี้">✕</button>` : '<span></span>'}</div>`).join('');
+      $('#drugRows').innerHTML = formDrugs.map((d, k) => `<div class="dgrid"><input list="drugList" data-dk="${k}" data-df="name" value="${esc(d.name)}" placeholder="เช่น Paracetamol 500 mg" aria-label="รายการยา" maxlength="120"><input data-dk="${k}" data-df="usage" value="${esc(d.usage)}" placeholder="เช่น ครั้งละ 1 เม็ด หลังอาหาร" aria-label="วิธีใช้" maxlength="100"><input type="number" min="0" step="1" data-dk="${k}" data-df="quantity" value="${esc(d.quantity)}" placeholder="0" aria-label="จำนวน">${formDrugs.length > 1 ? `<button type="button" data-deldrug="${k}" title="ลบยานี้">✕</button>` : '<span></span>'}</div>`).join('');
     }
     function roundNote(r, k) {
       if (r.movedFrom) return `<div class="rnote moved">↪ ${C.dateDay(r.movedFrom)} ตรงกับ${esc(C.offReason(r.movedFrom, state.holidays))} เลื่อนเป็น ${C.dateDay(r.date)}</div>`;
@@ -788,27 +792,27 @@
       $('#roundRows').innerHTML = `<div class="rgrid rhead" style="grid-template-columns:${cols}"><span>นัด</span><span>หลังวันที่</span>${formDrugs.map(d => `<span title="${esc(d.name)}">${esc(d.name || 'ยา')}</span>`).join('')}<span></span></div>`
         + formRounds.map((r, k) => { const locked = r.status === 'received'; return `<div class="rgrid" style="grid-template-columns:${cols}"><span class="rno">นัดที่ ${k + 1}</span><input type="date" data-k="${k}" data-f="date" value="${r.date}" ${locked ? 'disabled' : ''}>${formDrugs.map((d, j) => `<input type="number" min="0" data-k="${k}" data-f="q${j}" value="${r.qty[j] || ''}" placeholder="0" ${locked ? 'disabled' : ''}>`).join('')}${locked ? '<span class="lock" title="รับแล้ว">✓</span>' : `<button type="button" data-delround="${k}" title="ลบนัดนี้">✕</button>`}</div>${locked ? '' : roundNote(r, k)}`; }).join('');
       $('#sumcheck').innerHTML = formDrugs.map((d, j) => {
-        if (d.rx === '') return '';
+        if (d.quantity === '') return '';
         const sum = formRounds.reduce((a, r) => a + (+r.qty[j] || 0), 0), need = formLeft(j), name = esc(d.name || 'ยาที่ ' + (j + 1));
-        return sum === need ? `<div class="sumcheck ok">✓ ${name}: นัดรวม ${sum} ${esc(d.unit)} ตรงกับยอดค้าง</div>` : `<div class="sumcheck bad">${name}: นัดรวม ${sum}/${need} ${esc(d.unit)} · ${sum < need ? 'ยังขาด ' + (need - sum) : 'เกิน ' + (sum - need)}</div>`;
+        return `<div class="sumcheck ok">${name}: ${need} ${esc(d.unit)} ต่อรอบ · ${formRounds.length} นัด · รวมตามตาราง ${sum} ${esc(d.unit)}</div>`;
       }).join('');
     }
     function planRounds() {
       const n = Math.max(1, +$('#spN').value || 1), gap = Math.max(1, +$('#spD').value || 28), start = $('#spStart').value || C.today();
       const kept = formRounds.filter(r => r.status === 'received');
-      const remaining = formDrugs.map((d, j) => Math.max(0, formLeft(j) - kept.reduce((a, r) => a + (r.qty[j] || 0), 0)));
+      const remaining = formDrugs.map((d, j) => formLeft(j));
       formRounds = kept.concat(C.planRounds(remaining, n, gap, start, state.holidays));
       renderRoundRows();
     }
     function openForm(item) {
       const f = F(); f.reset(); editing = item ? item.id : null; $('#zipHint').textContent = '';
-      $('#dTitle').textContent = !item ? 'บันทึกยาค้างจ่าย' : (C.isDraft(item) ? 'กรอกข้อมูลยา · ' : 'แก้ไขใบแจ้ง ') + item.id;
+      $('#dTitle').textContent = !item ? 'บันทึกนัดเติมยา' : (C.isDraft(item) ? 'กรอกข้อมูลยา · ' : 'แก้ไขใบแจ้ง ') + item.id;
       $('#dSub').textContent = item && isBlank(item) ? 'ใบที่พิมพ์ไว้ล่วงหน้า กรอกตามที่เขียนบนกระดาษ เลขที่และ QR คงเดิม' : !item ? 'เลขที่ใบแจ้งและ QR สร้างให้อัตโนมัติเมื่อบันทึก' : C.isDraft(item) ? 'แก้ไขข้อมูลผู้ป่วยและบันทึกได้ โดยยังไม่ต้องกรอกรายการยาหรือวันนัด' : 'QR เดิมยังใช้ได้ ผู้ป่วยเห็นข้อมูลใหม่ทันทีหลังบันทึก';
       fillClinics(f.clinic); f.clinic.value = item ? item.clinic : ($('#clinic').value === 'all' ? (state.clinics[0] || {}).code || '' : $('#clinic').value);
       if (item) ['hn', 'patient', 'phone1', 'phone2', 'address', 'recipientName', 'note'].forEach(k => { f[k].value = item[k] || ''; });
       f.firstDate.value = (item && item.firstDate) || C.today();
       f.receiveMethod.value = item ? item.receiveMethod : 'self';
-      formDrugs = item && item.drugs.length ? item.drugs.map(d => ({ name: d.name, unit: d.unit, rx: String(d.rx), got: String(d.got) })) : [blankDrug()];
+      formDrugs = item && item.drugs.length ? item.drugs.map((d, j) => ({ ...readDrugDescription(d.name), unit: d.unit, quantity: String((item.rounds.find(r => r.status !== 'received') || item.rounds[0] || {qty:[]}).qty[j] || Math.max(0, (+d.rx || 0) - (+d.got || 0))), got: String(d.got || 0) })) : [blankDrug()];
       formRounds = item ? item.rounds.map(r => ({ date: r.date, status: r.status, qty: formDrugs.map((_, j) => r.qty[j] || 0) })) : [];
       $('#spN').value = item ? Math.max(1, item.rounds.filter(r => r.status !== 'received').length) : 1;
       $('#spStart').value = C.nextWorkday(C.addDays(C.today(), 28), state.holidays);
@@ -821,9 +825,10 @@
       if (!f.reportValidity()) return null;
       const keep = formDrugs.map((d, j) => (d.name.trim() ? j : -1)).filter(j => j >= 0);
       if (!editing && !keep.length) { toast('กรุณาใส่รายการยาอย่างน้อย 1 รายการ', true); return null; }
-      const drugs = keep.map(j => ({ name: formDrugs[j].name.trim(), unit: formDrugs[j].unit, rx: +formDrugs[j].rx || 0, got: +formDrugs[j].got || 0 }));
+      if (keep.some(j => writeDrugDescription(formDrugs[j]).length > 120)) { toast('ชื่อยาและวิธีใช้รวมกันยาวเกิน 120 ตัวอักษร กรุณาย่อข้อความ', true); return null; }
+      const drugs = keep.map(j => ({ name: writeDrugDescription(formDrugs[j]), unit: formDrugs[j].unit, rx: formRounds.reduce((sum, r) => sum + (r.date ? (+r.qty[j] || 0) : 0), 0) + (+formDrugs[j].got || 0), got: +formDrugs[j].got || 0 }));
       const rounds = formRounds.filter(r => r.date && keep.some(j => +r.qty[j] > 0)).map(r => ({ date: r.date, status: r.status, qty: keep.map(j => +r.qty[j] || 0) }));
-      if (!editing && !rounds.length) { toast('กรุณาเพิ่มนัดรับยาส่วนที่เหลืออย่างน้อย 1 นัด', true); return null; }
+      if (!editing && !rounds.length) { toast('กรุณาเพิ่มนัดรับยาตามนัดอย่างน้อย 1 นัด', true); return null; }
       const old = editing ? state.items.find(x => x.id === editing) : null;
       return {
         clinic: f.clinic.value.trim(), hn: f.hn.value.trim(), patient: C.cleanText(f.patient.value), phone1: f.phone1.value.trim(), phone2: f.phone2.value.trim(),
@@ -847,12 +852,13 @@
     $('#saveOnly').onclick = () => saveForm();
     $('#savePrint').onclick = async () => { const saved = await saveForm(); if (saved) openPrint([saved]); };
     $('#addDrug').onclick = () => { formDrugs.push(blankDrug()); formRounds.forEach(r => r.qty.push(0)); renderDrugRows(); renderRoundRows(); $(`#drugRows [data-dk="${formDrugs.length - 1}"][data-df="name"]`).focus(); };
-    $('#addRound').onclick = () => { const last = formRounds[formRounds.length - 1]; formRounds.push({ date: C.nextWorkday(last ? C.addDays(last.date, +$('#spD').value || 28) : $('#spStart').value, state.holidays), status: 'waiting', qty: formDrugs.map(() => 0) }); renderRoundRows(); };
+    $('#addRound').onclick = () => { const last = formRounds[formRounds.length - 1]; formRounds.push({ date: C.nextWorkday(last ? C.addDays(last.date, +$('#spD').value || 28) : $('#spStart').value, state.holidays), status: 'waiting', qty: formDrugs.map((_, j) => formLeft(j)) }); renderRoundRows(); };
     $('#spGo').onclick = planRounds;
     $('#drugRows').addEventListener('input', e => {
       const k = e.target.dataset.dk; if (k === undefined) return;
       formDrugs[k][e.target.dataset.df] = e.target.value;
-      const d = formDrugs[k]; $(`#drugRows [data-left="${k}"]`).textContent = d.rx === '' ? '—' : formLeft(k) + ' ' + d.unit;
+      if (e.target.dataset.df === 'quantity') formRounds.forEach(r => { if (r.status !== 'received') r.qty[k] = +e.target.value || 0; });
+
       renderRoundRows();
     });
     $('#roundRows').addEventListener('input', e => {
@@ -969,7 +975,7 @@
       const pending = i.rounds.map((r, k) => ({ ...r, number: k + 1 })).filter(r => r.status !== 'received' && r.date);
       const appointments = pending.length ? pending : Array.from({ length: 4 }, (_, k) => ({ number: k + 1 }));
       const dates = staff => appointments.map(r => `<div class="nv-appointment"><span>• ครั้งที่ ${r.number} วันที่</span><span class="nv-write">${r.date ? esc(C.dateLong(r.date)) : ''}</span>${staff ? '<span>เภสัชกร</span><span class="nv-sign"></span>' : ''}</div>`).join('');
-      const drugRows = i.drugs.length ? i.drugs.map((d,j) => `<div class="nv-drug-row nv-drug-filled">${j+1}. ${esc(d.name)} / ${esc(d.usage || d.instructions || 'วิธีใช้ ................')} / แพทย์สั่ง ${d.rx} ${esc(d.unit)} · จ่ายแล้ว ${C.receivedOf(i,j)} · ค้าง ${C.leftOf(i,j)}</div>`).join('') : Array.from({ length: 6 }, (_,k) => `<div class="nv-drug-row">${k+1}.<span></span></div>`).join('');
+      const drugRows = i.drugs.length ? i.drugs.map((d,j) => { const info = readDrugDescription(d.name); return `<div class="nv-drug-row nv-drug-filled">${j+1}. ${esc(info.name)} / ${esc(info.usage || d.usage || d.instructions || 'วิธีใช้ ................')} / ${Math.max(0, (+d.rx || 0) - (+d.got || 0))} ${esc(d.unit)}</div>`; }).join('') : Array.from({ length: 6 }, (_,k) => `<div class="nv-drug-row">${k+1}.<span></span></div>`).join('');
       const tick = method => `<span class="nv-check">${!C.isDraft(i) && i.receiveMethod === method ? '✓' : ''}</span>`;
       const recipient = esc(i.recipientName || i.patient || dots);
       return `<div class="ps-sheet nv-sheet"><div class="nv-staff"><header class="nv-staff-header"><div class="nv-logo"></div><div class="nv-patient-heading"><b>ใบแจ้ง รับยาคลินิกเติมยา</b><div>ชื่อ${person} &nbsp;HN${hn}</div></div><div class="nv-header-meta"><div>เลขที่ <strong>${esc(i.id)}</strong></div><span class="nv-red">ส่วนที่ 1 สำหรับเจ้าหน้าที่</span></div></header><div class="nv-staff-grid"><div class="nv-staff-left"><section class="nv-receive"><b>${tick('self')} ผู้ป่วยประสงค์มารับยาด้วยตนเอง</b><div class="nv-recipient">ลงชื่อ<span class="nv-write">${i.receiveMethod !== 'mail' ? recipient : ''}</span><span>(ผู้ป่วย/ญาติ)</span></div></section><section class="nv-receive"><b>${tick('mail')} ผู้ป่วยประสงค์ให้ส่งไปรษณีย์</b><div>(มีค่าใช้จ่ายในการจัดส่งยา 55 บาทต่อครั้ง)</div><div class="nv-recipient">ลงชื่อ<span class="nv-write">${i.receiveMethod === 'mail' ? recipient : ''}</span><span>(ผู้ป่วย/ญาติ)</span></div></section><section class="nv-phone"><b>เบอร์โทรที่สามารถติดต่อได้</b><div>1. <span class="nv-red-cross">×</span><span class="nv-phone-line">${esc(i.phone1 || '')}</span></div><div>2. <span class="nv-red-cross">×</span><span class="nv-phone-line">${esc(i.phone2 || '')}</span></div></section><section class="nv-address"><b>ที่อยู่</b> สำหรับจัดส่งยาทางไปรษณีย์<div class="nv-address-text"><span class="nv-red-cross">×</span>${esc(i.address || '')}</div></section></div><div class="nv-staff-right"><section class="nv-staff-dates"><h3>บันทึกการรับยา</h3>${dates(true)}</section><section class="nv-drugs"><h3>รายการยาที่แพทย์นัดรับ</h3><div>ชื่อยา / วิธีใช้ / จำนวน</div>${drugRows}</section></div></div></div><div class="nv-cut"></div><div class="nv-patient"><header class="nv-patient-header"><div class="nv-logo"></div><div class="nv-patient-heading"><b>ใบแจ้ง รับยาคลินิกเติมยา</b><div>ชื่อ${person} &nbsp;HN${hn}</div></div><div><div>เลขที่ <strong>${esc(i.id)}</strong></div><span class="nv-red">ส่วนที่ 2 สำหรับผู้ป่วย</span></div></header><div class="nv-patient-grid"><div class="nv-instructions"><b>• &nbsp;กรณีประสงค์มารับยาด้วยตนเอง</b><i>*โปรดนำเอกสารนี้มาติดต่อเพื่อรับยา*</i><p>1. ลงทะเบียนผู้ป่วยที่ห้องเวชระเบียนเบอร์ 1</p><p>2. ติดต่อห้องจ่ายยาคลินิกเติมยา</p><p class="nv-no-doctor">และยื่นเอกสารเพื่อขอรับยา โดยไม่ต้องพบแพทย์</p><b>• &nbsp;กรณีประสงค์ให้ส่งไปรษณีย์</b><p>จะมีค่าใช้จ่ายการจัดส่งยาทุกพื้นที่ 55 บาท</p><p>โดยจะจัดเก็บค่าใช้จ่ายแบบชำระปลายทาง</p><div class="nv-pharmacist"><b>เภสัชกร</b><span></span><small class="nv-signature-date"><span>วันที่</span><span class="nv-date-blank"></span><span>/</span><span class="nv-date-blank"></span><span>/</span><span class="nv-date-blank"></span></small></div></div><div class="nv-patient-right"><h3>วันที่นัดรับยา / ส่งยาทางไปรษณีย์</h3><div class="nv-patient-dates">${dates(false)}</div><div class="nv-qr"><canvas data-qr="${n}"></canvas><small>ท่านสามารถสแกน QR code นี้ เพื่อติดตามสถานะนัดรับยา</small></div><div class="nv-contact">หากมีข้อสอบถามกรุณาติดต่อกลับห้องยา<br>โรงพยาบาลมหาวิทยาลัยพะเยา<br>โทร 054-466-666 ต่อ 7121,7123</div></div></div></div></div>`;

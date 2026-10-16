@@ -1,11 +1,11 @@
-/* คลินิกเติมยา (ระบบยาค้างจ่าย): Apps Script ของ Google Sheet ชุดใหม่ แยกจากระบบเดิมทั้งหมด
+/* คลินิกเติมยา (ระบบนัดเติมยา): Apps Script ของ Google Sheet ชุดใหม่ แยกจากระบบเดิมทั้งหมด
    ติดตั้งตาม owed-medication/README.md · ต้องตั้ง Script Property API_KEY ก่อน Deploy
    ใบแจ้ง = ยาหลายรายการ (drugs) + นัดหลายรอบ (rounds) · rounds[k].qty[j] คือจำนวนยา drugs[j] ในนัดที่ k
    ผู้ใช้แต่ละคนมีชื่อผู้ใช้และรหัสผ่านของตัวเอง สิทธิ์ admin จัดการผู้ใช้ได้ ส่วน staff ใช้งานประจำวัน */
 const FIELDS=['id','publicToken','createdAt','updatedAt','createdBy','clinic','hn','patient','phone1','phone2','address','recipientName','receiveMethod','note','firstDate','drugs','rounds','statusHistory','log'];
 const JSON_FIELDS=['drugs','rounds','statusHistory','log'];
 const STATUSES=['waiting','ready','delivery','received'];
-const STATUS_TH={waiting:'ค้างจ่าย',ready:'พร้อมจ่าย',delivery:'จัดส่งแล้ว',received:'รับแล้ว'};
+const STATUS_TH={waiting:'รอนัดรับยา',ready:'พร้อมจ่าย',delivery:'จัดส่งแล้ว',received:'รับแล้ว'};
 const USER_FIELDS=['id','username','name','role','active','salt','hash','createdAt','createdBy','lastLoginAt'];
 const ROLES=['admin','staff'];
 const DEFAULT_HOLIDAYS=[['2026-10-13','วันนวมินทรมหาราช'],['2026-10-23','วันปิยมหาราช'],['2026-12-05','วันพ่อแห่งชาติ'],['2026-12-07','ชดเชยวันพ่อแห่งชาติ'],['2026-12-10','วันรัฐธรรมนูญ'],['2026-12-31','วันสิ้นปี'],['2027-01-01','วันขึ้นปีใหม่'],['2027-04-06','วันจักรี'],['2027-04-13','วันสงกรานต์'],['2027-04-14','วันสงกรานต์'],['2027-04-15','วันสงกรานต์']];
