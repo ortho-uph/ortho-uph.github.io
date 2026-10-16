@@ -306,7 +306,11 @@
     .nv-staff-grid .nv-appointment{min-height:24px;padding-top:3px}.nv-staff-right .nv-drug-row{height:23px;padding-top:3px}.nv-staff-right .nv-drug-filled{height:auto;min-height:23px;line-height:1.35}
     .nv-staff-grid .nv-staff-left,.nv-staff-grid .nv-staff-right{display:grid;grid-template-rows:22% 26% 52%}
     .nv-staff-grid .nv-staff-dates{height:auto;border-bottom:0}.nv-staff-grid .nv-address{border-bottom:1px solid #888}.nv-staff-grid .nv-address-text{line-height:23px;min-height:69px;background:repeating-linear-gradient(to bottom,transparent 0,transparent 22px,#aaa 22px,#aaa 23px)}
-    .nv-continuation{position:absolute;top:2%;bottom:4%;left:3.5%;right:3.5%}.nv-continuation>h3{margin:12px 0}.nv-continuation-body{display:grid;grid-template-columns:1fr 1fr;gap:20px}.nv-continuation-body section{padding:10px;border:1px solid #888}.nv-continuation-body .nv-drug-row{font-size:14px;min-height:23px;height:auto}.nv-continuation-body .nv-appointment{font-size:14px;min-height:28px}.nv-cont-note{font-size:12px;color:#174776;line-height:1.2;margin-top:3px}
+    .nv-separated .nv-staff{top:2%;height:94%}
+    .nv-separated .nv-staff-grid .nv-staff-left,.nv-separated .nv-staff-grid .nv-staff-right{grid-template-rows:93px 110px minmax(0,1fr)}
+    .nv-separated .nv-patient{top:2%;bottom:auto;height:47%}
+    .nv-separated .nv-patient-right h3,.nv-separated .nv-patient-dates .nv-appointment{font-size:14px}
+    .nv-separated .nv-patient-dates .nv-appointment{min-height:24px;padding-top:3px}
     .nv-page-footer{position:absolute;bottom:1%;left:3.5%;right:3.5%;display:flex;justify-content:space-between;font-size:13px;color:#555}
     .nv-full-page .nv-patient-dates .nv-appointment{min-height:36px}
     .nv-cut{position:absolute;top:49.8%;left:3.5%;right:3.5%;border-top:1px dashed #888}
@@ -1000,48 +1004,24 @@
     }
     const pageSize = size => { $('#pageSize').textContent = `@media print{@page{size:${size};margin:0}}`; };
     function expandPrintSheet(sheet) {
-      if (sheet.classList.contains('nv-has-continuation')) return;
-      const staff = sheet.querySelector('.nv-staff');
+      const staff = sheet.querySelector('.nv-staff'), patient = sheet.querySelector('.nv-patient');
       const ref = staff.querySelector('.nv-document-number').textContent;
-      const second = document.createElement('div'); second.className = 'ps-sheet nv-sheet nv-continuation-page';
-      const content = document.createElement('div'); content.className = 'nv-continuation';
-      content.append(staff.querySelector('header').cloneNode(true));
-      const title = document.createElement('h3'); title.textContent = 'รายการต่อจากหน้า 1'; content.append(title);
-      const body = document.createElement('div'); body.className = 'nv-continuation-body'; content.append(body); second.append(content);
-      const carry = (selector, rowSelector, limit, heading) => {
-        const source = sheet.querySelector(selector), rows = [...source.querySelectorAll(rowSelector)];
-        let count = Math.min(limit, rows.length);
-        if (source.getBoundingClientRect().height > 0) while (count > 0 && rows[count - 1].getBoundingClientRect().bottom > source.getBoundingClientRect().bottom - 20) count--;
-        const extra = rows.slice(count); if (!extra.length) return;
-        const section = document.createElement('section'); const h = document.createElement('h3'); h.textContent = heading; section.append(h);
-        extra.forEach(row => section.append(row)); body.append(section);
-        const note = document.createElement('div'); note.className = 'nv-cont-note'; note.textContent = 'รายการที่เหลือดูหน้าต่อ'; source.append(note);
-      };
-      carry('.nv-staff-dates', '.nv-appointment', 4, 'บันทึกการรับยา (ต่อ)');
-      carry('.nv-drugs', '.nv-drug-row', 6, 'รายการยาที่แพทย์นัดรับ (ต่อ)');
-      carry('.nv-patient-dates', '.nv-appointment', 4, 'วันนัดสำหรับผู้ป่วย (ต่อ)');
-      if (!body.children.length) return;
-      sheet.classList.add('nv-has-continuation'); sheet.after(second);
+      const second = document.createElement('div'); second.className = 'ps-sheet nv-sheet nv-separated';
+      sheet.classList.add('nv-separated'); sheet.querySelector('.nv-cut').remove();
+      second.append(patient); sheet.after(second);
       [sheet, second].forEach((page, k) => { const footer = document.createElement('div'); footer.className = 'nv-page-footer'; const id = document.createElement('span'); id.textContent = ref; const number = document.createElement('span'); number.textContent = 'หน้า ' + (k + 1) + ' / 2'; footer.append(id, number); page.append(footer); });
-    }
-    function fitPrintSheets() {
-      document.querySelectorAll('#psSheets .nv-sheet:not(.nv-has-continuation):not(.nv-continuation-page)').forEach(sheet => {
-        const overflowing = [...sheet.querySelectorAll('.nv-staff-dates,.nv-drugs,.nv-patient-right,.nv-address,.nv-phone')].some(box => box.scrollHeight > box.clientHeight + 2 || [...box.children].some(child => child.getBoundingClientRect().bottom > box.getBoundingClientRect().bottom + 2));
-        if (overflowing) expandPrintSheet(sheet);
-      });
     }
     function openPrint(list) {
       pageSize('A4 portrait');
       $('#psSheets').innerHTML = list.map(sheetHtml).join('');
-      [...document.querySelectorAll('#psSheets .nv-sheet')].forEach((sheet, n) => { if (list[n].drugs.length > 6 || list[n].rounds.filter(r => r.status !== 'received').length > 4) expandPrintSheet(sheet); });
+      [...document.querySelectorAll('#psSheets .nv-sheet')].forEach(expandPrintSheet);
       list.forEach((i, n) => new QRious({ element: $(`#psSheets [data-qr="${n}"]`), size: 300, level: 'M', value: statusUrl(i) }));
       const blank = list.filter(C.isDraft).length;
       $('#psTitle').textContent = list.length === 1 ? 'ตัวอย่างใบแจ้ง ' + list[0].id : `ใบแจ้ง ${list.length} ใบ (${list[0].id}–${list[list.length - 1].id})`;
       $('#psFoot').textContent = blank ? `${blank} ใบยังไม่มีรายการยา ช่องที่ว่างไว้ให้เขียนมือ แล้วค้นด้วยเลขที่เพื่อกรอกในเว็บภายหลัง` : list.some(i => !i.address) ? '⚠ บางใบยังไม่มีที่อยู่' : '';
       overlay('print');
-      document.fonts.ready.then(() => requestAnimationFrame(fitPrintSheets));
     }
-    $('#psPrint').onclick = async () => { await document.fonts.ready; fitPrintSheets(); window.print(); };
+    $('#psPrint').onclick = async () => { await document.fonts.ready; window.print(); };
 
     /* ===== จ่าหน้าซองพัสดุ 10×15 ซม. (เครื่องพิมพ์ความร้อน) ===== */
     const senderText = () => localStorage.getItem(KEYS.sender) || OWED_CONFIG.sender || '';
