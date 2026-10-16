@@ -13,7 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="config.js"></script>
-  <script src="core.js"></script>
+  <script src="core.js?v=20261016-refill"></script>
   <style>
     :root{--brand:#5b2186;--brand-2:#7a3aa3;--brand-soft:#f3ecfa;--ink:#1f2433;--muted:#6b7385;--line:#e6e8ef;--bg:#f6f5fa;--surface:#fff;--wait:#b26a00;--wait-bg:#fff4dc;--ready:#0b7a55;--ready-bg:#dcf5ea;--ship:#1b5fa8;--ship-bg:#e1eeff;--done:#4b5163;--done-bg:#eceef3;--draft:#6a4b8c;--draft-bg:#efe8f7;--late:#c03a46;--r:14px;--shadow:0 1px 2px #1b14330f,0 6px 20px #1b143312}
     *{box-sizing:border-box}
@@ -908,7 +908,7 @@
         const row = { hn, patient: C.cleanText(g('patient')), phone: phone.value, address: C.cleanAddress(g('address')), zipAdded: '', flags: [], on: true };
         if (!hn) { row.flags.push(['sk', 'ไม่มี HN']); row.on = false; }
         else if (seen.has(hn)) { row.flags.push(['sk', 'HN ซ้ำในไฟล์']); row.on = false; }
-        else if (active.has(hn)) { row.flags.push(['sk', 'มีใบแจ้งค้างอยู่แล้ว ' + active.get(hn)]); row.on = false; }
+        else if (active.has(hn)) { row.flags.push(['sk', 'มีนัดเติมยาที่ยังไม่เสร็จแล้ว ' + active.get(hn)]); row.on = false; }
         if (!row.patient) row.flags.push(['wa', 'ไม่มีชื่อ']);
         if (!phone.value) row.flags.push(['wa', 'ไม่มีเบอร์โทร']); else if (phone.bad) row.flags.push(['wa', 'เบอร์โทรไม่ครบ 10 หลัก']); else if (phone.fixed) row.flags.push(['fx', 'เติม 0 หน้าเบอร์ให้แล้ว']);
         if (row.address) {
