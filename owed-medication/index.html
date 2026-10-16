@@ -244,10 +244,10 @@
     .pf.tick{font-size:22px;font-weight:800}
     .pf.addr{white-space:normal;line-height:28.6px;height:143px;text-indent:8px}
     .pf.qr canvas{width:100%!important;height:auto!important;display:block}
-    .pf.box{white-space:normal;font-size:11.5px;color:#111}.pf.box b{display:block;font-size:12.5px;margin-bottom:3px;color:#0d2a6b}
+    .pf.box{white-space:normal;font-size:11.5px;color:#111;line-height:1.6;overflow:visible}.pf.box b{display:block;font-size:12.5px;line-height:1.6;padding-top:2px;margin-bottom:3px;color:#0d2a6b}
     .ps-t{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:4px}
     .ps-t th,.ps-t td{border:1px solid #9aa3b5;padding:2px 5px;text-align:left;white-space:nowrap;background:#fff;color:#111}
-    .ps-t th{background:#f1f3f8;color:#333;font-size:10.5px;white-space:normal;line-height:1.15}.ps-t td:first-child{white-space:normal}
+    .ps-t th{background:#f1f3f8;color:#333;font-size:10.5px;white-space:normal;line-height:1.6;padding-top:4px;padding-bottom:4px}.ps-t td:first-child{white-space:normal}
 
     .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:#1d1830;color:#fff;padding:12px 18px;border-radius:12px;font-weight:600;opacity:0;transition:.25s;z-index:10000;pointer-events:none;max-width:90vw}
     .toast.show{opacity:1;transform:translate(-50%,0)}.toast.err{background:#9b2531}
@@ -905,7 +905,7 @@
         + at(12.4, 28.8, '', esc(i.phone1)) + at(12.4, 31.65, '', esc(i.phone2)) + at(5.6, 37.0, 'addr', esc(i.address), 'width:41.5%');
       const ids = '<div style="position:absolute;left:19.3%;top:7.8%;width:27.7%;height:2.4%;background:#fff" aria-hidden="true"></div>' + ['staff', 'patient'].map(part => `<div class="ps-slip-number ${part}"><span>เลขที่</span><strong>${esc(i.id)}</strong></div>`).join('');
       const patientBody = `<section class="ps-patient-body"><div class="ps-patient-content"><div class="ps-patient-name">ชื่อ ${esc(i.patient || '........................................')} &nbsp;HN ${esc(i.hn || '................')}</div><span class="ps-patient-tag">ส่วนที่ 2 สำหรับผู้ป่วย</span><div class="ps-patient-important">*สำคัญ - โปรดนำเอกสารนี้มาติดต่อเพื่อรับยา*</div><div class="ps-patient-instructions">1. ลงทะเบียนผู้ป่วยที่ห้องเวชระเบียนเบอร์ 1<br>2. ติดต่อห้องจ่ายยาคลินิกเติมยา<br>และยื่นเอกสารเพื่อขอรับยา โดยไม่ต้องพบแพทย์</div></div><div class="ps-patient-footer"><div class="ps-patient-post">*กรณีผู้ป่วยประสงค์ให้ส่งไปรษณีย์<br>จะมีค่าใช้จ่ายการจัดส่งยาทุกพื้นที่ 55 บาท<br>โดยจะจัดเก็บค่าใช้จ่ายแบบชำระปลายทาง</div><div class="ps-patient-pharmacist"><span>เภสัชกร</span><span class="ps-patient-signature"></span></div></div><div class="ps-patient-contact">หากมีข้อสอบถามกรุณาติดต่อกลับ<b>ห้องยา</b> โรงพยาบาลมหาวิทยาลัยพะเยา โทร <b>054-466-666 ต่อ 7121,7123</b></div></section>`;
-      const staffLine = i.hn || i.patient ? `<div class="pf box" style="left:49.3%;top:28.7%;width:45%"><b>${esc(i.patient)} · HN ${esc(i.hn)} · ${esc(clinicName(i.clinic))}</b></div>` : '';
+      const staffLine = i.hn || i.patient ? `<div class="pf box" style="left:49.3%;top:29.1%;width:45%"><b>${esc(i.patient)} · HN ${esc(i.hn)} · ${esc(clinicName(i.clinic))}</b></div>` : '';
       const receipts = `<div class="ps-receipts"><div class="ps-receipts-title">บันทึกการรับยา</div>${Array.from({ length: 4 }, (_, k) => `<div class="ps-receipt"><div class="ps-receipt-line"><span class="ps-receipt-check"></span><span>ครั้งที่ ${k + 1}</span><span>วันที่</span><span class="ps-receipt-dots"></span><span>/</span><span class="ps-receipt-dots"></span><span>/</span><span class="ps-receipt-dots"></span></div></div>`).join('')}</div>`;
       const drugCover = '<div class="ps-legacy-drugs-cover" aria-hidden="true"></div><div class="ps-address-line" style="top:46.2%"></div><div class="ps-address-line" style="top:48.7%"></div>';
       const patientReceipts = !i.rounds.some(r => r.date) ? receipts.replace('class="ps-receipts"', 'class="ps-receipts ps-patient-receipts"') : '';
@@ -915,7 +915,7 @@
       const drugTable = `<table class="ps-t"><thead><tr><th>รายการยา</th><th>แพทย์สั่ง</th><th>ได้รับแล้ว</th><th>ค้างจ่าย</th></tr></thead><tbody>${i.drugs.map((d, j) => `<tr><td>${esc(d.name)}</td><td>${d.rx} ${esc(d.unit)}</td><td>${C.receivedOf(i, j)} ${esc(d.unit)}</td><td>${C.leftOf(i, j)} ${esc(d.unit)}</td></tr>`).join('')}</tbody></table>`;
       const blankDrugTable = `<table class="ps-t ps-blank-drugs"><thead><tr><th>รายการยา</th><th>แพทย์สั่ง</th><th>ได้รับแล้ว</th><th>ค้างจ่าย</th></tr></thead><tbody>${Array.from({ length: 5 }, (_, k) => `<tr><td>${k + 1}.</td><td></td><td></td><td></td></tr>`).join('')}</tbody></table>`;
       if (C.isDraft(i)) {
-        const draftDrugs = `<div class="pf box" style="left:49.3%;top:26.8%;width:45%"><b>รายการยาที่แพทย์สั่ง</b><div style="height:${i.hn || i.patient ? 22 : 6}px"></div>${i.drugs.length ? drugTable : blankDrugTable}</div>`;
+        const draftDrugs = `<div class="pf box" style="left:49.3%;top:26.8%;width:45%"><b>รายการยาที่แพทย์สั่ง</b><div style="height:${i.hn || i.patient ? 28 : 6}px"></div>${i.drugs.length ? drugTable : blankDrugTable}</div>`;
         return `<div class="ps-sheet"><img class="ps-bg" src="assets/notice-template.png" alt="">${drugCover}${staffReceipts}${ids}${person}${staffLine}${draftDrugs}${patientBody}${qr}${patientReceipts}</div>`;
       }
       return '<div class="ps-sheet"><img class="ps-bg" src="assets/notice-template.png" alt="">' + drugCover + staffReceipts + ids + person
