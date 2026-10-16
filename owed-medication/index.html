@@ -776,23 +776,11 @@
     // Keep usage with the medicine description so existing Apps Script deployments preserve it.
     const drugUsageSeparator = ' | วิธีใช้: ';
     const readDrugDescription = value => { const text = String(value || ''), at = text.indexOf(drugUsageSeparator); return at < 0 ? { name: text, usage: '' } : { name: text.slice(0, at), usage: text.slice(at + drugUsageSeparator.length) }; };
-    const doseTimes = ['เช้า', 'กลางวัน', 'เย็น', 'ก่อนนอน'];
-    function usageFields(usage = '') {
-      let rest = usage.trim();
-      const dose = rest.match(/^ครั้งละ\s*(\d+(?:\.\d+)?)\s*เม็ด/);
-      if (dose) rest = rest.slice(dose[0].length).trim();
-      const times = doseTimes.filter(t => new RegExp('(?:^|[ /])' + t + '(?=$|[ /])').test(rest));
-      times.forEach(t => { rest = rest.replace(new RegExp('(?:^|[ /])' + t + '(?=$|[ /])'), ' ').trim(); });
-      const meal = rest.includes('ก่อนอาหาร') ? 'ก่อนอาหาร' : rest.includes('หลังอาหาร') ? 'หลังอาหาร' : '';
-      if (meal) rest = rest.replace(meal, '').trim();
-      return { dose: dose ? dose[1] : '', times, meal, usage: rest.replace(/^[/ ]+|[/ ]+$/g, '') };
-    }
-    const usageText = d => [d.dose ? 'ครั้งละ ' + d.dose + ' เม็ด' : '', ...(d.times || []), d.meal || '', d.usage || ''].filter(Boolean).join(' ');
-    const writeDrugDescription = d => d.name.trim() + (usageText(d) ? drugUsageSeparator + usageText(d) : '');
-    const blankDrug = () => ({ name: '', usage: '', dose: '', times: [], meal: '', quantity: '', unit: 'เม็ด', got: '0' });
+    const writeDrugDescription = d => d.name.trim() + (d.usage.trim() ? drugUsageSeparator + d.usage.trim() : '');
+    const blankDrug = () => ({ name: '', usage: '', quantity: '', unit: 'เม็ด', got: '0' });
     const formLeft = j => Math.max(0, +formDrugs[j].quantity || 0);
     function renderDrugRows() {
-      $('#drugRows').innerHTML = formDrugs.map((d, k) => `<div class="dgrid"><input list="drugList" data-dk="${k}" data-df="name" value="${esc(d.name)}" placeholder="เช่น Paracetamol 500 mg" aria-label="รายการยา" maxlength="120"><div class="drug-usage"><label>จำนวน (เม็ด/ครั้ง)<input type="number" min="0" step="any" data-dk="${k}" data-df="dose" value="${esc(d.dose)}" placeholder="" aria-label="จำนวนเม็ดต่อครั้ง"></label><label>เวลาอาหาร<select data-dk="${k}" data-df="meal" aria-label="ก่อนหรือหลังอาหาร">${['', 'ก่อนอาหาร', 'หลังอาหาร'].map(v => `<option value="${v}" ${d.meal === v ? 'selected' : ''}>${v}</option>`).join('')}</select></label><div class="dose-times" role="group" aria-label="ช่วงเวลารับประทานยา">${doseTimes.map(t => `<label><input type="checkbox" data-dk="${k}" data-df="times" value="${t}" ${(d.times || []).includes(t) ? 'checked' : ''}>${t}</label>`).join('')}</div>${d.usage ? `<label class="legacy-usage">วิธีใช้เพิ่มเติมจากข้อมูลเดิม<input data-dk="${k}" data-df="usage" value="${esc(d.usage)}" maxlength="100" aria-label="วิธีใช้เพิ่มเติม"></label>` : ''}</div><input type="number" min="0" step="1" data-dk="${k}" data-df="quantity" value="${esc(d.quantity)}" placeholder="0" aria-label="จำนวน">${formDrugs.length > 1 ? `<button type="button" data-deldrug="${k}" title="ลบยานี้">✕</button>` : '<span></span>'}</div>`).join('');
+      $('#drugRows').innerHTML = formDrugs.map((d, k) => `<div class="dgrid"><input list="drugList" data-dk="${k}" data-df="name" value="${esc(d.name)}" placeholder="เช่น Paracetamol 500 mg" aria-label="รายการยา" maxlength="120"><input data-dk="${k}" data-df="usage" value="${esc(d.usage)}" placeholder="เช่น ครั้งละ 1 เม็ด หลังอาหาร" aria-label="วิธีใช้" maxlength="100"><input type="number" min="0" step="1" data-dk="${k}" data-df="quantity" value="${esc(d.quantity)}" placeholder="0" aria-label="จำนวน">${formDrugs.length > 1 ? `<button type="button" data-deldrug="${k}" title="ลบยานี้">✕</button>` : '<span></span>'}</div>`).join('');
     }
     function roundNote(r, k) {
       if (r.movedFrom) return `<div class="rnote moved">↪ ${C.dateDay(r.movedFrom)} ตรงกับ${esc(C.offReason(r.movedFrom, state.holidays))} เลื่อนเป็น ${C.dateDay(r.date)}</div>`;
@@ -825,7 +813,7 @@
       if (item) ['hn', 'patient', 'phone1', 'phone2', 'address', 'recipientName', 'note'].forEach(k => { f[k].value = item[k] || ''; });
       f.firstDate.value = (item && item.firstDate) || C.today();
       f.receiveMethod.value = item ? item.receiveMethod : 'self';
-      formDrugs = item && item.drugs.length ? item.drugs.map((d, j) => ({ ...readDrugDescription(d.name), ...usageFields(readDrugDescription(d.name).usage), unit: d.unit, quantity: String((item.rounds.find(r => r.status !== 'received') || item.rounds[0] || {qty:[]}).qty[j] || Math.max(0, (+d.rx || 0) - (+d.got || 0))), got: String(d.got || 0) })) : [blankDrug()];
+      formDrugs = item && item.drugs.length ? item.drugs.map((d, j) => ({ ...readDrugDescription(d.name), unit: d.unit, quantity: String((item.rounds.find(r => r.status !== 'received') || item.rounds[0] || {qty:[]}).qty[j] || Math.max(0, (+d.rx || 0) - (+d.got || 0))), got: String(d.got || 0) })) : [blankDrug()];
       formRounds = item ? item.rounds.map(r => ({ date: r.date, status: r.status, qty: formDrugs.map((_, j) => r.qty[j] || 0) })) : [];
       $('#spN').value = item ? Math.max(1, item.rounds.filter(r => r.status !== 'received').length) : 1;
       $('#spStart').value = C.nextWorkday(C.addDays(C.today(), 28), state.holidays);
@@ -869,9 +857,7 @@
     $('#spGo').onclick = planRounds;
     $('#drugRows').addEventListener('input', e => {
       const k = e.target.dataset.dk; if (k === undefined) return;
-      if (e.target.dataset.df === 'times') {
-        formDrugs[k].times = doseTimes.filter(t => t === e.target.value ? e.target.checked : formDrugs[k].times.includes(t));
-      } else formDrugs[k][e.target.dataset.df] = e.target.value;
+      formDrugs[k][e.target.dataset.df] = e.target.value;
       if (e.target.dataset.df === 'quantity') formRounds.forEach(r => { if (r.status !== 'received') r.qty[k] = +e.target.value || 0; });
 
       renderRoundRows();
