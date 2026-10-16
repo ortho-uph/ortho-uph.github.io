@@ -329,6 +329,8 @@
     .nv-patient-grid{display:grid;grid-template-columns:45% 55%;flex:1;min-height:0}.nv-instructions{padding:12px 10px 8px;display:flex;flex-direction:column;font-size:17px;line-height:1.3}.nv-instructions>b{font-size:18px}.nv-instructions i{margin:5px 0 6px 13px;font-size:17px}.nv-instructions p{margin:5px 0;font-size:15.5px}.nv-instructions>b:not(:first-child){margin-top:14px}.nv-pharmacist{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:25px 18px 2px;min-height:100px}.nv-pharmacist>b{font-size:20px;margin-bottom:auto}.nv-pharmacist>span{width:100%;border-bottom:1px dotted #555;min-height:35px}.nv-pharmacist small{font-size:15px;margin-top:4px}
     .nv-instructions .nv-no-doctor{font-size:15.5px;letter-spacing:-.1px;white-space:nowrap}
     .nv-pharmacist .nv-signature-date{display:flex;align-items:baseline;gap:6px;width:100%;margin-top:8px;font-size:16px}.nv-date-blank{flex:1;min-width:34px;min-height:18px;border-bottom:1px dotted #555}
+    .nv-sheet .nv-patient-right h3,.nv-sheet .nv-patient-dates .nv-appointment{font-size:14px}
+    .nv-sheet .nv-patient-dates .nv-appointment{min-height:24px;padding-top:3px}
     .nv-patient-right{display:flex;flex-direction:column;padding:8px 10px}.nv-patient-right h3{font-size:20px;text-align:center;margin-bottom:4px}.nv-patient-dates .nv-appointment{font-size:19px;min-height:42px;padding-top:8px}.nv-qr{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;min-height:125px}.nv-qr canvas{width:92px!important;height:92px!important}.nv-qr small{font-size:13px;line-height:1.2;text-align:center}.nv-contact{font-size:16px;line-height:1.3;margin-top:6px;text-align:center}
   </style>
 </head>
@@ -1012,10 +1014,11 @@
       second.append(patient); sheet.after(second);
       [sheet, second].forEach((page, k) => { const footer = document.createElement('div'); footer.className = 'nv-page-footer'; const id = document.createElement('span'); id.textContent = ref; const number = document.createElement('span'); number.textContent = 'หน้า ' + (k + 1) + ' / 2'; footer.append(id, number); page.append(footer); });
     }
+    const needsTwoPrintPages = item => item.rounds.length > 5 || item.drugs.length > 6;
     function openPrint(list) {
       pageSize('A4 portrait');
       $('#psSheets').innerHTML = list.map(sheetHtml).join('');
-      [...document.querySelectorAll('#psSheets .nv-sheet')].forEach(expandPrintSheet);
+      [...document.querySelectorAll('#psSheets .nv-sheet')].forEach((sheet, n) => { if (needsTwoPrintPages(list[n])) expandPrintSheet(sheet); });
       list.forEach((i, n) => new QRious({ element: $(`#psSheets [data-qr="${n}"]`), size: 300, level: 'M', value: statusUrl(i) }));
       const blank = list.filter(C.isDraft).length;
       $('#psTitle').textContent = list.length === 1 ? 'ตัวอย่างใบแจ้ง ' + list[0].id : `ใบแจ้ง ${list.length} ใบ (${list[0].id}–${list[list.length - 1].id})`;
