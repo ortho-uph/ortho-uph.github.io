@@ -218,8 +218,11 @@
     .ps-slip-number strong{color:#0d2a6b}
     .ps-slip-number.staff{left:4.4%;top:7.75%;width:14.9%;height:2.5%}
     .ps-slip-number.patient{left:80.7%;top:57.4%;width:14.5%;height:3.9%}
-    .ps-blank-drug-line{height:43px;color:#111;font-size:11px}.ps-blank-drug-name,.ps-blank-drug-amounts{display:flex;align-items:baseline;gap:4px}.ps-blank-drug-amounts{margin-top:6px;font-size:9px;padding-left:13px}
-    .ps-drug-write{flex:1;border-bottom:1px dashed #333;height:1em}
+    .ps-t.ps-blank-drugs{table-layout:fixed}
+    .ps-t.ps-blank-drugs th:first-child{width:36%}
+    .ps-t.ps-blank-drugs td{height:32px;box-sizing:border-box}
+    .ps-t.ps-blank-drugs tr:last-child td{border-bottom:1px solid #9aa3b5}
+
     .ps-patient-body{position:absolute;left:3.8%;top:62.6%;width:91.7%;height:36%;box-sizing:border-box;border:1px solid #111;background:#fff;color:#111;font-size:13px;line-height:1.65;display:flex;flex-direction:column}
     .ps-patient-content{position:relative;height:70%;box-sizing:border-box;padding:5px 8px}
     .ps-patient-name{font-weight:700;padding-right:31%;white-space:nowrap}
@@ -910,13 +913,13 @@
       const roundTable = `<table class="ps-t"><thead><tr><th>นัด</th><th>รับได้หลังวันที่</th>${i.drugs.map(d => `<th>${esc(d.name)}</th>`).join('')}</tr></thead><tbody>${pending.map(x => `<tr><td>${x.k + 1}</td><td>${C.dateLong(x.date)}</td>${i.drugs.map((d, j) => `<td>${x.qty[j] ? x.qty[j] + ' ' + esc(d.unit) : '-'}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
       const staffReceipts = i.rounds.some(r => r.date) ? `<div class="ps-receipts"><div class="ps-receipts-title">บันทึกการรับยา</div>${roundTable}</div>` : receipts;
       const drugTable = `<table class="ps-t"><thead><tr><th>รายการยา</th><th>แพทย์สั่ง</th><th>ได้รับแล้ว</th><th>ค้างจ่าย</th></tr></thead><tbody>${i.drugs.map((d, j) => `<tr><td>${esc(d.name)}</td><td>${d.rx} ${esc(d.unit)}</td><td>${C.receivedOf(i, j)} ${esc(d.unit)}</td><td>${C.leftOf(i, j)} ${esc(d.unit)}</td></tr>`).join('')}</tbody></table>`;
-      const blankDrugLines = Array.from({ length: 5 }, (_, k) => `<div class="ps-blank-drug-line"><div class="ps-blank-drug-name"><span>${k + 1}. ชื่อยา</span><span class="ps-drug-write" style="flex:3"></span><span>หน่วย</span><span class="ps-drug-write"></span></div><div class="ps-blank-drug-amounts"><span>จำนวนที่แพทย์สั่ง</span><span class="ps-drug-write"></span><span>จ่ายแล้ว</span><span class="ps-drug-write"></span><span>ค้างจ่าย</span><span class="ps-drug-write"></span></div></div>`).join('');
+      const blankDrugTable = `<table class="ps-t ps-blank-drugs"><thead><tr><th>รายการยา</th><th>แพทย์สั่ง</th><th>ได้รับแล้ว</th><th>ค้างจ่าย</th></tr></thead><tbody>${Array.from({ length: 5 }, (_, k) => `<tr><td>${k + 1}.</td><td></td><td></td><td></td></tr>`).join('')}</tbody></table>`;
       if (C.isDraft(i)) {
-        const draftDrugs = `<div class="pf box" style="left:49.3%;top:26.8%;width:45%"><b>รายการยาที่แพทย์สั่ง</b><div style="height:${i.hn || i.patient ? 22 : 6}px"></div>${i.drugs.length ? drugTable : blankDrugLines}</div>`;
+        const draftDrugs = `<div class="pf box" style="left:49.3%;top:26.8%;width:45%"><b>รายการยาที่แพทย์สั่ง</b><div style="height:${i.hn || i.patient ? 22 : 6}px"></div>${i.drugs.length ? drugTable : blankDrugTable}</div>`;
         return `<div class="ps-sheet"><img class="ps-bg" src="assets/notice-template.png" alt="">${drugCover}${staffReceipts}${ids}${person}${staffLine}${draftDrugs}${patientBody}${qr}${patientReceipts}</div>`;
       }
       return '<div class="ps-sheet"><img class="ps-bg" src="assets/notice-template.png" alt="">' + drugCover + staffReceipts + ids + person
-        + at(4.75, i.receiveMethod === 'mail' ? 17.45 : 10.85, 'tick', '✓')
+        + at(4.85, i.receiveMethod === 'mail' ? 17.4 : 10.8, 'tick', '✓', 'width:2%;height:1.5%;display:flex;align-items:center;justify-content:center;line-height:1;font-size:18px')
         + `<div class="pf box" style="left:49.3%;top:26.8%;width:45%"><b>รายการยาที่แพทย์สั่ง</b><b>${esc(i.patient)} · HN ${esc(i.hn)} · ${esc(clinicName(i.clinic))}</b>${drugTable}</div>`
         + patientBody + qr
         + (patientReceipts || `<div class="pf box" style="left:49.3%;top:67.2%;width:45%"><b>ตารางนัดรับยาส่วนที่เหลือ · ${esc(name)}</b>${roundTable}</div>`) + '</div>';
