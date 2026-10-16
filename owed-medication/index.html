@@ -708,7 +708,7 @@
     function openForm(item) {
       const f = F(); f.reset(); editing = item ? item.id : null; $('#zipHint').textContent = '';
       $('#dTitle').textContent = !item ? 'บันทึกยาค้างจ่าย' : (C.isDraft(item) ? 'กรอกข้อมูลยา · ' : 'แก้ไขใบแจ้ง ') + item.id;
-      $('#dSub').textContent = item && isBlank(item) ? 'ใบที่พิมพ์ไว้ล่วงหน้า กรอกตามที่เขียนบนกระดาษ เลขที่และ QR คงเดิม' : !item ? 'เลขที่ใบแจ้งและ QR สร้างให้อัตโนมัติเมื่อบันทึก' : C.isDraft(item) ? 'ข้อมูลผู้ป่วยมาจาก Excel แล้ว เหลือกรอกรายการยาและวันนัด' : 'QR เดิมยังใช้ได้ ผู้ป่วยเห็นข้อมูลใหม่ทันทีหลังบันทึก';
+      $('#dSub').textContent = item && isBlank(item) ? 'ใบที่พิมพ์ไว้ล่วงหน้า กรอกตามที่เขียนบนกระดาษ เลขที่และ QR คงเดิม' : !item ? 'เลขที่ใบแจ้งและ QR สร้างให้อัตโนมัติเมื่อบันทึก' : C.isDraft(item) ? 'แก้ไขข้อมูลผู้ป่วยและบันทึกได้ โดยยังไม่ต้องกรอกรายการยาหรือวันนัด' : 'QR เดิมยังใช้ได้ ผู้ป่วยเห็นข้อมูลใหม่ทันทีหลังบันทึก';
       fillClinics(f.clinic); f.clinic.value = item ? item.clinic : ($('#clinic').value === 'all' ? (state.clinics[0] || {}).code || '' : $('#clinic').value);
       if (item) ['hn', 'patient', 'phone1', 'phone2', 'address', 'recipientName', 'note'].forEach(k => { f[k].value = item[k] || ''; });
       f.firstDate.value = (item && item.firstDate) || C.today();
@@ -725,10 +725,10 @@
       const f = F();
       if (!f.reportValidity()) return null;
       const keep = formDrugs.map((d, j) => (d.name.trim() ? j : -1)).filter(j => j >= 0);
-      if (!keep.length) { toast('กรุณาใส่รายการยาอย่างน้อย 1 รายการ', true); return null; }
+      if (!editing && !keep.length) { toast('กรุณาใส่รายการยาอย่างน้อย 1 รายการ', true); return null; }
       const drugs = keep.map(j => ({ name: formDrugs[j].name.trim(), unit: formDrugs[j].unit, rx: +formDrugs[j].rx || 0, got: +formDrugs[j].got || 0 }));
       const rounds = formRounds.filter(r => r.date && keep.some(j => +r.qty[j] > 0)).map(r => ({ date: r.date, status: r.status, qty: keep.map(j => +r.qty[j] || 0) }));
-      if (!rounds.length) { toast('กรุณาเพิ่มนัดรับยาส่วนที่เหลืออย่างน้อย 1 นัด', true); return null; }
+      if (!editing && !rounds.length) { toast('กรุณาเพิ่มนัดรับยาส่วนที่เหลืออย่างน้อย 1 นัด', true); return null; }
       const old = editing ? state.items.find(x => x.id === editing) : null;
       return {
         clinic: f.clinic.value.trim(), hn: f.hn.value.trim(), patient: C.cleanText(f.patient.value), phone1: f.phone1.value.trim(), phone2: f.phone2.value.trim(),
