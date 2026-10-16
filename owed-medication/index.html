@@ -123,6 +123,8 @@
     .rd b{display:block;font-size:14px}.rd small{font-size:12.5px}
     .rd.done{color:var(--ink)}.rd.done>i{background:var(--brand);border-color:var(--brand);color:#fff}.rd.done small{color:var(--muted)}
     .rd.cur{background:#faf6fe;color:var(--ink)}.rd.cur>i{border-color:var(--brand);color:var(--brand);box-shadow:0 0 0 3px #ece2f6}.rd.cur b{color:var(--brand)}
+    .round-actions{display:flex;flex-direction:column;align-items:flex-end;gap:7px}.round-actions .btn{font-size:12px;padding:7px 10px;white-space:normal;max-width:170px;line-height:1.4}.rd>div:not(.round-actions){min-width:0}
+    @media(max-width:600px){.rd{grid-template-columns:26px minmax(0,1fr)}.round-actions{grid-column:2;align-items:flex-start}.round-actions .btn{max-width:none}}
     .draft-box{padding:16px;border-radius:12px;background:var(--draft-bg);color:#4a2f6a;font-size:14px;line-height:1.5}
     .kv{display:grid;grid-template-columns:96px 1fr;gap:7px 12px;margin:14px 0;font-size:14px}
     .kv dt{color:var(--muted)}.kv dd{margin:0;font-weight:600;word-break:break-word}
@@ -708,11 +710,10 @@
       const n = C.next(i);
       const drugTable = `<table class="mini"><thead><tr><th>รายการยา</th><th>สั่ง</th><th>รับแล้ว</th><th>ค้าง</th></tr></thead><tbody>${i.drugs.map((d, j) => { const left = C.leftOf(i, j); return `<tr><td>${esc(d.name)}</td><td>${d.rx || '-'}</td><td>${C.receivedOf(i, j)}</td><td class="${left ? 'owe' : ''}">${left} ${esc(d.unit)}</td></tr>`; }).join('')}</tbody></table>`;
       const roundRows = (i.firstDate ? [`<div class="rd done"><i>✓</i><div><b>จ่ายครั้งแรก · ${C.dateDay(i.firstDate)}</b><small>${esc(i.drugs.map(d => `${d.name} ${d.got} ${d.unit}`).join(' · '))}</small></div><span></span></div>`] : [])
-        .concat(i.rounds.map((r, k) => { const isCur = k === C.cur(i), done = r.status === 'received'; return `<div class="rd ${done ? 'done' : isCur ? 'cur' : ''}"><i>${done ? '✓' : k + 1}</i><div><b>นัดที่ ${k + 1} · หลัง ${C.dateDay(r.date)}${done ? '' : offTag(r.date)}</b><small>${esc(C.roundItems(i, r).join(' · ') || '—')}${done ? ' · รับแล้ว' : ''}</small></div>${isCur ? pill(r.status) : ''}</div>`; }));
+        .concat(i.rounds.map((r, k) => { const isCur = k === C.cur(i), done = r.status === 'received'; return `<div class="rd ${done ? 'done' : isCur ? 'cur' : ''}"><i>${done ? '✓' : k + 1}</i><div><b>นัดที่ ${k + 1} · หลัง ${C.dateDay(r.date)}${done ? '' : offTag(r.date)}</b><small>${esc(C.roundItems(i, r).join(' · ') || '—')}${done ? ' · รับแล้ว' : ''}</small></div>${isCur ? `<div class="round-actions">${pill(r.status)}${n ? `<button class="btn btn-primary" data-move="${esc(i.id)}" data-round="${k}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>${n[1]} →</button>` : ''}</div>` : ''}</div>`; }));
       $('#panel').innerHTML = `${head}
         <div class="sec-title"><span>รายการยา (${i.drugs.length})</span></div>${drugTable}
         <div class="sec-title"><span>ตารางนัด</span><button data-edit="${esc(i.id)}" type="button">＋ เพิ่ม/แก้นัด</button></div><div class="rounds">${roundRows.join('')}</div>
-        ${n ? `<button class="btn btn-primary big-act" data-move="${esc(i.id)}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>นัดที่ ${C.cur(i) + 1}: ${n[1]} → ${n[0] === 'received' ? 'รับนัดนี้แล้ว' : C.STATUS[n[0]]}</button>` : ''}
         <div class="pt-preview"><small>ผู้ป่วยเห็นข้อความว่า</small><b>“${esc(C.patientHeadline(i))}”</b></div>
         ${contact}
         ${history}
@@ -722,8 +723,9 @@
     }
 
     /* ===== เลื่อนสถานะนัดปัจจุบัน ===== */
-    function moveRound(id) {
+    function moveRound(id, expectedRound) {
       const i = state.items.find(x => x.id === id), k = C.cur(i), n = C.next(i);
+      if (expectedRound !== undefined && +expectedRound !== k) return;
       if (!n) return;
       const rounds = i.rounds.map((r, j) => (j === k ? Object.assign({}, r, { status: n[0] }) : r));
       mutate('update', { id, item: Object.assign({}, i, { rounds }) }, data => {
@@ -1043,7 +1045,7 @@
       else if (t.hasAttribute('data-labels')) openLabels(state.items.filter(x => inClinic(x) && x.receiveMethod === 'mail' && C.status(x) === 'ready').sort((a, b) => a.id.localeCompare(b.id)));
       else if (t.hasAttribute('data-printdrafts')) openPrint(state.items.filter(x => inClinic(x) && C.isDraft(x)).sort((a, b) => a.id.localeCompare(b.id)));
       else if (d.filter) { state.filter = d.filter; render(); }
-      else if (d.move) { e.stopPropagation(); moveRound(d.move); }
+      else if (d.move) { e.stopPropagation(); moveRound(d.move, d.round); }
       else if (d.edit) { e.stopPropagation(); openForm(state.items.find(x => x.id === d.edit)); }
       else if (d.print) openPrint([state.items.find(x => x.id === d.print)]);
       else if (d.delete) deleteSlip(d.delete);
