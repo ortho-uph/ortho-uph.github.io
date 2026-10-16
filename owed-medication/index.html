@@ -141,9 +141,9 @@
     .drawer{position:fixed;top:0;right:0;bottom:0;width:min(780px,100%);background:#fff;z-index:61;transform:translateX(100%);transition:.25s ease;display:flex;flex-direction:column;box-shadow:-12px 0 40px #1a123026}
     .modal{position:fixed;left:50%;top:50%;width:min(1040px,94vw);max-height:92vh;transform:translate(-50%,-46%);opacity:0;pointer-events:none;transition:.22s;background:#fff;border-radius:20px;z-index:61;display:flex;flex-direction:column;box-shadow:0 30px 80px #1a12304d}
     .modal.small{width:min(680px,94vw)}.modal.print{width:min(900px,96vw)}
-    .ov-drawer .scrim,.ov-imp .scrim,.ov-hol .scrim,.ov-print .scrim,.ov-settings .scrim,.ov-blank .scrim,.ov-users .scrim,.ov-pass .scrim{opacity:1;pointer-events:auto}
+    .ov-drawer .scrim,.ov-imp .scrim,.ov-hol .scrim,.ov-print .scrim,.ov-settings .scrim,.ov-blank .scrim,.ov-users .scrim,.ov-pass .scrim,.ov-roundstatus .scrim{opacity:1;pointer-events:auto}
     .ov-drawer .drawer{transform:none}
-    .ov-imp .modal.imp,.ov-hol .modal.hol,.ov-print .modal.print,.ov-settings .modal.settings,.ov-blank .modal.blank,.ov-users .modal.users,.ov-pass .modal.pass{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
+    .ov-imp .modal.imp,.ov-hol .modal.hol,.ov-print .modal.print,.ov-settings .modal.settings,.ov-blank .modal.blank,.ov-users .modal.users,.ov-pass .modal.pass,.ov-roundstatus .modal.roundstatus{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
     .drawer header,.modal header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 24px;border-bottom:1px solid var(--line)}
     .drawer header h2,.modal header h2{margin:0;font-size:19px}.drawer header small,.modal header small{color:var(--muted)}
     .x{border:0;background:#f1f1f6;width:34px;height:34px;border-radius:10px;font-size:18px;flex:none}
@@ -437,6 +437,7 @@
       </div>
     </section>
 
+    <section class="modal small roundstatus" aria-label="แก้ไขสถานะนัด"><header><div><h2 id="roundStatusTitle">แก้ไขสถานะนัด</h2><small>เลือกสถานะที่ถูกต้อง ระบบเก็บประวัติการแก้ไข</small></div><button class="x" data-close type="button">✕</button></header><div class="body"><div class="f"><label for="roundStatusValue">สถานะ</label><select id="roundStatusValue"></select></div><p class="warn">เมื่อย้อนสถานะ นัดถัดไปที่เริ่มดำเนินการแล้วจะกลับเป็นค้างจ่าย เพื่อจัดการตามลำดับอีกครั้ง</p></div><footer><button class="btn btn-ghost" data-close type="button">ยกเลิก</button><button class="btn btn-primary" id="roundStatusSave" data-needs-db type="button">บันทึกสถานะ</button></footer></section>
     <section class="modal small pass" aria-label="เปลี่ยนรหัสผ่าน">
       <header><div><h2>🔑 เปลี่ยนรหัสผ่านของฉัน</h2><small id="passWho"></small></div><button class="x" data-close type="button">✕</button></header>
       <form class="body" id="passForm" autocomplete="off"><div class="f"><label>รหัสผ่านปัจจุบัน</label><input name="old" type="password" autocomplete="current-password" required></div><div class="g2"><div class="f"><label>รหัสผ่านใหม่ (อย่างน้อย 6 ตัว)</label><input name="next" type="password" minlength="6" autocomplete="new-password" required></div><div class="f"><label>ยืนยันรหัสผ่านใหม่</label><input name="again" type="password" minlength="6" autocomplete="new-password" required></div></div></form>
@@ -715,7 +716,7 @@
       const n = C.next(i);
       const drugTable = `<table class="mini"><thead><tr><th>รายการยา</th><th>สั่ง</th><th>รับแล้ว</th><th>ค้าง</th></tr></thead><tbody>${i.drugs.map((d, j) => { const left = C.leftOf(i, j); return `<tr><td>${esc(d.name)}</td><td>${d.rx || '-'}</td><td>${C.receivedOf(i, j)}</td><td class="${left ? 'owe' : ''}">${left} ${esc(d.unit)}</td></tr>`; }).join('')}</tbody></table>`;
       const roundRows = (i.firstDate ? [`<div class="rd done"><i>✓</i><div><b>จ่ายครั้งแรก · ${C.dateDay(i.firstDate)}</b><small>${esc(i.drugs.map(d => `${d.name} ${d.got} ${d.unit}`).join(' · '))}</small></div><span></span></div>`] : [])
-        .concat(i.rounds.map((r, k) => { const isCur = k === C.cur(i), done = r.status === 'received'; return `<div class="rd ${done ? 'done' : isCur ? 'cur' : ''}"><i>${done ? '✓' : k + 1}</i><div><b>นัดที่ ${k + 1} · หลัง ${C.dateDay(r.date)}${done ? '' : offTag(r.date)}</b><small>${esc(C.roundItems(i, r).join(' · ') || '—')}${done ? ' · รับแล้ว' : ''}</small></div>${isCur ? `<div class="round-actions">${pill(r.status)}${n ? `<button class="btn btn-primary" data-move="${esc(i.id)}" data-round="${k}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>${n[1]} →</button>` : ''}</div>` : done ? '<span class="round-received">✓ รับยาแล้ว</span>' : ''}</div>`; }));
+        .concat(i.rounds.map((r, k) => { const isCur = k === C.cur(i), done = r.status === 'received'; return `<div class="rd ${done ? 'done' : isCur ? 'cur' : ''}"><i>${done ? '✓' : k + 1}</i><div><b>นัดที่ ${k + 1} · หลัง ${C.dateDay(r.date)}${done ? '' : offTag(r.date)}</b><small>${esc(C.roundItems(i, r).join(' · ') || '—')}${done ? ' · รับแล้ว' : ''}</small></div>${isCur ? `<div class="round-actions">${pill(r.status)}${n ? `<button class="btn btn-primary" data-move="${esc(i.id)}" data-round="${k}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>${n[1]} →</button>` : ''}<button class="btn btn-ghost" data-roundstatus="${esc(i.id)}" data-round="${k}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>แก้ไขสถานะ</button></div>` : done ? `<div class="round-actions"><span class="round-received">✓ รับยาแล้ว</span><button class="btn btn-ghost" data-roundstatus="${esc(i.id)}" data-round="${k}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>แก้ไขสถานะ</button></div>` : ''}</div>`; }));
       $('#panel').innerHTML = `${head}
         <div class="sec-title"><span>รายการยา (${i.drugs.length})</span></div>${drugTable}
         <div class="sec-title"><span>ตารางนัด</span><button data-edit="${esc(i.id)}" type="button">＋ เพิ่ม/แก้นัด</button></div><div class="rounds">${roundRows.join('')}</div>
@@ -739,6 +740,30 @@
         toast(`✓ ${saved.id} ${saved.patient} · นัดที่ ${k + 1} → ${after}`);
       });
     }
+    let editingRoundStatus = null;
+    function openRoundStatus(id, index) {
+      const item = state.items.find(x => x.id === id), k = +index;
+      if (!item || !item.rounds[k] || item.rounds.slice(0, k).some(r => r.status !== 'received')) return;
+      editingRoundStatus = { id, index: k, updatedAt: item.updatedAt };
+      $('#roundStatusTitle').textContent = 'แก้ไขสถานะนัดที่ ' + (k + 1);
+      const allowed = item.receiveMethod === 'mail' ? ['waiting', 'ready', 'delivery', 'received'] : ['waiting', 'ready', 'received'];
+      $('#roundStatusValue').innerHTML = allowed.map(value => '<option value="' + value + '">' + esc(C.STATUS[value]) + '</option>').join('');
+      $('#roundStatusValue').value = item.rounds[k].status;
+      overlay('roundstatus');
+    }
+    $('#roundStatusSave').onclick = async () => {
+      if (!editingRoundStatus) return;
+      const { id, index, updatedAt } = editingRoundStatus, item = state.items.find(x => x.id === id);
+      if (!item || item.updatedAt !== updatedAt || item.rounds.slice(0, index).some(r => r.status !== 'received')) { toast('ข้อมูลเปลี่ยนแล้ว กรุณาเปิดแก้ไขสถานะใหม่', true); return; }
+      const status = $('#roundStatusValue').value;
+      const allowed = item.receiveMethod === 'mail' ? ['waiting', 'ready', 'delivery', 'received'] : ['waiting', 'ready', 'received'];
+      if (!allowed.includes(status)) return;
+      if (status === item.rounds[index].status) { overlay(null); return; }
+      const reset = status !== 'received' && item.rounds.slice(index + 1).some(r => r.status !== 'waiting');
+      if (reset && !confirm('ย้อนสถานะนัดที่ ' + (index + 1) + ' และเปลี่ยนนัดถัดไปที่เริ่มดำเนินการแล้วให้กลับเป็นค้างจ่าย ใช่หรือไม่?')) return;
+      const rounds = item.rounds.map((r, k) => k === index ? { ...r, status } : k > index && status !== 'received' ? { ...r, status: 'waiting' } : r);
+      await mutate('update', { id, item: { ...item, rounds } }, data => { const saved = upsert(data.item); state.sel = saved.id; overlay(null); editingRoundStatus = null; toast('✓ แก้ไขสถานะนัดที่ ' + (index + 1) + ' แล้ว'); });
+    };
     function deleteSlip(id) {
       const i = state.items.find(x => x.id === id);
       if (!i || !confirm(`ลบใบแจ้ง ${i.id} ของ ${i.patient} ออกจากฐานข้อมูลกลางใช่หรือไม่?\nQR ของใบแจ้งนี้จะใช้ไม่ได้อีก`)) return;
@@ -1032,7 +1057,7 @@
 
     /* ===== เหตุการณ์ ===== */
     document.addEventListener('click', e => {
-      const t = e.target.closest('[data-close],[data-filter],[data-move],[data-open],[data-edit],[data-print],[data-delete],[data-delround],[data-deldrug],[data-fixday],[data-delhol],[data-printdrafts],[data-label],[data-labels],[data-utab],[data-ureset],[data-uactive],[data-cdel]');
+      const t = e.target.closest('[data-close],[data-filter],[data-roundstatus],[data-move],[data-open],[data-edit],[data-print],[data-delete],[data-delround],[data-deldrug],[data-fixday],[data-delhol],[data-printdrafts],[data-label],[data-labels],[data-utab],[data-ureset],[data-uactive],[data-cdel]');
       if (!t) return;
       const d = t.dataset;
       if (t.hasAttribute('data-close')) overlay(null);
@@ -1050,6 +1075,7 @@
       else if (t.hasAttribute('data-labels')) openLabels(state.items.filter(x => inClinic(x) && x.receiveMethod === 'mail' && C.status(x) === 'ready').sort((a, b) => a.id.localeCompare(b.id)));
       else if (t.hasAttribute('data-printdrafts')) openPrint(state.items.filter(x => inClinic(x) && C.isDraft(x)).sort((a, b) => a.id.localeCompare(b.id)));
       else if (d.filter) { state.filter = d.filter; render(); }
+      else if (d.roundstatus) { e.stopPropagation(); openRoundStatus(d.roundstatus, d.round); }
       else if (d.move) { e.stopPropagation(); moveRound(d.move, d.round); }
       else if (d.edit) { e.stopPropagation(); openForm(state.items.find(x => x.id === d.edit)); }
       else if (d.print) openPrint([state.items.find(x => x.id === d.print)]);
