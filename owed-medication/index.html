@@ -166,7 +166,8 @@
     .seg label small{display:block;font-weight:500;color:var(--muted);font-size:12px}
     .seg input{display:none}.seg label:has(input:checked){border-color:var(--brand);background:var(--brand-soft)}
     .warn{margin:-4px 0 10px;padding:8px 11px;border-radius:9px;background:#fff4dc;color:#7a4b00;font-size:12.5px;font-weight:600}
-    .dgrid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) 90px 30px;gap:7px;align-items:center;margin-bottom:7px}
+    .dgrid{display:grid;grid-template-columns:48px minmax(0,1.2fr) minmax(0,1.3fr) 90px 30px;gap:7px;align-items:center;margin-bottom:7px}
+    .drug-order{text-align:center;font-weight:700;color:var(--brand);font-variant-numeric:tabular-nums}
     .dgrid input,.dgrid select{width:100%;padding:8px 10px;border:1px solid #d9dce5;border-radius:9px;background:#fff}
     .drug-usage{display:grid;grid-template-columns:90px 1fr;gap:8px;background:#faf9fc;border:1px solid var(--line);border-radius:10px;padding:10px}.drug-usage label{font-size:12px;color:var(--muted)}.drug-usage .dose-times{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:7px 12px}.drug-usage .dose-times label{display:flex;align-items:center;gap:5px;color:var(--ink);font-size:13px;white-space:nowrap}.dgrid .dose-times input{width:16px;height:16px;margin:0;accent-color:var(--brand)}.drug-usage .legacy-usage{grid-column:1/-1}.drug-usage .legacy-usage input{margin-top:4px}
     .dgrid output{font-weight:800;color:var(--brand);font-size:14px;white-space:nowrap}
@@ -268,7 +269,7 @@
     .toast.show{opacity:1;transform:translate(-50%,0)}.toast.err{background:#9b2531}
 
     @media(max-width:1180px){.split{grid-template-columns:1fr}.panel{position:static;max-height:none}}
-    @media(max-width:700px){.appbar{padding:10px 14px}.page{padding:16px 14px 50px}.g2,.g3,.g4{grid-template-columns:1fr}.dgrid{grid-template-columns:1fr 1fr}.bar-end{margin-left:0}}
+    @media(max-width:700px){.appbar{padding:10px 14px}.page{padding:16px 14px 50px}.g2,.g3,.g4{grid-template-columns:1fr}.dgrid{grid-template-columns:32px minmax(0,1fr) minmax(0,1fr) 60px 26px}.bar-end{margin-left:0}}
     @media print{
       body{background:#fff}
       body>*:not(#overlay),#overlay>*:not(.modal.print){display:none!important}
@@ -376,7 +377,7 @@
           <div class="g3"><div class="f"><label>เบอร์โทรศัพท์</label><input name="phone1" inputmode="tel" placeholder="081-234-5678"></div><div class="f"><label>เบอร์สำรอง <span class="opt">(ถ้ามี)</span></label><input name="phone2" inputmode="tel"></div><div class="f"><label>คลินิก</label><select name="clinic" required></select></div></div>
         </div>
         <div class="fs"><h3><i>2</i>ยาที่นัดรับเพิ่ม <span class="opt" style="font-size:12px">(เพิ่มได้หลายรายการ)</span></h3>
-          <div class="dgrid dhead"><span>รายการยา</span><span>วิธีใช้</span><span>จำนวนต่อรอบ</span><span></span></div>
+          <div class="dgrid dhead"><span>ลำดับที่</span><span>รายการยา</span><span>วิธีใช้</span><span>จำนวนต่อรอบ</span><span></span></div>
           <div id="drugRows"></div>
           <button type="button" class="add-row" id="addDrug">＋ เพิ่มรายการยา</button>
           <div class="f" style="max-width:240px;margin-top:12px" hidden><label>จ่ายยาครั้งแรกวันที่</label><input type="date" name="firstDate"></div>
@@ -800,7 +801,7 @@
     const blankDrug = () => ({ name: '', usage: '', quantity: '', unit: 'เม็ด', got: '0' });
     const formLeft = j => Math.max(0, +formDrugs[j].quantity || 0);
     function renderDrugRows() {
-      $('#drugRows').innerHTML = formDrugs.map((d, k) => `<div class="dgrid"><input list="drugList" data-dk="${k}" data-df="name" value="${esc(d.name)}" placeholder="เช่น Paracetamol 500 mg" aria-label="รายการยา" maxlength="120"><input data-dk="${k}" data-df="usage" value="${esc(d.usage)}" placeholder="เช่น ครั้งละ 1 เม็ด หลังอาหาร" aria-label="วิธีใช้" maxlength="100"><input type="number" min="0" step="1" data-dk="${k}" data-df="quantity" value="${esc(d.quantity)}" placeholder="0" aria-label="จำนวน">${formDrugs.length > 1 ? `<button type="button" data-deldrug="${k}" title="ลบยานี้">✕</button>` : '<span></span>'}</div>`).join('');
+      $('#drugRows').innerHTML = formDrugs.map((d, k) => `<div class="dgrid"><span class="drug-order" aria-label="ลำดับที่ ${k + 1}">${k + 1}.</span><input list="drugList" data-dk="${k}" data-df="name" value="${esc(d.name)}" placeholder="เช่น Paracetamol 500 mg" aria-label="รายการยา" maxlength="120"><input data-dk="${k}" data-df="usage" value="${esc(d.usage)}" placeholder="เช่น ครั้งละ 1 เม็ด หลังอาหาร" aria-label="วิธีใช้" maxlength="100"><input type="number" min="0" step="1" data-dk="${k}" data-df="quantity" value="${esc(d.quantity)}" placeholder="0" aria-label="จำนวน">${formDrugs.length > 1 ? `<button type="button" data-deldrug="${k}" title="ลบยานี้">✕</button>` : '<span></span>'}</div>`).join('');
     }
     function roundNote(r, k) {
       if (r.movedFrom) return `<div class="rnote moved">↪ ${C.dateDay(r.movedFrom)} ตรงกับ${esc(C.offReason(r.movedFrom, state.holidays))} เลื่อนเป็น ${C.dateDay(r.date)}</div>`;
