@@ -306,6 +306,9 @@
     .nv-staff-grid .nv-appointment{min-height:24px;padding-top:3px}.nv-staff-right .nv-drug-row{height:23px;padding-top:3px}.nv-staff-right .nv-drug-filled{height:auto;min-height:23px;line-height:1.35}
     .nv-staff-grid .nv-staff-left,.nv-staff-grid .nv-staff-right{display:grid;grid-template-rows:22% 26% 52%}
     .nv-staff-grid .nv-staff-dates{height:auto;border-bottom:0}.nv-staff-grid .nv-address{border-bottom:1px solid #888}.nv-staff-grid .nv-address-text{line-height:23px;min-height:69px;background:repeating-linear-gradient(to bottom,transparent 0,transparent 22px,#aaa 22px,#aaa 23px)}
+    .nv-full-page .nv-staff{top:2%;height:94%}.nv-full-page .nv-patient{top:2%;bottom:4%}
+    .nv-page-footer{position:absolute;bottom:1%;left:3.5%;right:3.5%;display:flex;justify-content:space-between;font-size:13px;color:#555}
+    .nv-full-page .nv-patient-dates .nv-appointment{min-height:36px}
     .nv-cut{position:absolute;top:49.8%;left:3.5%;right:3.5%;border-top:1px dashed #888}
     .nv-patient{position:absolute;left:3.5%;right:3.5%;top:51%;bottom:2%;border:1px solid #444;display:flex;flex-direction:column}
     .nv-patient-header{height:100px;flex-shrink:0;border-bottom:1px solid #888}
@@ -996,16 +999,33 @@
       return `<div class="ps-sheet nv-sheet"><div class="nv-staff">${noticeHeader(1, 'เจ้าหน้าที่')}<div class="nv-staff-grid"><div class="nv-staff-left"><section class="nv-receive"><b>${tick('self')} ผู้ป่วยประสงค์มารับยาด้วยตนเอง</b><div class="nv-recipient">ลงชื่อ<span class="nv-write"></span><span>(ผู้ป่วย/ญาติ)</span></div></section><section class="nv-receive"><b>${tick('mail')} ผู้ป่วยประสงค์ให้ส่งไปรษณีย์</b><div>(มีค่าใช้จ่ายในการจัดส่งยา 55 บาทต่อครั้ง)</div><div class="nv-recipient">ลงชื่อ<span class="nv-write"></span><span>(ผู้ป่วย/ญาติ)</span></div></section><section class="nv-staff-dates"><h3>บันทึกการรับยา</h3>${dates(true)}</section></div><div class="nv-staff-right"><section class="nv-phone"><b>เบอร์โทรที่สามารถติดต่อได้</b><div>1. <span class="nv-red-cross">×</span><span class="nv-phone-line">${esc(i.phone1 || '')}</span></div><div>2. <span class="nv-red-cross">×</span><span class="nv-phone-line">${esc(i.phone2 || '')}</span></div></section><section class="nv-address"><b>ที่อยู่</b> สำหรับจัดส่งยาทางไปรษณีย์<div class="nv-address-text"><span class="nv-red-cross">×</span>${esc(i.address || '')}</div></section><section class="nv-drugs"><h3>รายการยาที่แพทย์นัดรับ</h3><div>ชื่อยา / วิธีใช้ / จำนวน</div>${drugRows}</section></div></div></div><div class="nv-cut"></div><div class="nv-patient">${noticeHeader(2, 'ผู้ป่วย')}<div class="nv-patient-grid"><div class="nv-instructions"><b>• &nbsp;กรณีประสงค์มารับยาด้วยตนเอง</b><i>*โปรดนำเอกสารนี้มาติดต่อเพื่อรับยา*</i><p>1. ลงทะเบียนผู้ป่วยที่ห้องเวชระเบียนเบอร์ 1</p><p>2. ติดต่อห้องจ่ายยาคลินิกเติมยา</p><p class="nv-no-doctor">และยื่นเอกสารเพื่อขอรับยา โดยไม่ต้องพบแพทย์</p><b>• &nbsp;กรณีประสงค์ให้ส่งไปรษณีย์</b><p>จะมีค่าใช้จ่ายการจัดส่งยาทุกพื้นที่ 55 บาท</p><p>โดยจะจัดเก็บค่าใช้จ่ายแบบชำระปลายทาง</p><div class="nv-pharmacist"><b>เภสัชกร</b><span></span><small class="nv-signature-date"><span>วันที่</span><span class="nv-date-blank"></span><span>/</span><span class="nv-date-blank"></span><span>/</span><span class="nv-date-blank"></span></small></div></div><div class="nv-patient-right"><h3>วันที่นัดรับยา / ส่งยาทางไปรษณีย์</h3><div class="nv-patient-dates">${dates(false)}</div><div class="nv-qr"><canvas data-qr="${n}"></canvas><small>ท่านสามารถสแกน QR code นี้ เพื่อติดตามสถานะนัดรับยา</small></div><div class="nv-contact">หากมีข้อสอบถามกรุณาติดต่อกลับห้องยา<br>โรงพยาบาลมหาวิทยาลัยพะเยา<br>โทร 054-466-666 ต่อ 7121,7123</div></div></div></div></div>`;
     }
     const pageSize = size => { $('#pageSize').textContent = `@media print{@page{size:${size};margin:0}}`; };
+    function expandPrintSheet(sheet) {
+      if (sheet.classList.contains('nv-full-page')) return;
+      const staff = sheet.querySelector('.nv-staff'), patient = sheet.querySelector('.nv-patient');
+      const ref = staff.querySelector('.nv-document-number').textContent;
+      const second = document.createElement('div'); second.className = 'ps-sheet nv-sheet nv-full-page';
+      sheet.classList.add('nv-full-page'); sheet.querySelector('.nv-cut').remove();
+      second.append(patient); sheet.after(second);
+      [sheet, second].forEach((page, k) => { const footer = document.createElement('div'); footer.className = 'nv-page-footer'; const id = document.createElement('span'); id.textContent = ref; const number = document.createElement('span'); number.textContent = 'หน้า ' + (k + 1) + ' / 2'; footer.append(id, number); page.append(footer); });
+    }
+    function fitPrintSheets() {
+      document.querySelectorAll('#psSheets .nv-sheet:not(.nv-full-page)').forEach(sheet => {
+        const overflowing = [...sheet.querySelectorAll('.nv-staff-dates,.nv-drugs,.nv-patient-right,.nv-address,.nv-phone')].some(box => box.scrollHeight > box.clientHeight + 2 || [...box.children].some(child => child.getBoundingClientRect().bottom > box.getBoundingClientRect().bottom + 2));
+        if (overflowing) expandPrintSheet(sheet);
+      });
+    }
     function openPrint(list) {
       pageSize('A4 portrait');
       $('#psSheets').innerHTML = list.map(sheetHtml).join('');
+      [...document.querySelectorAll('#psSheets .nv-sheet')].forEach((sheet, n) => { if (list[n].drugs.length > 6 || list[n].rounds.filter(r => r.status !== 'received').length > 4) expandPrintSheet(sheet); });
       list.forEach((i, n) => new QRious({ element: $(`#psSheets [data-qr="${n}"]`), size: 300, level: 'M', value: statusUrl(i) }));
       const blank = list.filter(C.isDraft).length;
       $('#psTitle').textContent = list.length === 1 ? 'ตัวอย่างใบแจ้ง ' + list[0].id : `ใบแจ้ง ${list.length} ใบ (${list[0].id}–${list[list.length - 1].id})`;
       $('#psFoot').textContent = blank ? `${blank} ใบยังไม่มีรายการยา ช่องที่ว่างไว้ให้เขียนมือ แล้วค้นด้วยเลขที่เพื่อกรอกในเว็บภายหลัง` : list.some(i => !i.address) ? '⚠ บางใบยังไม่มีที่อยู่' : '';
       overlay('print');
+      document.fonts.ready.then(() => requestAnimationFrame(fitPrintSheets));
     }
-    $('#psPrint').onclick = async () => { await document.fonts.ready; window.print(); };
+    $('#psPrint').onclick = async () => { await document.fonts.ready; fitPrintSheets(); window.print(); };
 
     /* ===== จ่าหน้าซองพัสดุ 10×15 ซม. (เครื่องพิมพ์ความร้อน) ===== */
     const senderText = () => localStorage.getItem(KEYS.sender) || OWED_CONFIG.sender || '';
