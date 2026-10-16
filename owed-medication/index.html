@@ -214,10 +214,12 @@
     .ps-receipts{position:absolute;left:47.95%;top:7.72%;width:47.55%;height:18.25%;box-sizing:border-box;background:#fff;color:#111;padding:5px 8px;display:flex;flex-direction:column;font-size:12px;line-height:1.3}
     .ps-receipts.ps-patient-receipts{left:47.95%;top:67.2%;width:47%;height:18.25%}
     .ps-address-line{position:absolute;left:4.75%;width:42%;border-bottom:2px dotted #333}
-    .ps-t.ps-blank-drugs{table-layout:fixed}
-    .ps-t.ps-blank-drugs td{height:36px;box-sizing:border-box;background:#fff}
-    .ps-t.ps-blank-drugs tr:last-child td{border-bottom:1px solid #9aa3b5}
-    .ps-t.ps-blank-drugs th:first-child{width:46%}
+    .ps-slip-number{position:absolute;display:flex;align-items:center;justify-content:center;gap:4px;background:#fff;font-size:14px;line-height:1;color:#111;white-space:nowrap}
+    .ps-slip-number strong{color:#0d2a6b}
+    .ps-slip-number.staff{left:4.4%;top:7.75%;width:14.9%;height:2.5%}
+    .ps-slip-number.patient{left:80.7%;top:57.4%;width:14.5%;height:3.9%}
+    .ps-blank-drug-line{display:flex;align-items:baseline;gap:6px;height:39px;color:#111}
+    .ps-blank-drug-line span:last-child{flex:1;border-bottom:1px dashed #333;height:1.8em}
     .ps-patient-body{position:absolute;left:3.8%;top:62.6%;width:91.7%;height:36%;box-sizing:border-box;border:1px solid #111;background:#fff;color:#111;font-size:13px;line-height:1.65;display:flex;flex-direction:column}
     .ps-patient-content{position:relative;height:70%;box-sizing:border-box;padding:5px 8px}
     .ps-patient-name{font-weight:700;padding-right:31%;white-space:nowrap}
@@ -899,7 +901,7 @@
       const name = i.recipientName || i.patient;
       const person = (name ? at(9.6, i.receiveMethod === 'mail' ? 22.85 : 14.1, '', esc(name), 'width:26%') : '')
         + at(12.4, 28.8, '', esc(i.phone1)) + at(12.4, 31.65, '', esc(i.phone2)) + at(5.6, 37.0, 'addr', esc(i.address), 'width:41.5%');
-      const ids = at(9.6, 7.75, 'b', esc(i.id)) + at(86.9, 57.85, 'b', esc(i.id));
+      const ids = ['staff', 'patient'].map(part => `<div class="ps-slip-number ${part}"><span>เลขที่</span><strong>${esc(i.id)}</strong></div>`).join('');
       const patientBody = `<section class="ps-patient-body"><div class="ps-patient-content"><div class="ps-patient-name">ชื่อ ${esc(i.patient || '........................................')} &nbsp;HN ${esc(i.hn || '................')}</div><span class="ps-patient-tag">ส่วนที่ 2 สำหรับผู้ป่วย</span><div class="ps-patient-important">*สำคัญ - โปรดนำเอกสารนี้มาติดต่อเพื่อรับยา*</div><div class="ps-patient-instructions">1. ลงทะเบียนผู้ป่วยที่ห้องเวชระเบียนเบอร์ 1<br>2. ติดต่อห้องจ่ายยาคลินิกเติมยา<br>และยื่นเอกสารเพื่อขอรับยา โดยไม่ต้องพบแพทย์</div></div><div class="ps-patient-footer"><div class="ps-patient-post">*กรณีผู้ป่วยประสงค์ให้ส่งไปรษณีย์<br>จะมีค่าใช้จ่ายการจัดส่งยาทุกพื้นที่ 55 บาท<br>โดยจะจัดเก็บค่าใช้จ่ายแบบชำระปลายทาง</div><div class="ps-patient-pharmacist"><span>เภสัชกร</span><span class="ps-patient-signature"></span></div></div><div class="ps-patient-contact">หากมีข้อสอบถามกรุณาติดต่อกลับ<b>ห้องยา</b> โรงพยาบาลมหาวิทยาลัยพะเยา โทร <b>054-466-666 ต่อ 7121,7123</b></div></section>`;
       const staffLine = i.hn || i.patient ? `<div class="pf box" style="left:49.3%;top:27.2%;width:45%"><b>${esc(i.patient)} · HN ${esc(i.hn)} · ${esc(clinicName(i.clinic))}</b></div>` : '';
       const receipts = `<div class="ps-receipts"><div class="ps-receipts-title">บันทึกการรับยา</div>${Array.from({ length: 4 }, (_, k) => `<div class="ps-receipt"><div class="ps-receipt-line"><span class="ps-receipt-check"></span><span>ครั้งที่ ${k + 1}</span><span>วันที่</span><span class="ps-receipt-dots"></span><span>/</span><span class="ps-receipt-dots"></span><span>/</span><span class="ps-receipt-dots"></span></div><div class="ps-receipt-line ps-receipt-signatures"><span>ผู้ป่วย/ผู้มารับยา</span><span class="ps-receipt-dots"></span><span>ผู้จ่ายยา</span><span class="ps-receipt-dots"></span></div></div>`).join('')}</div>`;
@@ -909,9 +911,9 @@
       const pending = i.rounds.map((x, k) => Object.assign({ k }, x)).filter(x => x.status !== 'received');
       const roundTable = `<table class="ps-t"><thead><tr><th>นัด</th><th>รับได้หลังวันที่</th>${i.drugs.map(d => `<th>${esc(d.name)}</th>`).join('')}</tr></thead><tbody>${pending.map(x => `<tr><td>${x.k + 1}</td><td>${C.dateDay(x.date)}</td>${i.drugs.map((d, j) => `<td>${x.qty[j] ? x.qty[j] + ' ' + esc(d.unit) : '-'}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
       const drugTable = `<table class="ps-t"><thead><tr><th>รายการยา</th><th>แพทย์สั่ง</th><th>ได้รับแล้ว</th><th>ค้างจ่าย</th></tr></thead><tbody>${i.drugs.map((d, j) => `<tr><td>${esc(d.name)}</td><td>${d.rx} ${esc(d.unit)}</td><td>${C.receivedOf(i, j)} ${esc(d.unit)}</td><td>${C.leftOf(i, j)} ${esc(d.unit)}</td></tr>`).join('')}</tbody></table>`;
-      const blankDrugTable = `<table class="ps-t ps-blank-drugs"><thead><tr><th>รายการยา / หน่วย</th><th>แพทย์สั่ง</th><th>ได้รับแล้ว</th><th>ค้างจ่าย</th></tr></thead><tbody>${Array.from({ length: 5 }, (_, k) => `<tr><td>${k + 1}. </td><td></td><td></td><td></td></tr>`).join('')}</tbody></table>`;
+      const blankDrugLines = Array.from({ length: 5 }, (_, k) => `<div class="ps-blank-drug-line"><span>${k + 1}.</span><span></span></div>`).join('');
       if (C.isDraft(i)) {
-        const draftDrugs = `<div class="pf box" style="left:49.3%;top:30%;width:45%"><b>รายการยา${i.drugs.length ? '' : ' (สำหรับกรอกด้วยมือ)'}</b>${i.drugs.length ? drugTable : blankDrugTable}</div>`;
+        const draftDrugs = `<div class="pf box" style="left:49.3%;top:30%;width:45%"><b>รายการยาที่แพทย์สั่ง</b>${i.drugs.length ? drugTable : blankDrugLines}</div>`;
         return `<div class="ps-sheet"><img class="ps-bg" src="assets/notice-template.png" alt="">${drugCover}${receipts}${ids}${person}${staffLine}${draftDrugs}${patientBody}${qr}${patientReceipts}</div>`;
       }
       return '<div class="ps-sheet"><img class="ps-bg" src="assets/notice-template.png" alt="">' + drugCover + receipts + ids + person
