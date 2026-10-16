@@ -223,12 +223,12 @@
     .ps-slip-number strong{color:#0d2a6b}
     .ps-slip-number.staff{left:4.4%;top:7.75%;width:14.9%;height:2.5%}
     .ps-slip-number.patient{left:80.7%;top:57.4%;width:14.5%;height:3.9%}
-    .ps-t.ps-blank-drugs{table-layout:fixed}
-    .ps-t.ps-blank-drugs th:first-child{width:55%}
-    .ps-t.ps-blank-drugs th{text-align:center;vertical-align:middle}
-    .ps-t.ps-blank-drugs th:not(:first-child){width:15%;padding-left:2px;padding-right:2px}
-    .ps-t.ps-blank-drugs td{height:32px;box-sizing:border-box}
-    .ps-t.ps-blank-drugs tr:last-child td{border-bottom:1px solid #9aa3b5}
+    .ps-hand-drug-head,.ps-hand-drug-row{display:grid;grid-template-columns:52% 32% 16%;gap:6px;box-sizing:border-box;padding-right:12px}
+    .ps-hand-drug-head{text-align:center;font-weight:700;color:#111;margin-bottom:3px}
+    .ps-hand-drug-row{height:35px;align-items:end;margin-bottom:4px;color:#111}
+    .ps-hand-drug-row span{border-bottom:1px dotted #333;min-height:24px}
+    .ps-receipt-pharmacist{font-size:10px;margin-left:4px;white-space:nowrap}
+    .ps-receipt-sign{flex:1.5;min-width:40px;border-bottom:1px dotted #111;height:1em}
 
     .ps-patient-body{position:absolute;left:3.8%;top:62.6%;width:91.7%;height:36%;box-sizing:border-box;border:1px solid #111;background:#fff;color:#111;font-size:13px;line-height:1.65;display:flex;flex-direction:column}
     .ps-patient-content{position:relative;height:70%;box-sizing:border-box;padding:5px 8px}
@@ -916,16 +916,16 @@
       const staffHeading = `<div class="ps-staff-heading"><span class="ps-staff-heading-title">ใบแจ้ง รับยาคลินิกเติมยา</span><div class="ps-staff-heading-person"><span>ชื่อ</span><span class="ps-staff-heading-name">${esc(i.patient || '............................')}</span><span>HN ${esc(i.hn || '..............')}</span></div><span class="ps-staff-heading-tag">ส่วนที่ 1 สำหรับเจ้าหน้าที่</span></div>`;
       const patientBody = `<section class="ps-patient-body"><div class="ps-patient-content"><div class="ps-patient-name">ชื่อ ${esc(i.patient || '............................................................')}<span class="ps-patient-hn">HN ${esc(i.hn || '....................')}</span></div><span class="ps-patient-tag">ส่วนที่ 2 สำหรับผู้ป่วย</span><div class="ps-patient-important">*สำคัญ - โปรดนำเอกสารนี้มาติดต่อเพื่อรับยา*</div><div class="ps-patient-instructions">1. ลงทะเบียนผู้ป่วยที่ห้องเวชระเบียนเบอร์ 1<br>2. ติดต่อห้องจ่ายยาคลินิกเติมยา<br>และยื่นเอกสารเพื่อขอรับยา โดยไม่ต้องพบแพทย์</div></div><div class="ps-patient-footer"><div class="ps-patient-post">*กรณีผู้ป่วยประสงค์ให้ส่งไปรษณีย์<br>จะมีค่าใช้จ่ายการจัดส่งยาทุกพื้นที่ 55 บาท<br>โดยจะจัดเก็บค่าใช้จ่ายแบบชำระปลายทาง</div><div class="ps-patient-pharmacist"><span>เภสัชกร</span><span class="ps-patient-signature"></span><span class="ps-pharmacist-date">วันที่ ............ / ............ / ............</span></div></div><div class="ps-patient-contact">หากมีข้อสอบถามกรุณาติดต่อกลับ<b>ห้องยา</b> โรงพยาบาลมหาวิทยาลัยพะเยา โทร <b>054-466-666 ต่อ 7121,7123</b></div></section>`;
       const staffLine = i.hn || i.patient ? `<div class="pf box" style="left:49.3%;top:29.1%;width:45%"><b>${esc(i.patient)} · HN ${esc(i.hn)} · ${esc(clinicName(i.clinic))}</b></div>` : '';
-      const receipts = `<div class="ps-receipts"><div class="ps-receipts-title">บันทึกการรับยา</div>${Array.from({ length: 4 }, (_, k) => `<div class="ps-receipt"><div class="ps-receipt-line"><span class="ps-receipt-check"></span><span>ครั้งที่ ${k + 1}</span><span>วันที่</span><span class="ps-receipt-dots"></span><span>/</span><span class="ps-receipt-dots"></span><span>/</span><span class="ps-receipt-dots"></span></div></div>`).join('')}</div>`;
+      const receipts = `<div class="ps-receipts"><div class="ps-receipts-title">บันทึกการรับยา</div>${Array.from({ length: 4 }, (_, k) => `<div class="ps-receipt"><div class="ps-receipt-line"><span class="ps-receipt-check"></span><span>ครั้งที่ ${k + 1}</span><span>วันที่</span><span class="ps-receipt-dots"></span><span>/</span><span class="ps-receipt-dots"></span><span>/</span><span class="ps-receipt-dots"></span><span class="ps-receipt-pharmacist">เภสัชกร</span><span class="ps-receipt-sign"></span></div></div>`).join('')}</div>`;
       const drugCover = '<div class="ps-legacy-drugs-cover" aria-hidden="true"></div><div class="ps-address-line" style="top:46.2%"></div><div class="ps-address-line" style="top:48.7%"></div>';
       const patientReceipts = !i.rounds.some(r => r.date) ? receipts.replace('class="ps-receipts"', 'class="ps-receipts ps-patient-receipts"') : '';
       const pending = i.rounds.map((x, k) => Object.assign({ k }, x)).filter(x => x.status !== 'received');
       const roundTable = `<table class="ps-t"><thead><tr><th>นัด</th><th>รับได้หลังวันที่</th>${i.drugs.map(d => `<th>${esc(d.name)}</th>`).join('')}</tr></thead><tbody>${pending.map(x => `<tr><td>${x.k + 1}</td><td>${C.dateLong(x.date)}</td>${i.drugs.map((d, j) => `<td>${x.qty[j] ? x.qty[j] + ' ' + esc(d.unit) : '-'}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
       const staffReceipts = i.rounds.some(r => r.date) ? `<div class="ps-receipts"><div class="ps-receipts-title">บันทึกการรับยา</div>${roundTable}</div>` : receipts;
       const drugTable = `<table class="ps-t"><thead><tr><th>รายการยา</th><th>แพทย์สั่ง</th><th>ได้รับแล้ว</th><th>ค้างจ่าย</th></tr></thead><tbody>${i.drugs.map((d, j) => `<tr><td>${esc(d.name)}</td><td>${d.rx} ${esc(d.unit)}</td><td>${C.receivedOf(i, j)} ${esc(d.unit)}</td><td>${C.leftOf(i, j)} ${esc(d.unit)}</td></tr>`).join('')}</tbody></table>`;
-      const blankDrugTable = `<table class="ps-t ps-blank-drugs"><thead><tr><th>รายการยา</th><th>แพทย์สั่ง</th><th>ได้รับแล้ว</th><th>ค้างจ่าย</th></tr></thead><tbody>${Array.from({ length: 5 }, (_, k) => `<tr><td>${k + 1}.</td><td></td><td></td><td></td></tr>`).join('')}</tbody></table>`;
+      const blankDrugLines = `<div class="ps-hand-drug-head"><span>รายการยา</span><span>วิธีใช้</span><span>จำนวน</span></div>${Array.from({ length: 5 }, (_, k) => `<div class="ps-hand-drug-row"><span>${k + 1}.</span><span></span><span></span></div>`).join('')}`;
       if (C.isDraft(i)) {
-        const draftDrugs = `<div class="pf box" style="left:49.3%;top:26.8%;width:45%"><b>รายการยาที่แพทย์สั่ง</b><div style="height:${i.hn || i.patient ? 28 : 6}px"></div>${i.drugs.length ? drugTable : blankDrugTable}</div>`;
+        const draftDrugs = `<div class="pf box" style="left:49.3%;top:26.8%;width:45%"><b>รายการยาที่แพทย์สั่ง</b><div style="height:${i.hn || i.patient ? 28 : 6}px"></div>${i.drugs.length ? drugTable : blankDrugLines}</div>`;
         return `<div class="ps-sheet"><img class="ps-bg" src="assets/notice-template.png" alt="">${staffHeading}${drugCover}${staffReceipts}${ids}${person}${staffLine}${draftDrugs}${patientBody}${qr}${patientReceipts}</div>`;
       }
       return '<div class="ps-sheet"><img class="ps-bg" src="assets/notice-template.png" alt="">' + staffHeading + drugCover + staffReceipts + ids + person
