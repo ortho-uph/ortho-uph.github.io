@@ -1001,7 +1001,7 @@
       const dots = '........................................';
       const person = esc(i.patient || dots), hn = esc(i.hn || '........................');
       const pending = i.rounds.map((r, k) => ({ ...r, number: k + 1 })).filter(r => r.status !== 'received' && r.date);
-      const appointments = pending.length ? pending : Array.from({ length: 4 }, (_, k) => ({ number: k + 1 }));
+      const appointments = pending.length ? pending : Array.from({ length: 5 }, (_, k) => ({ number: k + 1 }));
       const dates = staff => appointments.map(r => `<div class="nv-appointment"><span>• ครั้งที่ ${r.number} วันที่</span><span class="nv-write">${r.date ? esc(C.dateLong(r.date)) : ''}</span>${staff ? '<span>เภสัชกร</span><span class="nv-sign"></span>' : ''}</div>`).join('');
       const drugRows = i.drugs.length ? i.drugs.map((d,j) => { const info = readDrugDescription(d.name); return `<div class="nv-drug-row nv-drug-filled">${j+1}. ${esc(info.name)} / ${esc(info.usage || d.usage || d.instructions || 'วิธีใช้ ................')} / ${perRound(i, j)} ${esc(d.unit)} ต่อรอบ</div>`; }).join('') : Array.from({ length: 6 }, (_,k) => `<div class="nv-drug-row">${k+1}.<span></span></div>`).join('');
       const tick = method => `<span class="nv-check">${!C.isDraft(i) && i.receiveMethod === method ? '✓' : ''}</span>`;
