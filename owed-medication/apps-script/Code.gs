@@ -384,14 +384,23 @@ function installAutoCompleteDeliveries() {
 
 /* ===== ข้อมูลโรงพยาบาลส่วนกลาง: เฉพาะข้อมูลติดต่อสาธารณะ ===== */
 function normalizeOrganization_(input){
-  input=input||{};const limits={logoUrl:2000,hospitalName:120,department:80,phone:40,extensions:80,address:300,sender:500},out={};
+  input=input||{};const limits={logoUrl:100000,hospitalName:120,department:80,phone:40,extensions:80,address:300,sender:500},out={};
   Object.keys(limits).forEach(function(k){out[k]=clean_(input[k],limits[k]);});return out;
 }
 function organization_(){
-  const stored=props_().getProperty('ORGANIZATION_PROFILE');if(!stored)return null;
-  try{return normalizeOrganization_(JSON.parse(stored));}catch(e){return null;}
+  const values=props_().getProperties(),stored=values.ORGANIZATION_PROFILE;if(!stored)return null;
+  try{const profile=JSON.parse(stored);if(profile.logoRef){let data='';for(let k=0;k<profile.logoParts;k++)data+=values[profile.logoRef+'_'+k]||'';profile.logoUrl=data;}return normalizeOrganization_(profile);}catch(e){return null;}
 }
+
 function organizationSave_(input,actor){
-  const org=normalizeOrganization_(input);if(org.logoUrl&&!/^https:\/\/[^\s]+$/i.test(org.logoUrl))return {ok:0,err:'invalid_logo_url'};if(!org.hospitalName||!org.department)return {ok:0,err:'organization_required'};
-  return withLock_(function(){props_().setProperty('ORGANIZATION_PROFILE',JSON.stringify(org));audit_(actor,'organization','','แก้ไขข้อมูลโรงพยาบาล');return {ok:1,organization:org};});
+  input=input||{};const logo=String(input.logoUrl||'').trim();
+  if(logo.length>100000||logo&& !(/^https:\/\/[^\s]+$/i.test(logo)&&logo.length<=2000)&&!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(logo))return {ok:0,err:'invalid_logo_url'};
+  const org=normalizeOrganization_(input);if(!org.hospitalName||!org.department)return {ok:0,err:'organization_required'};
+  return withLock_(function(){
+    const properties=props_(),previous=properties.getProperties(),stored=Object.assign({},org);
+    if(logo.indexOf('data:')===0){stored.logoRef='ORG_LOGO_'+Utilities.getUuid();stored.logoParts=Math.ceil(logo.length/7000);const parts={};for(let k=0;k<stored.logoParts;k++)parts[stored.logoRef+'_'+k]=logo.slice(k*7000,(k+1)*7000);properties.setProperties(parts);stored.logoUrl='';}
+    properties.setProperty('ORGANIZATION_PROFILE',JSON.stringify(stored));
+    Object.keys(previous).filter(function(k){return k.indexOf('ORG_LOGO_')===0;}).forEach(function(k){properties.deleteProperty(k);});
+    audit_(actor,'organization','','แก้ไขข้อมูลโรงพยาบาล');return {ok:1,organization:org};
+  });
 }
