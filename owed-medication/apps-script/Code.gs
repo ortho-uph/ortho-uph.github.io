@@ -384,7 +384,7 @@ function installAutoCompleteDeliveries() {
 
 /* ===== ข้อมูลโรงพยาบาลส่วนกลาง: เฉพาะข้อมูลติดต่อสาธารณะ ===== */
 function normalizeOrganization_(input){
-  input=input||{};const limits={hospitalName:120,department:80,phone:40,extensions:80,address:300,sender:500},out={};
+  input=input||{};const limits={logoUrl:2000,hospitalName:120,department:80,phone:40,extensions:80,address:300,sender:500},out={};
   Object.keys(limits).forEach(function(k){out[k]=clean_(input[k],limits[k]);});return out;
 }
 function organization_(){
@@ -392,6 +392,6 @@ function organization_(){
   try{return normalizeOrganization_(JSON.parse(stored));}catch(e){return null;}
 }
 function organizationSave_(input,actor){
-  const org=normalizeOrganization_(input);if(!org.hospitalName||!org.department)return {ok:0,err:'organization_required'};
+  const org=normalizeOrganization_(input);if(org.logoUrl&&!/^https:\/\/[^\s]+$/i.test(org.logoUrl))return {ok:0,err:'invalid_logo_url'};if(!org.hospitalName||!org.department)return {ok:0,err:'organization_required'};
   return withLock_(function(){props_().setProperty('ORGANIZATION_PROFILE',JSON.stringify(org));audit_(actor,'organization','','แก้ไขข้อมูลโรงพยาบาล');return {ok:1,organization:org};});
 }

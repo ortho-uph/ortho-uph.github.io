@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="config.js?v=20261018-org"></script>
+  <script src="config.js?v=20261018-logo"></script>
   <script src="core.js?v=20261016-refill"></script>
   <style>
     :root{--brand:#5b2186;--brand-2:#7a3aa3;--brand-soft:#f3ecfa;--ink:#1f2433;--muted:#6b7385;--line:#e6e8ef;--bg:#f6f5fa;--surface:#fff;--wait:#b26a00;--wait-bg:#fff4dc;--ready:#0b7a55;--ready-bg:#dcf5ea;--ship:#1b5fa8;--ship-bg:#e1eeff;--done:#4b5163;--done-bg:#eceef3;--draft:#6a4b8c;--draft-bg:#efe8f7;--late:#c03a46;--r:14px;--shadow:0 1px 2px #1b14330f,0 6px 20px #1b143312}
@@ -297,6 +297,7 @@
     .nv-header-meta{line-height:1.65;font-size:17px;text-align:right;flex-shrink:0}
     .nv-red{color:#ba3434;white-space:nowrap;font-size:17px}
     .nv-logo{width:66px;height:72px;background:url('assets/notice-template.png') -693px -10px / 794px 1123px no-repeat;flex-shrink:0;background-color:white}
+    .nv-custom-logo{background:none;object-fit:contain}
     .nv-staff-grid{height:calc(100% - 100px);display:grid;grid-template-columns:48% 52%;border:1px solid #444}
     .nv-staff-left{display:flex;flex-direction:column;border-right:1px solid #444;min-height:0}.nv-receive{padding:6px 10px;border-bottom:1px solid #888;flex:1.05;display:flex;flex-direction:column;justify-content:space-between}.nv-receive>b{font-size:17px}.nv-receive>div:first-child{line-height:1.2}.nv-check{display:inline-flex;border:1.2px solid #222;width:14px;height:14px;align-items:center;justify-content:center;font-family:Arial,sans-serif;font-size:16px;line-height:1;vertical-align:middle;color:#183951}
     .nv-recipient{display:flex;align-items:baseline;gap:3px;font-size:16px}.nv-write{flex:1;border-bottom:1px dotted #555;min-height:20px}.nv-phone{padding:5px 10px;border-bottom:1px solid #888;flex:.85}.nv-phone>div{display:flex;gap:10px;padding:4px 9px}.nv-phone-line{flex:1;border-bottom:1px dotted #555;min-height:19px}
@@ -350,7 +351,7 @@
   </section>
 
   <header class="appbar">
-    <a class="logo" href="../"><i>℞</i><div>คลินิกเติมยา<small id="orgHeader">ห้องยา · โรงพยาบาลมหาวิทยาลัยพะเยา</small></div></a>
+    <a class="logo" href="../"><i id="orgBrandLogo">℞</i><div>คลินิกเติมยา<small id="orgHeader">ห้องยา · โรงพยาบาลมหาวิทยาลัยพะเยา</small></div></a>
     <select class="clinic" id="clinic" aria-label="คลินิก"></select>
     <label class="search"><input id="q" placeholder="ค้นหา HN, ชื่อ, เลขที่ใบแจ้ง หรือชื่อยา (กด /)"></label>
     <button class="btn btn-ghost" id="holBtn" type="button">📅 วันหยุด</button>
@@ -475,7 +476,7 @@
     <section class="modal small settings" aria-label="ตั้งค่า">
       <header><div><h2>⚙ ตั้งค่า</h2><small>การเชื่อมต่อฐานข้อมูลกลาง (Google Apps Script) และรายชื่อยา</small></div><button class="x" data-close type="button">✕</button></header>
       <div class="body">
-        <section class="admin-only" style="margin-bottom:22px"><div class="sec-title"><span>ข้อมูลโรงพยาบาล</span></div><p class="muted" style="white-space:normal">บันทึกส่วนกลาง ใช้ร่วมกันทุกเครื่องและหน้าผู้ป่วย</p><div class="f"><label for="org_hospitalName">ชื่อโรงพยาบาล</label><input id="org_hospitalName" maxlength="120" required></div><div class="f"><label for="org_department">ชื่อหน่วยงาน / ห้องยา</label><input id="org_department" maxlength="80" required></div><div class="f"><label for="org_phone">เบอร์โทรศัพท์</label><input id="org_phone" maxlength="40" ></div><div class="f"><label for="org_extensions">เบอร์ต่อ</label><input id="org_extensions" maxlength="80" ></div><div class="f"><label for="org_address">ที่อยู่โรงพยาบาล</label><input id="org_address" maxlength="300" ></div><div class="f"><label for="org_sender">ข้อความผู้ส่งบนจ่าหน้าซอง</label><input id="org_sender" maxlength="500" ></div><button class="btn btn-primary" id="orgSave" type="button" data-needs-db>บันทึกข้อมูลโรงพยาบาล</button></section><div class="f"><label for="dbUrl">Web App URL</label><input id="dbUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></div>
+        <section class="admin-only" style="margin-bottom:22px"><div class="sec-title"><span>ข้อมูลโรงพยาบาล</span></div><p class="muted" style="white-space:normal">บันทึกส่วนกลาง ใช้ร่วมกันทุกเครื่องและหน้าผู้ป่วย</p><div class="f"><label for="org_logoUrl">โลโก้หน่วยงาน (URL รูปภาพ HTTPS)</label><input id="org_logoUrl" type="url" maxlength="2000" placeholder="https://example.org/logo.png"><small class="muted">วางลิงก์ตรงของภาพ PNG, JPG หรือ WebP · เว้นว่างเพื่อใช้โลโก้เดิม</small><img id="orgLogoPreview" alt="ตัวอย่างโลโก้หน่วยงาน" style="display:none;max-width:120px;height:90px;object-fit:contain;margin-top:10px"></div><div class="f"><label for="org_hospitalName">ชื่อโรงพยาบาล</label><input id="org_hospitalName" maxlength="120" required></div><div class="f"><label for="org_department">ชื่อหน่วยงาน / ห้องยา</label><input id="org_department" maxlength="80" required></div><div class="f"><label for="org_phone">เบอร์โทรศัพท์</label><input id="org_phone" maxlength="40" ></div><div class="f"><label for="org_extensions">เบอร์ต่อ</label><input id="org_extensions" maxlength="80" ></div><div class="f"><label for="org_address">ที่อยู่โรงพยาบาล</label><input id="org_address" maxlength="300" ></div><div class="f"><label for="org_sender">ข้อความผู้ส่งบนจ่าหน้าซอง</label><input id="org_sender" maxlength="500" ></div><button class="btn btn-primary" id="orgSave" type="button" data-needs-db>บันทึกข้อมูลโรงพยาบาล</button></section><div class="f"><label for="dbUrl">Web App URL</label><input id="dbUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></div>
         <div class="row-btns"><button class="btn btn-primary" type="button" id="dbSave">เชื่อมต่อ</button><button class="btn btn-ghost" type="button" id="dbRefresh">ดึงข้อมูลล่าสุด</button></div>
         <p class="muted" id="dbState" style="white-space:normal"></p>
         <div class="f" style="margin-top:18px"><label for="drugImport">นำเข้ารายชื่อยา (.txt หรือ .csv คอลัมน์แรกเป็นชื่อยา)</label><input id="drugImport" type="file" accept=".txt,.csv,text/plain,text/csv"></div>
@@ -500,7 +501,7 @@
 
     /* ===== สถานะของหน้า ===== */
     let organization = { ...OWED_CONFIG.organization }, organizationIsCentral = false;
-    function applyOrganization(value) { organizationIsCentral = Boolean(value); organization = { ...OWED_CONFIG.organization, ...(value || {}) }; $('#orgHeader').textContent = organization.department + ' · ' + organization.hospitalName; }
+    function applyOrganization(value) { organizationIsCentral = Boolean(value); organization = { ...OWED_CONFIG.organization, ...(value || {}) }; $('#orgHeader').textContent = organization.department + ' · ' + organization.hospitalName; $('#orgBrandLogo').innerHTML = organization.logoUrl ? '<img src="' + esc(organization.logoUrl) + '" alt="โลโก้หน่วยงาน" style="width:100%;height:100%;object-fit:contain">' : '℞'; }
     const state = { items: [], holidays: [], clinics: [], drugNames: [], filter: 'all', sel: null, online: false, busy: false };
     let zipIndex = null, imp = null, editing = null, formDrugs = [], formRounds = [];
 
@@ -539,7 +540,7 @@
       if (!response.ok || !data.ok) throw new Error(data.err || data.error || 'connection_failed');
       return data;
     }
-    const ERRORS = { organization_required: 'กรุณาระบุชื่อโรงพยาบาลและหน่วยงาน', clinic_in_use: 'ลบไม่ได้ เพราะยังมีใบแจ้งของคลินิกนี้อยู่', clinic_required: 'ต้องมีอย่างน้อย 1 คลินิก', forbidden: 'สิทธิ์ไม่พอ ต้องเป็นผู้ดูแล', wrong_password: 'รหัสผ่านปัจจุบันไม่ถูกต้อง', invalid_password: 'รหัสผ่านต้องยาว 6–64 ตัวอักษร', invalid_username: 'ชื่อผู้ใช้ใช้ได้เฉพาะ a-z 0-9 . _ - ยาว 3–30 ตัว', invalid_name: 'กรุณาใส่ชื่อที่แสดง', username_taken: 'ชื่อผู้ใช้นี้มีอยู่แล้ว', cannot_change_self: 'ระงับหรือลดสิทธิ์ตัวเองไม่ได้', locked: 'ใส่รหัสผิดหลายครั้ง ชื่อผู้ใช้นี้ถูกล็อก 15 นาที', central_timeout: 'ฐานข้อมูลกลางตอบช้า กรุณาลองใหม่', unauthorized: 'สิทธิ์เข้าใช้หมดอายุ กรุณาเข้าสู่ระบบใหม่', deployment_not_found: 'ไม่พบ Deployment ของ Apps Script', 'unknown action': 'Apps Script ยังเป็นเวอร์ชันเก่า กรุณา Deploy เป็น New version', not_found: 'ไม่พบรายการนี้ในฐานข้อมูลกลาง' };
+    const ERRORS = { invalid_logo_url: 'กรุณาใช้ URL รูปภาพที่ขึ้นต้นด้วย https://', organization_required: 'กรุณาระบุชื่อโรงพยาบาลและหน่วยงาน', clinic_in_use: 'ลบไม่ได้ เพราะยังมีใบแจ้งของคลินิกนี้อยู่', clinic_required: 'ต้องมีอย่างน้อย 1 คลินิก', forbidden: 'สิทธิ์ไม่พอ ต้องเป็นผู้ดูแล', wrong_password: 'รหัสผ่านปัจจุบันไม่ถูกต้อง', invalid_password: 'รหัสผ่านต้องยาว 6–64 ตัวอักษร', invalid_username: 'ชื่อผู้ใช้ใช้ได้เฉพาะ a-z 0-9 . _ - ยาว 3–30 ตัว', invalid_name: 'กรุณาใส่ชื่อที่แสดง', username_taken: 'ชื่อผู้ใช้นี้มีอยู่แล้ว', cannot_change_self: 'ระงับหรือลดสิทธิ์ตัวเองไม่ได้', locked: 'ใส่รหัสผิดหลายครั้ง ชื่อผู้ใช้นี้ถูกล็อก 15 นาที', central_timeout: 'ฐานข้อมูลกลางตอบช้า กรุณาลองใหม่', unauthorized: 'สิทธิ์เข้าใช้หมดอายุ กรุณาเข้าสู่ระบบใหม่', deployment_not_found: 'ไม่พบ Deployment ของ Apps Script', 'unknown action': 'Apps Script ยังเป็นเวอร์ชันเก่า กรุณา Deploy เป็น New version', not_found: 'ไม่พบรายการนี้ในฐานข้อมูลกลาง' };
     const errText = e => ERRORS[e && e.message] || 'ติดต่อฐานข้อมูลกลางไม่ได้ (' + (e && e.message || 'unknown') + ')';
     function setOnline(online, message) {
       state.online = online;
@@ -1008,7 +1009,7 @@
       const drugRows = i.drugs.length ? i.drugs.map((d,j) => { const info = readDrugDescription(d.name); return `<div class="nv-drug-row nv-drug-filled">${j+1}. ${esc(info.name)} / ${esc(info.usage || d.usage || d.instructions || 'วิธีใช้ ................')} / ${perRound(i, j)} ${esc(d.unit)} ต่อรอบ</div>`; }).join('') : Array.from({ length: 6 }, (_,k) => `<div class="nv-drug-row">${k+1}.<span></span></div>`).join('');
       const tick = method => `<span class="nv-check">${!C.isDraft(i) && i.receiveMethod === method ? '✓' : ''}</span>`;
       const recipient = esc(i.recipientName || i.patient || dots);
-      const noticeHeader = (part, label) => `<header class="${part === 1 ? 'nv-staff-header' : 'nv-patient-header'}"><div class="nv-header-logo"><div class="nv-logo"></div></div><div class="nv-header-main"><div class="nv-header-title"><b>ใบแจ้ง รับยาคลินิกเติมยา</b></div><div class="nv-document-number">เลขที่ <strong>${esc(i.id)}</strong></div><div class="nv-section-label nv-red">ส่วนที่ ${part} สำหรับ${label}</div></div><div class="nv-header-person"><div class="nv-person-line">ชื่อ<span class="nv-person-value">${esc(i.patient || '')}</span></div><div class="nv-person-line">HN<span class="nv-person-value">${esc(i.hn || '')}</span></div></div></header>`;
+      const noticeHeader = (part, label) => `<header class="${part === 1 ? 'nv-staff-header' : 'nv-patient-header'}"><div class="nv-header-logo">${organization.logoUrl ? `<img class="nv-logo nv-custom-logo" src="${esc(organization.logoUrl)}" alt="โลโก้หน่วยงาน">` : '<div class="nv-logo"></div>'}</div><div class="nv-header-main"><div class="nv-header-title"><b>ใบแจ้ง รับยาคลินิกเติมยา</b></div><div class="nv-document-number">เลขที่ <strong>${esc(i.id)}</strong></div><div class="nv-section-label nv-red">ส่วนที่ ${part} สำหรับ${label}</div></div><div class="nv-header-person"><div class="nv-person-line">ชื่อ<span class="nv-person-value">${esc(i.patient || '')}</span></div><div class="nv-person-line">HN<span class="nv-person-value">${esc(i.hn || '')}</span></div></div></header>`;
       return `<div class="ps-sheet nv-sheet"><div class="nv-staff">${noticeHeader(1, 'เจ้าหน้าที่')}<div class="nv-staff-grid"><div class="nv-staff-left"><section class="nv-receive"><b>${tick('self')} ผู้ป่วยประสงค์มารับยาด้วยตนเอง</b><div class="nv-recipient">ลงชื่อ<span class="nv-write"></span><span>(ผู้ป่วย/ญาติ)</span></div></section><section class="nv-receive"><b>${tick('mail')} ผู้ป่วยประสงค์ให้ส่งไปรษณีย์</b><div>(มีค่าใช้จ่ายในการจัดส่งยา 55 บาทต่อครั้ง)</div><div class="nv-recipient">ลงชื่อ<span class="nv-write"></span><span>(ผู้ป่วย/ญาติ)</span></div></section><section class="nv-staff-dates"><h3>บันทึกการรับยา</h3>${dates(true)}</section></div><div class="nv-staff-right"><section class="nv-phone"><b>เบอร์โทรที่สามารถติดต่อได้</b><div>1. <span class="nv-red-cross">×</span><span class="nv-phone-line">${esc(i.phone1 || '')}</span></div><div>2. <span class="nv-red-cross">×</span><span class="nv-phone-line">${esc(i.phone2 || '')}</span></div></section><section class="nv-address"><b>ที่อยู่</b> สำหรับจัดส่งยาทางไปรษณีย์<div class="nv-address-text"><span class="nv-red-cross">×</span>${esc(i.address || '')}</div></section><section class="nv-drugs${i.drugs.length ? '' : ' nv-empty-drugs'}"><h3>รายการยาที่แพทย์นัดรับ</h3><div>ชื่อยา / วิธีใช้ / จำนวน</div>${drugRows}</section></div></div></div><div class="nv-cut"></div><div class="nv-patient">${noticeHeader(2, 'ผู้ป่วย')}<div class="nv-patient-grid"><div class="nv-instructions"><b>• &nbsp;กรณีประสงค์มารับยาด้วยตนเอง</b><i>*โปรดนำเอกสารนี้มาติดต่อเพื่อรับยา*</i><p>1. ลงทะเบียนผู้ป่วยที่ห้องเวชระเบียนเบอร์ 1</p><p>2. ติดต่อห้องจ่ายยาคลินิกเติมยา</p><p class="nv-no-doctor">และยื่นเอกสารเพื่อขอรับยา โดยไม่ต้องพบแพทย์</p><b>• &nbsp;กรณีประสงค์ให้ส่งไปรษณีย์</b><p>จะมีค่าใช้จ่ายการจัดส่งยาทุกพื้นที่ 55 บาท</p><p>โดยจะจัดเก็บค่าใช้จ่ายแบบชำระปลายทาง</p><div class="nv-pharmacist"><b>เภสัชกร</b><span></span><small class="nv-signature-date"><span>วันที่</span><span class="nv-date-blank"></span><span>/</span><span class="nv-date-blank"></span><span>/</span><span class="nv-date-blank"></span></small></div></div><div class="nv-patient-right${pending.length ? '' : ' nv-empty-dates'}"><h3>วันที่นัดรับยา / ส่งยาทางไปรษณีย์</h3><div class="nv-patient-dates">${dates(false)}</div><div class="nv-qr"><canvas data-qr="${n}"></canvas><small>ท่านสามารถสแกน QR code นี้ เพื่อติดตามสถานะนัดรับยา</small></div><div class="nv-contact">หากมีข้อสอบถามกรุณาติดต่อกลับ${esc(organization.department)}<br>${esc(organization.hospitalName)}<br>โทร ${esc(organization.phone)}${organization.extensions ? ' ต่อ ' + esc(organization.extensions) : ''}</div></div></div></div></div>`;
     }
     const pageSize = size => { $('#pageSize').textContent = `@media print{@page{size:${size};margin:0}}`; };
@@ -1093,7 +1094,7 @@
     };
 
     /* ===== ตั้งค่า ===== */
-    $('#settingsBtn').onclick = () => { Object.keys(OWED_CONFIG.organization).forEach(k => { $('#org_' + k).value = organization[k] || ''; }); $('#dbUrl').value = endpoint(); $('#senderText').value = senderText(); renderClinics(); overlay('settings'); };
+    $('#settingsBtn').onclick = () => { Object.keys(OWED_CONFIG.organization).forEach(k => { $('#org_' + k).value = organization[k] || ''; }); updateOrgLogoPreview(); $('#dbUrl').value = endpoint(); $('#senderText').value = senderText(); renderClinics(); overlay('settings'); };
 
     /* ===== คลินิก (ตั้งค่า · ผู้ดูแลแก้ได้) ===== */
     function renderClinics() {
@@ -1112,6 +1113,8 @@
       const name = e.target.value.trim(); if (!name) { renderClinics(); return; }
       saveClinics(state.clinics.map((c, j) => (j === +k ? { code: c.code, name } : c)), `✓ เปลี่ยนชื่อเป็น ${name} แล้ว`);
     });
+    function updateOrgLogoPreview() { const value = $('#org_logoUrl').value.trim(), img = $('#orgLogoPreview'); img.style.display = /^https:\/\//i.test(value) ? 'block' : 'none'; if (/^https:\/\//i.test(value)) img.src = value; else img.removeAttribute('src'); }
+    $('#org_logoUrl').addEventListener('input', updateOrgLogoPreview);
     $('#orgSave').onclick = () => {
       if (!isAdmin()) return;
       const profile = {}; for (const k of Object.keys(OWED_CONFIG.organization)) { const input = $('#org_' + k); if (!input.reportValidity()) return; profile[k] = input.value.trim(); }
