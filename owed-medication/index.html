@@ -501,7 +501,7 @@
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     /* ===== สถานะของหน้า ===== */
-    let organization = { ...OWED_CONFIG.organization }, organizationIsCentral = false;
+    let organization = { ...OWED_CONFIG.organization }, organizationIsCentral = false, organizationLogoUpload = false;
     function applyOrganization(value) { organizationIsCentral = Boolean(value); organization = { ...OWED_CONFIG.organization, ...(value || {}) }; $('#orgHeader').textContent = organization.department + ' · ' + organization.hospitalName; $('#orgBrandLogo img').src = organization.logoUrl || '../logo.png'; }
     const state = { items: [], holidays: [], clinics: [], drugNames: [], filter: 'all', sel: null, online: false, busy: false };
     let zipIndex = null, imp = null, editing = null, formDrugs = [], formRounds = [];
@@ -541,7 +541,7 @@
       if (!response.ok || !data.ok) throw new Error(data.err || data.error || 'connection_failed');
       return data;
     }
-    const ERRORS = { invalid_logo_url: 'โลโก้ไม่ถูกต้องหรือใหญ่เกินไป กรุณาเลือกรูปใหม่หรือใช้ลิงก์ HTTPS', organization_required: 'กรุณาระบุชื่อโรงพยาบาลและหน่วยงาน', clinic_in_use: 'ลบไม่ได้ เพราะยังมีใบแจ้งของคลินิกนี้อยู่', clinic_required: 'ต้องมีอย่างน้อย 1 คลินิก', forbidden: 'สิทธิ์ไม่พอ ต้องเป็นผู้ดูแล', wrong_password: 'รหัสผ่านปัจจุบันไม่ถูกต้อง', invalid_password: 'รหัสผ่านต้องยาว 6–64 ตัวอักษร', invalid_username: 'ชื่อผู้ใช้ใช้ได้เฉพาะ a-z 0-9 . _ - ยาว 3–30 ตัว', invalid_name: 'กรุณาใส่ชื่อที่แสดง', username_taken: 'ชื่อผู้ใช้นี้มีอยู่แล้ว', cannot_change_self: 'ระงับหรือลดสิทธิ์ตัวเองไม่ได้', locked: 'ใส่รหัสผิดหลายครั้ง ชื่อผู้ใช้นี้ถูกล็อก 15 นาที', central_timeout: 'ฐานข้อมูลกลางตอบช้า กรุณาลองใหม่', unauthorized: 'สิทธิ์เข้าใช้หมดอายุ กรุณาเข้าสู่ระบบใหม่', deployment_not_found: 'ไม่พบ Deployment ของ Apps Script', 'unknown action': 'Apps Script ยังเป็นเวอร์ชันเก่า กรุณา Deploy เป็น New version', not_found: 'ไม่พบรายการนี้ในฐานข้อมูลกลาง' };
+    const ERRORS = { logo_too_large: 'รูปหลังย่อยังเกินขนาดที่จัดเก็บได้', invalid_logo_format: 'รูปแบบโลโก้ไม่ถูกต้อง กรุณาเลือกไฟล์ใหม่หรือใช้ลิงก์ HTTPS', invalid_logo_url: 'โลโก้ไม่ถูกต้องหรือใหญ่เกินไป กรุณาเลือกรูปใหม่หรือใช้ลิงก์ HTTPS', organization_required: 'กรุณาระบุชื่อโรงพยาบาลและหน่วยงาน', clinic_in_use: 'ลบไม่ได้ เพราะยังมีใบแจ้งของคลินิกนี้อยู่', clinic_required: 'ต้องมีอย่างน้อย 1 คลินิก', forbidden: 'สิทธิ์ไม่พอ ต้องเป็นผู้ดูแล', wrong_password: 'รหัสผ่านปัจจุบันไม่ถูกต้อง', invalid_password: 'รหัสผ่านต้องยาว 6–64 ตัวอักษร', invalid_username: 'ชื่อผู้ใช้ใช้ได้เฉพาะ a-z 0-9 . _ - ยาว 3–30 ตัว', invalid_name: 'กรุณาใส่ชื่อที่แสดง', username_taken: 'ชื่อผู้ใช้นี้มีอยู่แล้ว', cannot_change_self: 'ระงับหรือลดสิทธิ์ตัวเองไม่ได้', locked: 'ใส่รหัสผิดหลายครั้ง ชื่อผู้ใช้นี้ถูกล็อก 15 นาที', central_timeout: 'ฐานข้อมูลกลางตอบช้า กรุณาลองใหม่', unauthorized: 'สิทธิ์เข้าใช้หมดอายุ กรุณาเข้าสู่ระบบใหม่', deployment_not_found: 'ไม่พบ Deployment ของ Apps Script', 'unknown action': 'Apps Script ยังเป็นเวอร์ชันเก่า กรุณา Deploy เป็น New version', not_found: 'ไม่พบรายการนี้ในฐานข้อมูลกลาง' };
     const errText = e => ERRORS[e && e.message] || 'ติดต่อฐานข้อมูลกลางไม่ได้ (' + (e && e.message || 'unknown') + ')';
     function setOnline(online, message) {
       state.online = online;
@@ -558,7 +558,7 @@
         const data = await call('list');
         if (seq !== loadSeq) return state.items;
         state.items = data.items || []; state.holidays = data.holidays || []; state.clinics = data.clinics || [{ code: 'ORTHO', name: 'ศัลยกรรมกระดูกและข้อ' }, { code: 'URO', name: 'ระบบทางเดินปัสสาวะ (URO)' }]; if (data.me) setUser(data.me);
-        applyOrganization(data.organization); setOnline(true); render(); loadDrugNames().catch(() => {});
+        organizationLogoUpload = data.organizationLogoUpload === true; applyOrganization(data.organization); setOnline(true); render(); loadDrugNames().catch(() => {});
         return state.items;
       } catch (error) {
         if (seq !== loadSeq) return state.items;
@@ -1115,21 +1115,35 @@
       saveClinics(state.clinics.map((c, j) => (j === +k ? { code: c.code, name } : c)), `✓ เปลี่ยนชื่อเป็น ${name} แล้ว`);
     });
     let uploadedOrgLogo = '', orgLogoBusy = false;
-    function updateOrgLogoPreview() { const value = uploadedOrgLogo || $('#org_logoUrl').value.trim(), img = $('#orgLogoPreview'); img.style.display = /^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/i.test(value) ? 'block' : 'none'; if (/^https:\/\//i.test(value)) img.src = value; else img.removeAttribute('src'); }
+    function updateOrgLogoPreview() {
+      const value = uploadedOrgLogo || $('#org_logoUrl').value.trim(), img = $('#orgLogoPreview');
+      const valid = /^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/i.test(value);
+      img.style.display = valid ? 'block' : 'none'; if (valid) img.src = value; else img.removeAttribute('src');
+    }
+    function resizeOrgLogo(img) {
+      for (const size of [256,224,192,160,128]) {
+        const scale = Math.min(1, size / Math.max(img.naturalWidth, img.naturalHeight));
+        const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(img.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        for (const quality of [0.85,0.7,0.55]) { const data = canvas.toDataURL('image/webp', quality); if (data.length <= 96000) return data; }
+      }
+      throw new Error('logo_too_large');
+    }
     $('#orgLogoReset').onclick = () => { uploadedOrgLogo = ''; $('#org_logoUrl').value = ''; $('#orgLogoFile').value = ''; updateOrgLogoPreview(); };
     $('#org_logoUrl').addEventListener('input', () => { uploadedOrgLogo = ''; $('#orgLogoFile').value = ''; updateOrgLogoPreview(); });
     $('#orgLogoFile').addEventListener('change', async e => {
       const file = e.target.files[0]; if (!file) return;
       if (!['image/png','image/jpeg','image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) { e.target.value = ''; toast('เลือกรูป PNG, JPG หรือ WebP ไม่เกิน 5 MB', true); return; }
       orgLogoBusy = true; const url = URL.createObjectURL(file);
-      try { const img = new Image(); img.src = url; await img.decode(); const scale = Math.min(1, 256 / Math.max(img.naturalWidth, img.naturalHeight)); const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(img.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(img.naturalHeight * scale)); canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height); const data = canvas.toDataURL('image/webp', 0.85); if (data.length > 96000) throw new Error('large'); uploadedOrgLogo = data; $('#org_logoUrl').value = ''; updateOrgLogoPreview(); toast('เลือกรูปแล้ว กดบันทึกข้อมูลโรงพยาบาลเพื่อใช้งาน'); }
-      catch (error) { e.target.value = ''; toast('อ่านรูปไม่ได้หรือรูปใหญ่เกินไป กรุณาลองรูปอื่น', true); }
+      try { const img = new Image(); img.src = url; await img.decode(); const data = resizeOrgLogo(img); uploadedOrgLogo = data; $('#org_logoUrl').value = ''; updateOrgLogoPreview(); toast('เลือกรูปแล้ว กดบันทึกข้อมูลโรงพยาบาลเพื่อใช้งาน'); }
+      catch (error) { e.target.value = ''; toast(error.message === 'logo_too_large' ? 'ย่อรูปแล้วยังเกินขนาดที่จัดเก็บได้ กรุณาเลือกรูปอื่น' : 'อ่านไฟล์รูปไม่ได้ กรุณาเลือกไฟล์ PNG, JPG หรือ WebP ที่เปิดดูได้', true); }
       finally { orgLogoBusy = false; URL.revokeObjectURL(url); }
     });
     $('#orgSave').onclick = () => {
       if (!isAdmin()) return;
       if (orgLogoBusy) { toast('กำลังเตรียมรูป กรุณารอสักครู่'); return; }
       const profile = {}; for (const k of Object.keys(OWED_CONFIG.organization)) { const input = $('#org_' + k); if (!input.reportValidity()) return; profile[k] = input.value.trim(); }
+      if (uploadedOrgLogo && !organizationLogoUpload) { toast('Apps Script ที่เชื่อมต่อยังไม่รองรับอัปโหลดโลโก้ กรุณาอัปเดต Code.gs และ Deploy เป็น New version แล้วดึงข้อมูลล่าสุด', true); return; }
       if (uploadedOrgLogo) profile.logoUrl = uploadedOrgLogo;
       mutate('organizationSave', { organization: profile }, data => { applyOrganization(data.organization); toast('✓ บันทึกข้อมูลโรงพยาบาลส่วนกลางแล้ว'); });
     };

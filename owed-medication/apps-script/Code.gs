@@ -37,7 +37,7 @@ function writeTable_(name,fields,rows){
 /* ===== คำสั่งทั้งหมดพร้อมสิทธิ์ที่ต้องมี: public (ไม่ต้องล็อกอิน) · staff (ผู้ใช้ทุกคนที่เปิดใช้งาน) · admin ===== */
 const GET_ACTIONS={
   patient:{role:'public',fn:function(p){return patient_(p.token);}},
-  list:{role:'staff',fn:function(p,u){return {ok:1,items:load_(),holidays:holidays_(),clinics:clinics_(),organization:organization_(),me:publicUser_(u)};}},
+  list:{role:'staff',fn:function(p,u){return {ok:1,items:load_(),holidays:holidays_(),clinics:clinics_(),organization:organization_(),organizationLogoUpload:true,me:publicUser_(u)};}},
   drugList:{role:'staff',fn:function(){return {ok:1,names:drugNames_()};}},
   userList:{role:'admin',fn:function(){return {ok:1,users:users_().map(publicUser_)};}},
   auditList:{role:'admin',fn:function(){return {ok:1,entries:auditList_()};}}
@@ -394,7 +394,8 @@ function organization_(){
 
 function organizationSave_(input,actor){
   input=input||{};const logo=String(input.logoUrl||'').trim();
-  if(logo.length>100000||logo&& !(/^https:\/\/[^\s]+$/i.test(logo)&&logo.length<=2000)&&!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(logo))return {ok:0,err:'invalid_logo_url'};
+  if(logo.length>100000)return {ok:0,err:'logo_too_large'};
+  if(logo&& !(/^https:\/\/[^\s]+$/i.test(logo)&&logo.length<=2000)&&!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(logo))return {ok:0,err:'invalid_logo_format'};
   const org=normalizeOrganization_(input);if(!org.hospitalName||!org.department)return {ok:0,err:'organization_required'};
   return withLock_(function(){
     const properties=props_(),previous=properties.getProperties(),stored=Object.assign({},org);
