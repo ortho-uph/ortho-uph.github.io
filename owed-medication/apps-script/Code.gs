@@ -37,12 +37,13 @@ function writeTable_(name,fields,rows){
 /* ===== คำสั่งทั้งหมดพร้อมสิทธิ์ที่ต้องมี: public (ไม่ต้องล็อกอิน) · staff (ผู้ใช้ทุกคนที่เปิดใช้งาน) · admin ===== */
 const GET_ACTIONS={
   patient:{role:'public',fn:function(p){return patient_(p.token);}},
-  list:{role:'staff',fn:function(p,u){return {ok:1,items:load_(),holidays:holidays_(),clinics:clinics_(),me:publicUser_(u)};}},
+  list:{role:'staff',fn:function(p,u){return {ok:1,items:load_(),holidays:holidays_(),clinics:clinics_(),organization:organization_(),me:publicUser_(u)};}},
   drugList:{role:'staff',fn:function(){return {ok:1,names:drugNames_()};}},
   userList:{role:'admin',fn:function(){return {ok:1,users:users_().map(publicUser_)};}},
   auditList:{role:'admin',fn:function(){return {ok:1,entries:auditList_()};}}
 };
 const POST_ACTIONS={
+  organizationSave:{role:'admin',fn:function(r,u){return organizationSave_(r.organization,u);}},
   login:{role:'public',fn:function(r){return login_(r.username,r.password);}},
   bootstrapAdmin:{role:'public',fn:function(r){return apiKeyOk_(r)?bootstrapAdmin_(r):{ok:0,err:'unauthorized'};}},
   logout:{role:'staff',fn:function(r){cache_().remove('SESSION_'+String(r.session));return {ok:1};}},
@@ -293,7 +294,7 @@ function patient_(token){
   token=String(token||'');
   const item=token?load_().filter(function(x){return x.publicToken===token;})[0]:null;
   if(!item)return {ok:0,err:'not_found'};
-  return {ok:1,item:{id:item.id,patient:mask_(item.patient),receiveMethod:item.receiveMethod,note:item.note,firstDate:item.firstDate,
+  return {ok:1,organization:organization_(),item:{id:item.id,patient:mask_(item.patient),receiveMethod:item.receiveMethod,note:item.note,firstDate:item.firstDate,
     drugs:item.drugs.map(function(d){return {name:d.name,unit:d.unit,got:d.got};}),rounds:item.rounds,updatedAt:item.updatedAt}};
 }
 
@@ -379,4 +380,18 @@ function installAutoCompleteDeliveries() {
   const exists=ScriptApp.getProjectTriggers().some(function(t){return t.getHandlerFunction()==='autoCompleteDeliveries';});
   if(!exists)ScriptApp.newTrigger('autoCompleteDeliveries').timeBased().everyHours(1).create();
   return {ok:1,installed:true};
+}
+
+/* ===== ข้อมูลโรงพยาบาลส่วนกลาง: เฉพาะข้อมูลติดต่อสาธารณะ ===== */
+function normalizeOrganization_(input){
+  input=input||{};const limits={hospitalName:120,department:80,phone:40,extensions:80,address:300,sender:500},out={};
+  Object.keys(limits).forEach(function(k){out[k]=clean_(input[k],limits[k]);});return out;
+}
+function organization_(){
+  const stored=props_().getProperty('ORGANIZATION_PROFILE');if(!stored)return null;
+  try{return normalizeOrganization_(JSON.parse(stored));}catch(e){return null;}
+}
+function organizationSave_(input,actor){
+  const org=normalizeOrganization_(input);if(!org.hospitalName||!org.department)return {ok:0,err:'organization_required'};
+  return withLock_(function(){props_().setProperty('ORGANIZATION_PROFILE',JSON.stringify(org));audit_(actor,'organization','','แก้ไขข้อมูลโรงพยาบาล');return {ok:1,organization:org};});
 }

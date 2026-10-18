@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="config.js"></script>
+  <script src="config.js?v=20261018-org"></script>
   <script src="core.js?v=20261016-refill"></script>
   <style>
     :root{--brand:#5b2186;--ink:#1f2433;--muted:#6b7385;--wait:#9a6200;--wait-bg:#fff4dc;--ready:#0b7a55;--ready-bg:#dcf5ea;--ship:#1b5fa8;--ship-bg:#e1eeff;--done:#4b5163;--done-bg:#eceef3}
@@ -56,14 +56,20 @@
   </style>
 </head>
 <body>
-  <header class="hero"><div class="org"><img src="../logo.png" alt="">ห้องยา โรงพยาบาลมหาวิทยาลัยพะเยา</div><h1>ติดตามการรับยาของ</h1><div class="name" id="name">…</div></header>
+  <header class="hero"><div class="org"><img src="../logo.png" alt=""><span id="orgName">ห้องยา โรงพยาบาลมหาวิทยาลัยพะเยา</span></div><h1>ติดตามการรับยาของ</h1><div class="name" id="name">…</div></header>
   <main class="content" id="content"><p class="loading">กำลังตรวจสอบสถานะ…</p></main>
   <script>
     const C = RefillCore;
     const $ = id => document.getElementById(id);
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const API = OWED_CONFIG.endpoint;
-    const PHONE = '<a class="call" href="tel:054466666">☎ โทรหาห้องยา</a><p class="callsub">054-466-666 ต่อ 7121, 7123, 7408</p>';
+    let PHONE = '<a class="call" href="tel:054466666">☎ โทรหาห้องยา</a><p class="callsub">054-466-666 ต่อ 7121, 7123, 7408</p>';
+    function applyOrganization(profile) {
+      const org = { ...OWED_CONFIG.organization, ...(profile || {}) };
+      $('orgName').textContent = org.department + ' ' + org.hospitalName;
+      const number = org.phone.replace(/[^+0-9]/g, '');
+      PHONE = (number ? '<a class="call" href="tel:' + esc(number) + '">☎ โทรหา' + esc(org.department) + '</a>' : '') + '<p class="callsub">' + esc(org.phone) + (org.extensions ? ' ต่อ ' + esc(org.extensions) : '') + '</p>';
+    }
     const token = new URLSearchParams(location.search).get('token');
 
     function fail(title, message) { $('name').textContent = ''; $('content').innerHTML = `<section class="card error"><h2>${esc(title)}</h2><p>${esc(message)}</p></section>${PHONE}`; }
@@ -101,7 +107,7 @@
     else if (!API) fail('ระบบยังไม่พร้อมใช้งาน', 'กรุณาติดต่อห้องยา');
     else fetch(API + '?action=patient&token=' + encodeURIComponent(token) + '&_=' + Date.now(), { cache: 'no-store' })
       .then(r => r.json())
-      .then(data => { if (!data.ok) throw new Error('not_found'); render(data.item); })
+      .then(data => { if (!data.ok) throw new Error('not_found'); applyOrganization(data.organization); render(data.item); })
       .catch(error => (error.message === 'not_found' ? fail('ไม่พบรายการ', 'ใบแจ้งนี้อาจถูกยกเลิก กรุณาติดต่อห้องยา') : fail('ยังเชื่อมต่อไม่ได้', 'กรุณาลองใหม่ภายหลัง หรือติดต่อห้องยา')));
   </script>
 </body>
