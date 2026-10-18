@@ -41,6 +41,7 @@
     .search input{width:100%;padding:10px 14px 10px 38px;border:1px solid var(--line);border-radius:12px;background:#f8f8fb}
     .search input:focus{outline:2px solid #c9b2e3;background:#fff}
     .search:before{content:"⌕";position:absolute;left:13px;top:50%;transform:translateY(-52%);font-size:19px;color:var(--muted)}
+    .logo #orgBrandLogo{width:44px;height:48px;background:transparent;border-radius:0;flex-shrink:0}.logo #orgBrandLogo img{display:block;width:100%;height:100%;object-fit:contain}
     .btn{border:0;border-radius:11px;padding:10px 15px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap}
     .btn-primary{background:var(--brand);color:#fff}.btn-primary:hover:not(:disabled){background:#4c1b70}
     .btn-ghost{background:#f1f1f6}.btn-ghost:hover:not(:disabled){background:#e7e7ef}
@@ -351,7 +352,7 @@
   </section>
 
   <header class="appbar">
-    <a class="logo" href="../"><i id="orgBrandLogo">℞</i><div>คลินิกเติมยา<small id="orgHeader">ห้องยา · โรงพยาบาลมหาวิทยาลัยพะเยา</small></div></a>
+    <a class="logo" href="../"><i id="orgBrandLogo"><img src="../logo.png" alt="โลโก้หน่วยงาน"></i><div>คลินิกเติมยา<small id="orgHeader">ห้องยา · โรงพยาบาลมหาวิทยาลัยพะเยา</small></div></a>
     <select class="clinic" id="clinic" aria-label="คลินิก"></select>
     <label class="search"><input id="q" placeholder="ค้นหา HN, ชื่อ, เลขที่ใบแจ้ง หรือชื่อยา (กด /)"></label>
     <button class="btn btn-ghost" id="holBtn" type="button">📅 วันหยุด</button>
@@ -501,7 +502,7 @@
 
     /* ===== สถานะของหน้า ===== */
     let organization = { ...OWED_CONFIG.organization }, organizationIsCentral = false;
-    function applyOrganization(value) { organizationIsCentral = Boolean(value); organization = { ...OWED_CONFIG.organization, ...(value || {}) }; $('#orgHeader').textContent = organization.department + ' · ' + organization.hospitalName; $('#orgBrandLogo').innerHTML = organization.logoUrl ? '<img src="' + esc(organization.logoUrl) + '" alt="โลโก้หน่วยงาน" style="width:100%;height:100%;object-fit:contain">' : '℞'; }
+    function applyOrganization(value) { organizationIsCentral = Boolean(value); organization = { ...OWED_CONFIG.organization, ...(value || {}) }; $('#orgHeader').textContent = organization.department + ' · ' + organization.hospitalName; $('#orgBrandLogo img').src = organization.logoUrl || '../logo.png'; }
     const state = { items: [], holidays: [], clinics: [], drugNames: [], filter: 'all', sel: null, online: false, busy: false };
     let zipIndex = null, imp = null, editing = null, formDrugs = [], formRounds = [];
 
