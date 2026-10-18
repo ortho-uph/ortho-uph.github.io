@@ -738,7 +738,7 @@
         return;
       }
       const n = C.next(i);
-      const drugTable = `<table class="mini"><thead><tr><th>รายการยา</th><th>วิธีใช้</th><th>จำนวน</th></tr></thead><tbody>${i.drugs.map(d => { const info = readDrugDescription(d.name); return `<tr><td>${esc(info.name)}</td><td>${esc(info.usage || '—')}</td><td>${(i.rounds.find(r => r.status !== 'received') || i.rounds[0] || {qty:[]}).qty[i.drugs.indexOf(d)] || 0} ${esc(d.unit)} ต่อรอบ</td></tr>`; }).join('')}</tbody></table>`;
+      const drugTable = `<table class="mini"><thead><tr><th>รายการยา</th><th>วิธีใช้</th><th>จำนวน</th></tr></thead><tbody>${i.drugs.map(d => { const info = readDrugDescription(d.name); return `<tr><td>${esc(info.name)}</td><td>${esc(info.usage || '—')}</td><td>${perRound(i, i.drugs.indexOf(d))} ${esc(d.unit)} ต่อรอบ</td></tr>`; }).join('')}</tbody></table>`;
       const roundRows = (i.firstDate ? [`<div class="rd done"><i>✓</i><div><b>จ่ายครั้งแรก · ${C.dateDay(i.firstDate)}</b></div><span class="round-received">✓ รับยาแล้ว</span></div>`] : [])
         .concat(i.rounds.map((r, k) => { const isCur = k === C.cur(i), done = r.status === 'received'; return `<div class="rd ${done ? 'done' : isCur ? 'cur' : ''}"><i>${done ? '✓' : k + 1}</i><div><b>นัดที่ ${k + 1} · หลัง ${C.dateDay(r.date)}${done ? '' : offTag(r.date)}</b></div>${isCur ? `<div class="round-actions">${pill(r.status)}${n ? `<button class="btn btn-primary" data-move="${esc(i.id)}" data-round="${k}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>${n[1]} →</button>` : ''}<button class="btn btn-ghost" data-roundstatus="${esc(i.id)}" data-round="${k}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>แก้ไขสถานะ</button></div>` : done ? `<div class="round-actions"><span class="round-received">✓ รับยาแล้ว</span><button class="btn btn-ghost" data-roundstatus="${esc(i.id)}" data-round="${k}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>แก้ไขสถานะ</button></div>` : `<div class="round-actions">${pill(r.status)}</div>`}</div>`; }));
       $('#panel').innerHTML = `${head}
@@ -817,8 +817,8 @@
         + formRounds.map((r, k) => { const locked = r.status === 'received'; return `<div class="rgrid" style="grid-template-columns:${cols}"><span class="rno">นัดที่ ${k + 1}</span><input type="date" data-k="${k}" data-f="date" value="${r.date}" ${locked ? 'disabled' : ''}>${formDrugs.map((d, j) => `<input type="number" min="0" data-k="${k}" data-f="q${j}" value="${r.qty[j] || ''}" placeholder="0" ${locked ? 'disabled' : ''}>`).join('')}${locked ? '<span class="lock" title="รับแล้ว">✓</span>' : `<button type="button" data-delround="${k}" title="ลบนัดนี้">✕</button>`}</div>${locked ? '' : roundNote(r, k)}`; }).join('');
       $('#sumcheck').innerHTML = formDrugs.map((d, j) => {
         if (d.quantity === '') return '';
-        const sum = formRounds.reduce((a, r) => a + (+r.qty[j] || 0), 0), need = formLeft(j), name = esc(d.name || 'ยาที่ ' + (j + 1));
-        return `<div class="sumcheck ok">${name}: ${need} ${esc(d.unit)} ต่อรอบ · ${formRounds.length} นัด · รวมตามตาราง ${sum} ${esc(d.unit)}</div>`;
+        const need = formLeft(j), name = esc(d.name || 'ยาที่ ' + (j + 1));
+        return `<div class="sumcheck ok">${name}: ${need} ${esc(d.unit)} ต่อรอบ · ${formRounds.length} นัด</div>`;
       }).join('');
     }
     function planRounds() {
@@ -993,13 +993,15 @@
 
     /* ===== ใบแจ้ง A4: วางข้อมูลลงแบบฟอร์มตามตำแหน่ง (% ของหน้ากระดาษ) ===== */
     // ใบที่ยังไม่มีรายการยา (ใบเปล่าที่จองเลขไว้ หรือรายชื่อที่นำเข้า) พิมพ์เฉพาะเลขที่ QR และข้อมูลผู้ป่วยที่มี ที่เหลือเว้นไว้เขียนมือ
+    // จำนวนยาต่อรอบ = จำนวนในนัดที่ยังไม่ได้รับนัดแรก (ไม่รวมยอดของทุกนัด)
+    const perRound = (i, j) => (i.rounds.find(r => r.status !== 'received') || i.rounds[0] || { qty: [] }).qty[j] || 0;
     function sheetHtml(i, n) {
       const dots = '........................................';
       const person = esc(i.patient || dots), hn = esc(i.hn || '........................');
       const pending = i.rounds.map((r, k) => ({ ...r, number: k + 1 })).filter(r => r.status !== 'received' && r.date);
       const appointments = pending.length ? pending : Array.from({ length: 4 }, (_, k) => ({ number: k + 1 }));
       const dates = staff => appointments.map(r => `<div class="nv-appointment"><span>• ครั้งที่ ${r.number} วันที่</span><span class="nv-write">${r.date ? esc(C.dateLong(r.date)) : ''}</span>${staff ? '<span>เภสัชกร</span><span class="nv-sign"></span>' : ''}</div>`).join('');
-      const drugRows = i.drugs.length ? i.drugs.map((d,j) => { const info = readDrugDescription(d.name); return `<div class="nv-drug-row nv-drug-filled">${j+1}. ${esc(info.name)} / ${esc(info.usage || d.usage || d.instructions || 'วิธีใช้ ................')} / ${Math.max(0, (+d.rx || 0) - (+d.got || 0))} ${esc(d.unit)}</div>`; }).join('') : Array.from({ length: 6 }, (_,k) => `<div class="nv-drug-row">${k+1}.<span></span></div>`).join('');
+      const drugRows = i.drugs.length ? i.drugs.map((d,j) => { const info = readDrugDescription(d.name); return `<div class="nv-drug-row nv-drug-filled">${j+1}. ${esc(info.name)} / ${esc(info.usage || d.usage || d.instructions || 'วิธีใช้ ................')} / ${perRound(i, j)} ${esc(d.unit)} ต่อรอบ</div>`; }).join('') : Array.from({ length: 6 }, (_,k) => `<div class="nv-drug-row">${k+1}.<span></span></div>`).join('');
       const tick = method => `<span class="nv-check">${!C.isDraft(i) && i.receiveMethod === method ? '✓' : ''}</span>`;
       const recipient = esc(i.recipientName || i.patient || dots);
       const noticeHeader = (part, label) => `<header class="${part === 1 ? 'nv-staff-header' : 'nv-patient-header'}"><div class="nv-header-logo"><div class="nv-logo"></div></div><div class="nv-header-main"><div class="nv-header-title"><b>ใบแจ้ง รับยาคลินิกเติมยา</b></div><div class="nv-document-number">เลขที่ <strong>${esc(i.id)}</strong></div><div class="nv-section-label nv-red">ส่วนที่ ${part} สำหรับ${label}</div></div><div class="nv-header-person"><div class="nv-person-line">ชื่อ<span class="nv-person-value">${esc(i.patient || '')}</span></div><div class="nv-person-line">HN<span class="nv-person-value">${esc(i.hn || '')}</span></div></div></header>`;
