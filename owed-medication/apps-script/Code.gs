@@ -432,10 +432,14 @@ function patientMessage_(req){
   });
 }
 function messageList_(){
-  const all=readTable_('PatientMessages');const unread=all.filter(function(m){return !m.readAt;}).length;
-  all.sort(function(a,b){return Number(Boolean(a.readAt))-Number(Boolean(b.readAt))||String(b.createdAt).localeCompare(String(a.createdAt));});
-  return {ok:1,unread:unread,messages:all.slice(0,200).map(function(m){return {id:m.id,slipId:m.slipId,createdAt:m.createdAt,message:m.message,readAt:m.readAt,readBy:m.readBy};})};
+  const replies=readTable_('PharmacyReplies'),lastReply={};
+  replies.forEach(function(r){if(!lastReply[r.slipId]||r.createdAt>lastReply[r.slipId])lastReply[r.slipId]=r.createdAt;});
+  const all=readTable_('PatientMessages').map(function(m){return Object.assign({},m,{unanswered:!lastReply[m.slipId]||m.createdAt>lastReply[m.slipId]});});
+  const unread=all.filter(function(m){return !m.readAt;}).length,unanswered=all.filter(function(m){return m.unanswered;}).length;
+  all.sort(function(a,b){return Number(b.unanswered)-Number(a.unanswered)||Number(Boolean(a.readAt))-Number(Boolean(b.readAt))||String(b.createdAt).localeCompare(String(a.createdAt));});
+  return {ok:1,unread:unread,unanswered:unanswered,messages:all.slice(0,200).map(function(m){return {id:m.id,slipId:m.slipId,createdAt:m.createdAt,message:m.message,readAt:m.readAt,readBy:m.readBy,unanswered:m.unanswered};})};
 }
+
 function messageRead_(id,actor){
   return withLock_(function(){
     const rows=readTable_('PatientMessages'),index=rows.findIndex(function(m){return m.id===String(id||'');});if(index<0)return {ok:0,err:'not_found'};

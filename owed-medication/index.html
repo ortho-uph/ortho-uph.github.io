@@ -43,6 +43,7 @@
     .search:before{content:"⌕";position:absolute;left:13px;top:50%;transform:translateY(-52%);font-size:19px;color:var(--muted)}
     .logo #orgBrandLogo{width:44px;height:48px;background:transparent;border-radius:0;flex-shrink:0}.logo #orgBrandLogo img{display:block;width:100%;height:100%;object-fit:contain}
     .staff-chat-log{max-height:340px;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:12px 0}.staff-chat-bubble{align-self:flex-start;max-width:85%;background:#f0edf6;padding:10px 12px;border-radius:14px;white-space:pre-wrap;overflow-wrap:anywhere}.staff-chat-bubble.mine{align-self:flex-end;background:var(--brand);color:white}.staff-chat-bubble small{display:block;font-size:11px;margin-top:6px;opacity:.8}
+    .reply-alert{display:inline-flex;gap:4px;align-items:center;padding:2px 7px;border-radius:12px;background:#f1edf7;font-size:12px;white-space:nowrap}.reply-alert.pending{background:#fee2e2;color:#a51f27}.reply-alert.pending b{font-weight:800}
     .btn{border:0;border-radius:11px;padding:10px 15px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap}
     .btn-primary{background:var(--brand);color:#fff}.btn-primary:hover:not(:disabled){background:#4c1b70}
     .btn-ghost{background:#f1f1f6}.btn-ghost:hover:not(:disabled){background:#e7e7ef}
@@ -361,7 +362,7 @@
     <button class="btn btn-outline" id="blankBtn" type="button" data-needs-db>🖨 พิมพ์ใบเปล่า</button>
     <button class="btn btn-outline" id="impBtn" type="button" data-needs-db>⇪ นำเข้าจาก Excel</button>
     <button class="btn btn-primary" id="newBtn" type="button" data-needs-db>＋ บันทึกนัดเติมยา</button>
-    <div class="bar-end"><span class="me" id="me"></span><button class="icon-btn" id="usersBtn" type="button" hidden>👥 ผู้ใช้</button><button class="icon-btn" id="messagesBtn" type="button">✉ ข้อความ <b id="messageBadge">0</b></button><button class="icon-btn" id="settingsBtn" type="button" title="ตั้งค่าการเชื่อมต่อ รายชื่อยา และที่อยู่ผู้ส่ง">⚙ ตั้งค่า</button><button class="icon-btn" id="passBtn" type="button">🔑 รหัสผ่าน</button><button class="icon-btn" id="logoutBtn" type="button">ออกจากระบบ</button></div>
+    <div class="bar-end"><span class="me" id="me"></span><button class="icon-btn" id="usersBtn" type="button" hidden>👥 ผู้ใช้</button><button class="icon-btn" id="messagesBtn" type="button">✉ ข้อความ <b id="messageBadge" title="ยังไม่อ่าน">0</b> <span class="reply-alert" id="replyAlert">รอตอบ <b id="replyBadge">—</b></span></button><button class="icon-btn" id="settingsBtn" type="button" title="ตั้งค่าการเชื่อมต่อ รายชื่อยา และที่อยู่ผู้ส่ง">⚙ ตั้งค่า</button><button class="icon-btn" id="passBtn" type="button">🔑 รหัสผ่าน</button><button class="icon-btn" id="logoutBtn" type="button">ออกจากระบบ</button></div>
   </header>
 
   <main class="page">
@@ -600,7 +601,7 @@
     const unlockStaff = () => { gate.classList.add('unlocked'); };
     function lockStaff(showSetup, message) {
       session = ''; setUser(null); setOnline(false, 'กรุณาเข้าสู่ระบบ');
-      messagesEnabled = false; chatEnabled = false; activeChatId = ''; $('#staffChatLog').replaceChildren(); $('#staffChatText').value = ''; $('#staffChat').hidden = true; $('#messageRows').hidden = false; unreadMessages = 0; $('#messageBadge').textContent = '0'; $('#messageRows').replaceChildren(); state.items = []; overlay(null); render(); gate.classList.remove('unlocked');
+      messagesEnabled = false; chatEnabled = false; activeChatId = ''; $('#staffChatLog').replaceChildren(); $('#staffChatText').value = ''; $('#staffChat').hidden = true; $('#messageRows').hidden = false; unreadMessages = 0; $('#messageBadge').textContent = '0'; $('#replyBadge').textContent = '—'; $('#replyAlert').classList.remove('pending'); $('#messageRows').replaceChildren(); state.items = []; overlay(null); render(); gate.classList.remove('unlocked');
       $('#loginPass').value = ''; $('#accessError').textContent = message || ''; $('#setupForm').hidden = !showSetup; $('#setupError').textContent = ''; $('#setupUrl').value = endpoint();
       setTimeout(() => (showSetup ? $('#setupApiKey') : $('#loginUser')).focus(), 0);
     }
@@ -1106,8 +1107,9 @@
       try {
         const data = await call('messageList'); if (session !== activeSession) return;
         const previous = unreadMessages; unreadMessages = data.unread || 0; $('#messageBadge').textContent = String(unreadMessages);
-        $('#messageState').textContent = 'ยังไม่อ่าน ' + unreadMessages + ' ข้อความ · ตรวจล่าสุด ' + new Date().toLocaleTimeString('th-TH') + ' · แสดงล่าสุดไม่เกิน 200 ข้อความ';
-        $('#messageRows').innerHTML = (data.messages || []).map(m => '<article style="padding:12px 0;border-bottom:1px solid #ddd"><b>' + esc(m.slipId) + (m.readAt ? ' · อ่านแล้ว' : ' · ข้อความใหม่') + '</b><small style="display:block">' + esc(fmtTime(m.createdAt)) + '</small><p style="white-space:pre-wrap;overflow-wrap:anywhere">' + esc(m.message) + '</p>' + (chatEnabled ? '<button class="btn btn-ghost" type="button" data-chat-open="' + esc(m.slipId) + '">💬 เปิดแชท / ตอบกลับ</button> ' : '') + (!m.readAt ? '<button class="btn btn-primary" type="button" data-message-read="' + esc(m.id) + '">อ่านแล้ว</button>' : '<small>อ่านโดย ' + esc(m.readBy) + '</small>') + '</article>').join('') || '<p class="muted">ยังไม่มีข้อความจากผู้ป่วย</p>';
+        const pending = typeof data.unanswered === 'number' ? data.unanswered : null; $('#replyBadge').textContent = pending === null ? '—' : String(pending); $('#replyAlert').classList.toggle('pending', pending > 0); $('#replyAlert').title = pending === null ? 'อัปเดต Apps Script เพื่อแสดงจำนวนที่ยังไม่ได้ตอบ' : 'ข้อความผู้ป่วยที่ยังไม่มีคำตอบจากห้องยา';
+        $('#messageState').textContent = 'ยังไม่อ่าน ' + unreadMessages + ' ข้อความ · ยังไม่ได้ตอบ ' + (pending === null ? 'ไม่พร้อมใช้งาน กรุณาอัปเดต Apps Script' : pending + ' ข้อความ') + ' · ตรวจล่าสุด ' + new Date().toLocaleTimeString('th-TH') + ' · แสดงล่าสุดไม่เกิน 200 ข้อความ';
+        $('#messageRows').innerHTML = (data.messages || []).map(m => '<article style="padding:12px 0;border-bottom:1px solid #ddd"><b>' + esc(m.slipId) + (m.unanswered === true ? ' · รอตอบกลับ' : m.unanswered === false ? ' · ตอบแล้ว' : '') + (m.readAt ? ' · อ่านแล้ว' : ' · ข้อความใหม่') + '</b><small style="display:block">' + esc(fmtTime(m.createdAt)) + '</small><p style="white-space:pre-wrap;overflow-wrap:anywhere">' + esc(m.message) + '</p>' + (chatEnabled ? '<button class="btn btn-ghost" type="button" data-chat-open="' + esc(m.slipId) + '">💬 เปิดแชท / ตอบกลับ</button> ' : '') + (!m.readAt ? '<button class="btn btn-primary" type="button" data-message-read="' + esc(m.id) + '">อ่านแล้ว</button>' : '<small>อ่านโดย ' + esc(m.readBy) + '</small>') + '</article>').join('') || '<p class="muted">ยังไม่มีข้อความจากผู้ป่วย</p>';
         if (unreadMessages > previous) toast('✉ มีข้อความจากผู้ป่วยที่ยังไม่อ่าน ' + unreadMessages + ' ข้อความ');
       } catch (error) { if (session === activeSession) $('#messageState').textContent = 'ดึงข้อความไม่ได้ กรุณาลองใหม่'; }
       finally { messageLoading = false; }
@@ -1135,7 +1137,7 @@
       if (!id || !message || button.disabled) return;
       if (!chatReplyRequest || chatReplyRequest.id !== id || chatReplyRequest.message !== message) chatReplyRequest = {id,message,requestId:crypto.randomUUID().replace(/-/g,'')};
       button.disabled = true; $('#staffChatState').textContent = 'กำลังส่ง…';
-      try { await call('pharmacyReply', chatReplyRequest); if (id !== activeChatId || session !== activeSession) return; $('#staffChatText').value = ''; chatReplyRequest = null; $('#staffChatState').textContent = 'ส่งข้อความแล้ว'; await loadStaffChat(); }
+      try { await call('pharmacyReply', chatReplyRequest); if (id !== activeChatId || session !== activeSession) return; $('#staffChatText').value = ''; chatReplyRequest = null; $('#staffChatState').textContent = 'ส่งข้อความแล้ว'; await loadStaffChat(); await loadMessages(); }
       catch(error) { if (session === activeSession) $('#staffChatState').textContent = 'ยังยืนยันการส่งไม่ได้ กรุณาลองอีกครั้ง'; }
       finally { button.disabled = false; }
     });
