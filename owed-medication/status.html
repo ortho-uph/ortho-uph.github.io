@@ -93,7 +93,7 @@
     function render(s) {
       const view = C.patientView(s), k = C.cur(s), round = C.curRound(s);
       $('name').textContent = /^ผู้รับบริการ/.test(s.patient) ? 'ผู้รับบริการ' : 'คุณ' + s.patient.replace(/^(นาย|นางสาว|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.)/, '');
-      const appointmentDate = round?.date ? `<div class="count"><div><span>วันนัดรับยา</span><small>${esc(C.dateLong(round.date))}</small></div></div>` : '';
+      const appointmentDate = round?.date ? `<div class="count"><div><span>โปรดรอติดต่อจากเจ้าหน้าที่ในวันที่</span><small>${esc(C.dateLong(round.date))}</small></div></div>` : '';
       const status = `<section class="card status t-${view.tone}"><div class="ic">${view.icon}</div><h2>${esc(view.title)}</h2>${view.round ? `<span class="rn">นัดที่ ${view.round.number} จาก ${view.round.total}</span>` : ''}<p>${esc(view.message)}</p>${appointmentDate}</section>`;
       const items = round && C.roundItems(s, round).length ? `<section class="card"><h3>ยาที่จะได้รับใน${view.round ? 'นัดนี้' : 'ครั้งนี้'}</h3>${s.drugs.map((d, j) => (round.qty[j] ? `<div class="r"><span>${esc(d.name)}</span><b>${round.qty[j]} ${esc(d.unit)}</b></div>` : '')).join('')}</section>` : '';
       const rows = [];
