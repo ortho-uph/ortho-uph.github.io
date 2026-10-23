@@ -53,6 +53,7 @@
     .updated{text-align:center;font-size:12.5px;color:var(--muted);margin:14px 0 0}
     .error{text-align:center;padding:26px 20px}.error h2{margin:0 0 8px}.error p{margin:0;color:var(--muted)}
     .loading{color:#eadfff;text-align:center}
+    .message-box{margin-top:16px}.message-box summary{cursor:pointer;color:var(--brand);font-weight:700;font-size:17px}.message-box textarea{width:100%;min-height:110px;box-sizing:border-box;margin-top:12px;border:1px solid #d8d4e5;border-radius:10px;padding:12px;font:inherit}.message-box button{border:0;border-radius:10px;padding:12px 18px;background:var(--brand);color:#fff;font:inherit;font-weight:700}.message-box button:disabled{opacity:.5}.message-feedback{white-space:pre-wrap;font-size:14px}.message-hint{font-size:13px;color:var(--muted);line-height:1.5}
   </style>
 </head>
 <body>
@@ -70,6 +71,7 @@
       const number = org.phone.replace(/[^+0-9]/g, '');
       PHONE = (number ? '<a class="call" href="tel:' + esc(number) + '">☎ โทรหา' + esc(org.department) + '</a>' : '') + '<p class="callsub">' + esc(org.phone) + (org.extensions ? ' ต่อ ' + esc(org.extensions) : '') + '</p>';
     }
+    let patientMessagesEnabled = false, patientMessageRequest = null;
     const token = new URLSearchParams(location.search).get('token');
 
     function fail(title, message) { $('name').textContent = ''; $('content').innerHTML = `<section class="card error"><h2>${esc(title)}</h2><p>${esc(message)}</p></section>${PHONE}`; }
@@ -100,14 +102,29 @@
         ? '<div class="steps"><b>จัดส่งทางไปรษณีย์</b> · ค่าส่ง 55 บาท เก็บเงินปลายทาง</div>'
         : '<div class="steps"><b>ขั้นตอนรับยา</b><div>1) ลงทะเบียนที่ห้องเวชระเบียนเบอร์ 1</div><div>2) ยื่นใบแจ้งที่ห้องจ่ายยา โดยไม่ต้องพบแพทย์</div><div>จันทร์–ศุกร์ 08:00–16:00 น. ยกเว้นวันหยุดราชการ</div><div>ใช้ใบแจ้งและ QR เดิมได้ทุกนัด</div></div>';
       const updated = s.updatedAt ? `<p class="updated">อัปเดตล่าสุด ${new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(s.updatedAt))} · เลขที่ ${esc(s.id)}</p>` : '';
-      $('content').innerHTML = status + items + schedule + note + steps + PHONE + updated;
+      $('content').innerHTML = status + items + schedule + note + steps + (patientMessagesEnabled ? '<details class="card message-box"><summary>✉ ส่งข้อความหาห้องยา</summary><form id="patientMessageForm"><label for="patientMessageText">ข้อความถึงห้องยา</label><textarea id="patientMessageText" maxlength="1000" required placeholder="เช่น ขอสอบถามวันนัดรับยา"></textarea><p class="message-hint">เจ้าหน้าที่จะอ่านข้อความในเวลาทำการ หากต้องการติดต่อเร่งด่วน กรุณาโทรหาห้องยา</p><button type="submit" id="patientMessageSend">ส่งข้อความ</button><p class="message-feedback" id="patientMessageFeedback" role="status"></p></form></details>' : '') + PHONE + updated;
     }
+
+    $('content').addEventListener('submit', async event => {
+      if (event.target.id !== 'patientMessageForm') return; event.preventDefault();
+      const input = $('patientMessageText'), button = $('patientMessageSend'), feedback = $('patientMessageFeedback'), message = input.value.trim();
+      if (!message || button.disabled) return;
+      if (!patientMessageRequest || patientMessageRequest.message !== message) patientMessageRequest = { message, requestId: crypto.randomUUID().replace(/-/g, '') };
+      button.disabled = true; feedback.textContent = 'กำลังส่งข้อความ…';
+      const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 30000);
+      try {
+        const response = await fetch(API, { method:'POST', headers:{'content-type':'text/plain;charset=utf-8'}, signal:controller.signal, body:JSON.stringify({action:'patientMessage', token, message, requestId:patientMessageRequest.requestId}) });
+        const data = await response.json(); if (!data.ok) throw new Error(data.err || 'send_failed');
+        input.value = ''; patientMessageRequest = null; feedback.textContent = 'ส่งข้อความถึงห้องยาแล้ว เจ้าหน้าที่จะตรวจสอบในเวลาทำการ';
+      } catch (error) { feedback.textContent = error.message === 'message_rate_limit' ? 'กรุณารอ 1 นาทีก่อนส่งข้อความถัดไป' : error.message === 'not_found' ? 'ไม่พบใบแจ้ง กรุณาสแกน QR ใหม่หรือติดต่อห้องยา' : 'ยังยืนยันการส่งไม่ได้ กรุณาลองอีกครั้ง หรือติดต่อห้องยาทางโทรศัพท์'; }
+      finally { clearTimeout(timer); button.disabled = false; }
+    });
 
     if (!token) fail('ไม่พบรายการ', 'กรุณาสแกน QR จากใบแจ้งของห้องยา');
     else if (!API) fail('ระบบยังไม่พร้อมใช้งาน', 'กรุณาติดต่อห้องยา');
     else fetch(API + '?action=patient&token=' + encodeURIComponent(token) + '&_=' + Date.now(), { cache: 'no-store' })
       .then(r => r.json())
-      .then(data => { if (!data.ok) throw new Error('not_found'); applyOrganization(data.organization); render(data.item); })
+      .then(data => { if (!data.ok) throw new Error('not_found'); patientMessagesEnabled = data.messagesEnabled === true; applyOrganization(data.organization); render(data.item); })
       .catch(error => (error.message === 'not_found' ? fail('ไม่พบรายการ', 'ใบแจ้งนี้อาจถูกยกเลิก กรุณาติดต่อห้องยา') : fail('ยังเชื่อมต่อไม่ได้', 'กรุณาลองใหม่ภายหลัง หรือติดต่อห้องยา')));
   </script>
 </body>

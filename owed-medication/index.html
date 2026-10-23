@@ -142,9 +142,9 @@
     .drawer{position:fixed;top:0;right:0;bottom:0;width:min(780px,100%);background:#fff;z-index:61;transform:translateX(100%);transition:.25s ease;display:flex;flex-direction:column;box-shadow:-12px 0 40px #1a123026}
     .modal{position:fixed;left:50%;top:50%;width:min(1040px,94vw);max-height:92vh;transform:translate(-50%,-46%);opacity:0;pointer-events:none;transition:.22s;background:#fff;border-radius:20px;z-index:61;display:flex;flex-direction:column;box-shadow:0 30px 80px #1a12304d}
     .modal.small{width:min(680px,94vw)}.modal.print{width:min(900px,96vw)}
-    .ov-drawer .scrim,.ov-imp .scrim,.ov-hol .scrim,.ov-print .scrim,.ov-settings .scrim,.ov-blank .scrim,.ov-users .scrim,.ov-pass .scrim,.ov-roundstatus .scrim{opacity:1;pointer-events:auto}
+    .ov-drawer .scrim,.ov-imp .scrim,.ov-hol .scrim,.ov-print .scrim,.ov-settings .scrim,.ov-blank .scrim,.ov-users .scrim,.ov-pass .scrim,.ov-roundstatus .scrim,.ov-messages .scrim{opacity:1;pointer-events:auto}
     .ov-drawer .drawer{transform:none}
-    .ov-imp .modal.imp,.ov-hol .modal.hol,.ov-print .modal.print,.ov-settings .modal.settings,.ov-blank .modal.blank,.ov-users .modal.users,.ov-pass .modal.pass,.ov-roundstatus .modal.roundstatus{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
+    .ov-imp .modal.imp,.ov-hol .modal.hol,.ov-print .modal.print,.ov-settings .modal.settings,.ov-blank .modal.blank,.ov-users .modal.users,.ov-pass .modal.pass,.ov-roundstatus .modal.roundstatus,.ov-messages .modal.messages{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
     .drawer header,.modal header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 24px;border-bottom:1px solid var(--line)}
     .drawer header h2,.modal header h2{margin:0;font-size:19px}.drawer header small,.modal header small{color:var(--muted)}
     .x{border:0;background:#f1f1f6;width:34px;height:34px;border-radius:10px;font-size:18px;flex:none}
@@ -359,7 +359,7 @@
     <button class="btn btn-outline" id="blankBtn" type="button" data-needs-db>🖨 พิมพ์ใบเปล่า</button>
     <button class="btn btn-outline" id="impBtn" type="button" data-needs-db>⇪ นำเข้าจาก Excel</button>
     <button class="btn btn-primary" id="newBtn" type="button" data-needs-db>＋ บันทึกนัดเติมยา</button>
-    <div class="bar-end"><span class="me" id="me"></span><button class="icon-btn" id="usersBtn" type="button" hidden>👥 ผู้ใช้</button><button class="icon-btn" id="settingsBtn" type="button" title="ตั้งค่าการเชื่อมต่อ รายชื่อยา และที่อยู่ผู้ส่ง">⚙ ตั้งค่า</button><button class="icon-btn" id="passBtn" type="button">🔑 รหัสผ่าน</button><button class="icon-btn" id="logoutBtn" type="button">ออกจากระบบ</button></div>
+    <div class="bar-end"><span class="me" id="me"></span><button class="icon-btn" id="usersBtn" type="button" hidden>👥 ผู้ใช้</button><button class="icon-btn" id="messagesBtn" type="button">✉ ข้อความ <b id="messageBadge">0</b></button><button class="icon-btn" id="settingsBtn" type="button" title="ตั้งค่าการเชื่อมต่อ รายชื่อยา และที่อยู่ผู้ส่ง">⚙ ตั้งค่า</button><button class="icon-btn" id="passBtn" type="button">🔑 รหัสผ่าน</button><button class="icon-btn" id="logoutBtn" type="button">ออกจากระบบ</button></div>
   </header>
 
   <main class="page">
@@ -474,6 +474,7 @@
       <footer><span class="grow"></span><button class="btn btn-ghost" type="button" data-close>ยกเลิก</button><button class="btn btn-primary" type="button" id="passSave" data-needs-db>บันทึกรหัสผ่าน</button></footer>
     </section>
 
+<section class="modal small messages" aria-label="ข้อความจากผู้ป่วย"><header><div><h2>✉ ข้อความจากผู้ป่วย</h2><small id="messageState">ตรวจข้อความใหม่ขณะเปิดเว็บ ทุก 1 นาที</small></div><button class="x" data-close type="button">✕</button></header><div class="body" id="messageRows"></div><footer><button class="btn btn-ghost" id="messageRefresh" type="button">ดึงข้อความล่าสุด</button><button class="btn btn-ghost" data-close type="button">ปิด</button></footer></section>
     <section class="modal small settings" aria-label="ตั้งค่า">
       <header><div><h2>⚙ ตั้งค่า</h2><small>การเชื่อมต่อฐานข้อมูลกลาง (Google Apps Script) และรายชื่อยา</small></div><button class="x" data-close type="button">✕</button></header>
       <div class="body">
@@ -503,6 +504,7 @@
     /* ===== สถานะของหน้า ===== */
     let organization = { ...OWED_CONFIG.organization }, organizationIsCentral = false, organizationLogoUpload = false;
     function applyOrganization(value) { organizationIsCentral = Boolean(value); organization = { ...OWED_CONFIG.organization, ...(value || {}) }; $('#orgHeader').textContent = organization.department + ' · ' + organization.hospitalName; $('#orgBrandLogo img').src = organization.logoUrl || '../logo.png'; }
+    let messagesEnabled = false, messageLoading = false, unreadMessages = 0;
     const state = { items: [], holidays: [], clinics: [], drugNames: [], filter: 'all', sel: null, online: false, busy: false };
     let zipIndex = null, imp = null, editing = null, formDrugs = [], formRounds = [];
 
@@ -558,7 +560,7 @@
         const data = await call('list');
         if (seq !== loadSeq) return state.items;
         state.items = data.items || []; state.holidays = data.holidays || []; state.clinics = data.clinics || [{ code: 'ORTHO', name: 'ศัลยกรรมกระดูกและข้อ' }, { code: 'URO', name: 'ระบบทางเดินปัสสาวะ (URO)' }]; if (data.me) setUser(data.me);
-        organizationLogoUpload = data.organizationLogoUpload === true; applyOrganization(data.organization); setOnline(true); render(); loadDrugNames().catch(() => {});
+        messagesEnabled = data.messagesEnabled === true; organizationLogoUpload = data.organizationLogoUpload === true; applyOrganization(data.organization); setOnline(true); render(); loadDrugNames().catch(() => {}); loadMessages();
         return state.items;
       } catch (error) {
         if (seq !== loadSeq) return state.items;
@@ -596,7 +598,7 @@
     const unlockStaff = () => { gate.classList.add('unlocked'); };
     function lockStaff(showSetup, message) {
       session = ''; setUser(null); setOnline(false, 'กรุณาเข้าสู่ระบบ');
-      state.items = []; overlay(null); render(); gate.classList.remove('unlocked');
+      messagesEnabled = false; unreadMessages = 0; $('#messageBadge').textContent = '0'; $('#messageRows').replaceChildren(); state.items = []; overlay(null); render(); gate.classList.remove('unlocked');
       $('#loginPass').value = ''; $('#accessError').textContent = message || ''; $('#setupForm').hidden = !showSetup; $('#setupError').textContent = ''; $('#setupUrl').value = endpoint();
       setTimeout(() => (showSetup ? $('#setupApiKey') : $('#loginUser')).focus(), 0);
     }
@@ -1095,6 +1097,23 @@
     };
 
     /* ===== ตั้งค่า ===== */
+    async function loadMessages() {
+      if (!messagesEnabled || !hasCredentials() || !state.online || messageLoading) return;
+      messageLoading = true; const activeSession = session;
+      try {
+        const data = await call('messageList'); if (session !== activeSession) return;
+        const previous = unreadMessages; unreadMessages = data.unread || 0; $('#messageBadge').textContent = String(unreadMessages);
+        $('#messageState').textContent = 'ยังไม่อ่าน ' + unreadMessages + ' ข้อความ · ตรวจล่าสุด ' + new Date().toLocaleTimeString('th-TH') + ' · แสดงล่าสุดไม่เกิน 200 ข้อความ';
+        $('#messageRows').innerHTML = (data.messages || []).map(m => '<article style="padding:12px 0;border-bottom:1px solid #ddd"><b>' + esc(m.slipId) + (m.readAt ? ' · อ่านแล้ว' : ' · ข้อความใหม่') + '</b><small style="display:block">' + esc(fmtTime(m.createdAt)) + '</small><p style="white-space:pre-wrap;overflow-wrap:anywhere">' + esc(m.message) + '</p>' + (!m.readAt ? '<button class="btn btn-primary" type="button" data-message-read="' + esc(m.id) + '">อ่านแล้ว</button>' : '<small>อ่านโดย ' + esc(m.readBy) + '</small>') + '</article>').join('') || '<p class="muted">ยังไม่มีข้อความจากผู้ป่วย</p>';
+        if (unreadMessages > previous) toast('✉ มีข้อความจากผู้ป่วยที่ยังไม่อ่าน ' + unreadMessages + ' ข้อความ');
+      } catch (error) { if (session === activeSession) $('#messageState').textContent = 'ดึงข้อความไม่ได้ กรุณาลองใหม่'; }
+      finally { messageLoading = false; }
+    }
+    $('#messagesBtn').onclick = () => { overlay('messages'); if (!messagesEnabled) { $('#messageState').textContent = 'ต้องอัปเดต Apps Script และ Deploy New version เพื่อเปิดใช้งานข้อความ'; $('#messageRows').replaceChildren(); } else loadMessages(); };
+    $('#messageRefresh').onclick = loadMessages;
+    $('#messageRows').addEventListener('click', async event => { const button = event.target.closest('[data-message-read]'); if (!button) return; button.disabled = true; try { await call('messageRead', {id:button.dataset.messageRead}); await loadMessages(); } catch(error) { button.disabled = false; toast(errText(error), true); } });
+    setInterval(() => { if (!document.hidden) loadMessages(); }, 60000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) loadMessages(); });
     $('#settingsBtn').onclick = () => { uploadedOrgLogo = organization.logoUrl?.startsWith('data:') ? organization.logoUrl : ''; $('#orgLogoFile').value = ''; Object.keys(OWED_CONFIG.organization).forEach(k => { $('#org_' + k).value = k === 'logoUrl' && uploadedOrgLogo ? '' : organization[k] || ''; }); updateOrgLogoPreview(); $('#dbUrl').value = endpoint(); $('#senderText').value = senderText(); renderClinics(); overlay('settings'); };
 
     /* ===== คลินิก (ตั้งค่า · ผู้ดูแลแก้ได้) ===== */

@@ -37,12 +37,15 @@ function writeTable_(name,fields,rows){
 /* ===== คำสั่งทั้งหมดพร้อมสิทธิ์ที่ต้องมี: public (ไม่ต้องล็อกอิน) · staff (ผู้ใช้ทุกคนที่เปิดใช้งาน) · admin ===== */
 const GET_ACTIONS={
   patient:{role:'public',fn:function(p){return patient_(p.token);}},
-  list:{role:'staff',fn:function(p,u){return {ok:1,items:load_(),holidays:holidays_(),clinics:clinics_(),organization:organization_(),organizationLogoUpload:true,me:publicUser_(u)};}},
+  list:{role:'staff',fn:function(p,u){return {ok:1,items:load_(),holidays:holidays_(),clinics:clinics_(),organization:organization_(),organizationLogoUpload:true,messagesEnabled:true,me:publicUser_(u)};}},
+  messageList:{role:'staff',fn:function(){return messageList_();}},
   drugList:{role:'staff',fn:function(){return {ok:1,names:drugNames_()};}},
   userList:{role:'admin',fn:function(){return {ok:1,users:users_().map(publicUser_)};}},
   auditList:{role:'admin',fn:function(){return {ok:1,entries:auditList_()};}}
 };
 const POST_ACTIONS={
+  patientMessage:{role:'public',fn:function(r){return patientMessage_(r);}},
+  messageRead:{role:'staff',fn:function(r,u){return messageRead_(r.id,u);}},
   organizationSave:{role:'admin',fn:function(r,u){return organizationSave_(r.organization,u);}},
   login:{role:'public',fn:function(r){return login_(r.username,r.password);}},
   bootstrapAdmin:{role:'public',fn:function(r){return apiKeyOk_(r)?bootstrapAdmin_(r):{ok:0,err:'unauthorized'};}},
@@ -294,7 +297,7 @@ function patient_(token){
   token=String(token||'');
   const item=token?load_().filter(function(x){return x.publicToken===token;})[0]:null;
   if(!item)return {ok:0,err:'not_found'};
-  return {ok:1,organization:organization_(),item:{id:item.id,patient:mask_(item.patient),receiveMethod:item.receiveMethod,note:item.note,firstDate:item.firstDate,
+  return {ok:1,messagesEnabled:true,organization:organization_(),item:{id:item.id,patient:mask_(item.patient),receiveMethod:item.receiveMethod,note:item.note,firstDate:item.firstDate,
     drugs:item.drugs.map(function(d){return {name:d.name,unit:d.unit,got:d.got};}),rounds:item.rounds,updatedAt:item.updatedAt}};
 }
 
@@ -403,5 +406,36 @@ function organizationSave_(input,actor){
     properties.setProperty('ORGANIZATION_PROFILE',JSON.stringify(stored));
     Object.keys(previous).filter(function(k){return k.indexOf('ORG_LOGO_')===0;}).forEach(function(k){properties.deleteProperty(k);});
     audit_(actor,'organization','','แก้ไขข้อมูลโรงพยาบาล');return {ok:1,organization:org};
+  });
+}
+
+/* ===== ข้อความจากผู้ป่วย: ส่งได้เฉพาะผู้ถือ token ของใบแจ้ง ===== */
+const MESSAGE_FIELDS=['id','slipId','createdAt','message','readAt','readBy','requestId'];
+function patientMessage_(req){
+  if(!req.token)return {ok:0,err:'not_found'};
+  const text=String(req.message||'').trim(),requestId=String(req.requestId||'');
+  if(!text||text.length>1000||!/^[A-Za-z0-9_-]{16,80}$/.test(requestId))return {ok:0,err:'invalid_message'};
+  return withLock_(function(){
+    const item=load_().filter(function(i){return i.publicToken===String(req.token||'');})[0];
+    if(!item)return {ok:0,err:'not_found'};
+    const messages=readTable_('PatientMessages'),mine=messages.filter(function(m){return m.slipId===item.id;});
+    const duplicate=mine.filter(function(m){return m.requestId===requestId;})[0];if(duplicate)return {ok:1,id:duplicate.id};
+    const last=mine.slice(-1)[0],time=now_();if(last&&Date.parse(time)-Date.parse(last.createdAt)<60000)return {ok:0,err:'message_rate_limit'};
+    const entry={id:Utilities.getUuid(),slipId:item.id,createdAt:time,message:text,readAt:'',readBy:'',requestId:requestId};
+    const sh=sheet_('PatientMessages');if(sh.getLastRow()===0)sh.getRange(1,1,1,MESSAGE_FIELDS.length).setNumberFormat('@').setValues([MESSAGE_FIELDS]);
+    sh.getRange(sh.getLastRow()+1,1,1,MESSAGE_FIELDS.length).setNumberFormat('@').setValues([MESSAGE_FIELDS.map(function(k){const value=String(entry[k]||'');return /^[=+@-]/.test(value)?"'"+value:value;})]);
+    return {ok:1,id:entry.id};
+  });
+}
+function messageList_(){
+  const all=readTable_('PatientMessages');const unread=all.filter(function(m){return !m.readAt;}).length;
+  all.sort(function(a,b){return Number(Boolean(a.readAt))-Number(Boolean(b.readAt))||String(b.createdAt).localeCompare(String(a.createdAt));});
+  return {ok:1,unread:unread,messages:all.slice(0,200).map(function(m){return {id:m.id,slipId:m.slipId,createdAt:m.createdAt,message:m.message,readAt:m.readAt,readBy:m.readBy};})};
+}
+function messageRead_(id,actor){
+  return withLock_(function(){
+    const rows=readTable_('PatientMessages'),index=rows.findIndex(function(m){return m.id===String(id||'');});if(index<0)return {ok:0,err:'not_found'};
+    if(!rows[index].readAt){const sh=sheet_('PatientMessages'),head=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0];sh.getRange(index+2,head.indexOf('readAt')+1).setNumberFormat('@').setValue(now_());sh.getRange(index+2,head.indexOf('readBy')+1).setNumberFormat('@').setValue(actor.name);}
+    return {ok:1};
   });
 }
