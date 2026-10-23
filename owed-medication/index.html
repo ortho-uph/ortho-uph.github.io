@@ -328,6 +328,7 @@
     .nv-drug-label{display:flex;align-items:center;flex-wrap:wrap;column-gap:12px}.nv-service-options{display:inline-flex;align-items:center;gap:12px;color:#194d70;font-weight:700}.nv-service-options>span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}.nv-service-check{display:inline-block;width:3.5mm;height:3.5mm;border:1px solid #777;background:#fff;flex:none}
     .nv-drug-heading{display:grid;grid-template-columns:max-content minmax(0,1fr);column-gap:6px;row-gap:7px;align-items:center;padding-bottom:5px}.nv-drug-heading h3{margin:0}.nv-drug-heading .nv-round-count{align-self:center}
     .receive-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px}.receive-tools .chips{margin:0}.receive-tools label{display:flex;align-items:center;gap:8px}.receive-tools select{padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--text)}.receive-tools small{flex-basis:100%}
+    .worklist-report{padding:16px;background:#fff;color:#222}.worklist-report h2,.worklist-report h3{margin:0 0 6px}.worklist-report table{width:100%;border-collapse:collapse;table-layout:auto}.worklist-report th,.worklist-report td{padding:7px;border:1px solid #bbb;white-space:normal;overflow-wrap:anywhere;font-size:14px;color:#222}.worklist-report thead{display:table-header-group}.worklist-report tr{break-inside:avoid}.worklist-report p{font-size:14px}@media print{.worklist-report{padding:0}.worklist-report th,.worklist-report td{font-size:12px}}
     .nv-cut{position:absolute;top:49.8%;left:3.5%;right:3.5%;border-top:1px dashed #888}
     .nv-patient{position:absolute;left:3.5%;right:3.5%;top:51%;bottom:2%;border:1px solid #444;display:flex;flex-direction:column}
     .nv-patient-header{height:100px;flex-shrink:0;border-bottom:1px solid #888}
@@ -378,7 +379,7 @@
     <div id="shipBanner"></div>
     <div id="draftBanner"></div>
     <div class="chips" id="chips"></div>
-    <div class="receive-tools"><div class="chips" id="receiveChips" aria-label="วิธีรับยา"></div><label>เรียงตาม <select id="appointmentSort"><option value="original">ลำดับเดิม</option><option value="asc">วันนัดใกล้ → ไกล</option><option value="desc">วันนัดไกล → ใกล้</option></select></label><small class="muted">จำนวนคนตามสถานะ คลินิก และคำค้นที่เลือก · ไม่นับใบที่รอกรอกข้อมูล</small></div>
+    <div class="receive-tools"><div class="chips" id="receiveChips" aria-label="วิธีรับยา"></div><label>เรียงตาม <select id="appointmentSort"><option value="original">ลำดับเดิม</option><option value="asc">วันนัดใกล้ → ไกล</option><option value="desc">วันนัดไกล → ใกล้</option></select></label><button class="btn btn-ghost" id="worklistPrint" type="button">🖨 สั่งพิมพ์ตาราง</button><button class="btn btn-ghost" id="worklistExport" type="button">ส่งออกข้อมูล CSV</button><small class="muted">จำนวนคนตามสถานะ คลินิก และคำค้นที่เลือก · ไม่นับใบที่รอกรอกข้อมูล</small></div>
     <div class="split">
       <div class="card table-wrap"><table><thead><tr><th>เลขที่</th><th>ผู้ป่วย</th><th>รายการยา</th><th>นัด</th><th>นัดรับหลัง</th><th>สถานะนัดนี้</th><th></th></tr></thead><tbody id="rows"></tbody></table><div class="empty hidden" id="empty">ไม่พบรายการ</div></div>
       <aside class="card panel" id="panel"><div class="empty">เลือกรายการเพื่อดูรายละเอียด</div></aside>
@@ -717,6 +718,7 @@
     }
     const statusUrl = i => new URL('status.html?token=' + encodeURIComponent(i.publicToken), location.href).toString();
 
+    let visibleWorklist = [];
     function compareAppointmentDates(a,b,direction) {
       const date = i => C.isDraft(i) ? '' : (C.curRound(i) || {}).date || '';
       const da = date(a), db = date(b);
@@ -750,6 +752,7 @@
       const rows = candidates.filter(i => state.receiveFilter === 'all' || (!C.isDraft(i) && i.receiveMethod === state.receiveFilter));
       const direction = $('#appointmentSort').value;
       if (direction !== 'original') rows.sort((a,b) => compareAppointmentDates(a,b,direction));
+      visibleWorklist = rows.slice(); $('#worklistPrint').disabled = !rows.length; $('#worklistExport').disabled = !rows.length;
       $('#rows').innerHTML = rows.map(i => `<tr class="${i.id === state.sel ? 'sel' : ''}" data-open="${esc(i.id)}"><td class="ref">${esc(i.id)}</td><td class="who">${whoCell(i)}</td><td class="drug">${drugCell(i)}</td><td>${roundTag(i)}</td><td>${dateCell(i)}</td><td>${pill(C.status(i))}</td><td style="text-align:right">${actButton(i)}</td></tr>`).join('');
       $('#empty').classList.toggle('hidden', rows.length > 0);
       $('#empty').textContent = state.items.length ? 'ไม่พบรายการที่ตรงกับคำค้นหรือตัวกรอง' : (state.online ? 'ยังไม่มีรายการ · กด “บันทึกนัดเติมยา” หรือ “นำเข้าจาก Excel”' : 'ยังไม่ได้เชื่อมต่อฐานข้อมูลกลาง');
@@ -1275,6 +1278,22 @@
       else if (d.open) { state.sel = d.open; render(); }
     });
     $('#newBtn').onclick = () => openForm(null);
+    function worklistValues(i) {
+      const round = C.isDraft(i) ? null : C.curRound(i);
+      return [i.id,i.hn || '',i.patient || '',clinicName(i.clinic),C.isDraft(i) ? 'ยังไม่ระบุ' : (i.receiveMethod === 'mail' ? 'ส่งไปรษณีย์' : 'รับเอง'),i.drugs.length,round ? C.cur(i)+1 : '',round?.date || '',C.STATUS[C.status(i)]];
+    }
+    $('#worklistExport').onclick = () => {
+      if (!visibleWorklist.length) return;
+      downloadPrepCsv([['เลขที่','HN','ผู้ป่วย','คลินิก','วิธีรับยา','จำนวนรายการยา','นัดที่','วันนัด (ค.ศ.)','สถานะ'],...visibleWorklist.map(worklistValues)],'appointments-' + C.today() + '.csv');
+    };
+    $('#worklistPrint').onclick = () => {
+      if (!visibleWorklist.length) return;
+      const method = {all:'ทุกวิธี',self:'รับเอง',mail:'ส่งไปรษณีย์'}[state.receiveFilter];
+      const context = [$('#clinic').selectedOptions[0]?.textContent || 'ทุกคลินิก',state.filter === 'all' ? 'ทุกสถานะ' : C.STATUS[state.filter],method,$('#appointmentSort').selectedOptions[0].textContent,$('#q').value.trim() ? 'ค้นหา: ' + $('#q').value.trim() : ''].filter(Boolean).join(' · ');
+      $('#pageSize').textContent = '@media print{@page{size:A4 landscape;margin:12mm}}';
+      $('#psSheets').innerHTML = '<div class="worklist-report"><h2>' + esc(organization.hospitalName) + '</h2><h3>ตารางนัดรับยา</h3><p>' + esc(context) + '<br>จำนวน ' + visibleWorklist.length + ' ใบแจ้ง · พิมพ์เมื่อ ' + esc(new Date().toLocaleString('th-TH')) + '</p><table><thead><tr>' + ['เลขที่','HN','ผู้ป่วย','คลินิก','วิธีรับยา','รายการยา','นัดที่','วันนัด','สถานะ'].map(h=>'<th>'+h+'</th>').join('') + '</tr></thead><tbody>' + visibleWorklist.map(i=>'<tr>'+worklistValues(i).map((v,k)=>'<td>'+esc(k===7 && v ? C.dateLong(v) : String(v))+'</td>').join('')+'</tr>').join('') + '</tbody></table></div>';
+      $('#psTitle').textContent = 'ตัวอย่างตารางนัดรับยา'; $('#psFoot').textContent = 'พิมพ์เฉพาะรายการตามตัวกรองและลำดับที่เลือก · A4 แนวนอน'; overlay('print');
+    };
     $('#receiveChips').addEventListener('click', e => { const button = e.target.closest('[data-receive]'); if (!button) return; state.receiveFilter = button.dataset.receive; render(); });
     $('#appointmentSort').addEventListener('change', render);
     $('#q').addEventListener('input', render);
