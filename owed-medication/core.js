@@ -140,7 +140,31 @@ const RefillCore = (() => {
     return {};
   }
 
+  function shippingPlan(items, date, clinic = 'all') {
+    const jobs = [], totals = new Map();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { jobs, totals: [] };
+    items.forEach(item => {
+      if (item.receiveMethod !== 'mail' || (clinic !== 'all' && item.clinic !== clinic)) return;
+      (item.rounds || []).forEach((round, index) => {
+        if (round.date !== date || !['waiting', 'ready'].includes(round.status)) return;
+        const drugs = [];
+        (item.drugs || []).forEach((drug, j) => {
+          const qty = Number((round.qty || [])[j]); if (!Number.isFinite(qty) || qty <= 0) return;
+          const name = String(drug.name || '').split(' | วิธีใช้: ')[0].trim(), unit = String(drug.unit || 'เม็ด').trim();
+          if (!name) return;
+          drugs.push({ name, unit, qty });
+          const key = JSON.stringify([name.normalize('NFC').toLowerCase().replace(/\s+/g, ' '), unit.normalize('NFC').toLowerCase()]);
+          if (!totals.has(key)) totals.set(key, { name, unit, qty: 0, appointmentKeys: new Set() });
+          totals.get(key).qty += qty; totals.get(key).appointmentKeys.add(JSON.stringify([item.id, index]));
+        });
+        if (drugs.length) jobs.push({ id: item.id, patient: item.patient, hn: item.hn, clinic: item.clinic, round: index + 1, status: round.status, drugs, blocked: item.rounds.slice(0,index).some(r => r.status !== 'received') });
+      });
+    });
+    return { jobs, totals: [...totals.values()].map(t => ({name:t.name,unit:t.unit,qty:t.qty,appointments:t.appointmentKeys.size})).sort((a,b) => a.name.localeCompare(b.name, 'th') || a.unit.localeCompare(b.unit, 'th')) };
+  }
+
   return {
+    shippingPlan,
     STATUS, isDraft, cur, curRound, status, leftOf, receivedOf, roundItems, next,
     today, addDays, daysBetween, dateShort, dateDay, dateLong, isDue, offReason, nextWorkday, planRounds,
     patientView, patientHeadline, cleanText, cleanAddress, cleanPhone, parseAddress, buildZipIndex, findZip,
