@@ -78,7 +78,11 @@ select:disabled{background-color:var(--surface-2);color:var(--muted);cursor:not-
 /* ---------- calendar card ---------- */
 .calendar-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);overflow:clip;animation:rise .6s .12s var(--ease) both}
 .calendar-toolbar{display:flex;align-items:center;gap:16px;padding:14px 18px;background:var(--surface-2);border-bottom:1px solid var(--line)}
-.month-tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;flex:1}
+.month-tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;flex:1;min-width:0}
+.month-nav{display:grid;place-items:center;flex:none;width:40px;height:56px;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink-2);box-shadow:var(--shadow-sm);transition:all .2s var(--ease)}
+.month-nav:hover:not(:disabled){border-color:var(--brand);background:var(--brand-50);color:var(--brand)}
+.month-nav:active:not(:disabled){transform:scale(.94)}
+.month-nav:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
 .month-tab{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink-2);text-align:left;box-shadow:var(--shadow-sm);transition:all .2s var(--ease)}
 .month-tab b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .month-tab small{font-size:12px;color:var(--muted);white-space:nowrap}
@@ -214,7 +218,8 @@ dialog input{width:100%}
   h1{font-size:25px}.staff-intro{margin:0 4px 20px}.staff-intro>p:last-child{font-size:13.5px}
   .access-box{padding:20px}
   .calendar-card{border-radius:16px}
-  .calendar-toolbar{flex-wrap:wrap;gap:12px;padding:12px}
+  .calendar-toolbar{flex-wrap:wrap;gap:8px;padding:12px}
+  .month-tabs{flex:1 1 0}.month-nav{width:34px;height:52px;border-radius:10px}
   .month-tabs{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(118px,1fr);overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
   .who,#staff-person{width:100%}
   .calendar-heading{padding:18px 14px 4px;flex-wrap:wrap}.calendar-heading h2{font-size:21px}.calendar-heading p{font-size:12.5px}
