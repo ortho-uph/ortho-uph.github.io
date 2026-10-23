@@ -330,6 +330,7 @@
     .receive-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px}.receive-tools .chips{margin:0}.receive-tools label{display:flex;align-items:center;gap:8px}.receive-tools select{padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--text)}.receive-tools small{flex-basis:100%}
     .worklist-report{padding:16px;background:#fff;color:#222}.worklist-report h2,.worklist-report h3{margin:0 0 6px}.worklist-report table{width:100%;border-collapse:collapse;table-layout:auto}.worklist-report th,.worklist-report td{padding:7px;border:1px solid #bbb;white-space:normal;overflow-wrap:anywhere;font-size:14px;color:#222}.worklist-report thead{display:table-header-group}.worklist-report tr{break-inside:avoid}.worklist-report p{font-size:14px}@media print{.worklist-report{padding:0}.worklist-report th,.worklist-report td{font-size:12px}}
     .nv-drug-row>.nv-drug-details{border:0;min-height:0;flex:initial}
+    .nv-drug-check{display:inline-block;width:3.5mm;height:3.5mm;border:1px solid #777;background:#fff;flex:none;margin-right:4px;vertical-align:middle}.nv-empty-drugs .nv-drug-check{margin-bottom:3px}
     .nv-cut{position:absolute;top:49.8%;left:3.5%;right:3.5%;border-top:1px dashed #888}
     .nv-patient{position:absolute;left:3.5%;right:3.5%;top:51%;bottom:2%;border:1px solid #444;display:flex;flex-direction:column}
     .nv-patient-header{height:100px;flex-shrink:0;border-bottom:1px solid #888}
@@ -398,7 +399,7 @@
           <div class="g3"><div class="f"><label>เบอร์โทรศัพท์</label><input name="phone1" inputmode="tel" placeholder="081-234-5678"></div><div class="f"><label>เบอร์สำรอง <span class="opt">(ถ้ามี)</span></label><input name="phone2" inputmode="tel"></div><div class="f"><label>คลินิก</label><select name="clinic" required></select></div></div>
         </div>
         <div class="fs"><h3><i>2</i>ยาที่นัดรับเพิ่ม <span class="opt" style="font-size:12px">(เพิ่มได้หลายรายการ)</span></h3>
-          <div class="dgrid dhead"><span>ลำดับที่</span><span>รายการยา</span><span>วิธีใช้</span><span>จำนวนต่อรอบ</span><span></span></div>
+          <div class="dgrid dhead"><span>ลำดับที่</span><span>รายการยา</span><span>วิธีใช้</span><span>จำนวนต่อครั้ง</span><span></span></div>
           <div id="drugRows"></div>
           <button type="button" class="add-row" id="addDrug">＋ เพิ่มรายการยา</button>
           <div class="f" style="max-width:240px;margin-top:12px" hidden><label>จ่ายยาครั้งแรกวันที่</label><input type="date" name="firstDate"></div>
@@ -773,7 +774,7 @@
         return;
       }
       const n = C.next(i);
-      const drugTable = `<table class="mini"><thead><tr><th>รายการยา</th><th>วิธีใช้</th><th>จำนวน</th></tr></thead><tbody>${i.drugs.map(d => { const info = readDrugDescription(d.name); return `<tr><td>${esc(info.name)}</td><td>${esc(info.usage || '—')}</td><td>${perRound(i, i.drugs.indexOf(d))} ${esc(d.unit)} ต่อรอบ</td></tr>`; }).join('')}</tbody></table>`;
+      const drugTable = `<table class="mini"><thead><tr><th>รายการยา</th><th>วิธีใช้</th><th>จำนวน</th></tr></thead><tbody>${i.drugs.map(d => { const info = readDrugDescription(d.name); return `<tr><td>${esc(info.name)}</td><td>${esc(info.usage || '—')}</td><td>${perRound(i, i.drugs.indexOf(d))} ${esc(d.unit)} ต่อครั้ง</td></tr>`; }).join('')}</tbody></table>`;
       const roundRows = (i.firstDate ? [`<div class="rd done"><i>✓</i><div><b>จ่ายครั้งแรก · ${C.dateDay(i.firstDate)}</b></div><span class="round-received">✓ รับยาแล้ว</span></div>`] : [])
         .concat(i.rounds.map((r, k) => { const isCur = k === C.cur(i), done = r.status === 'received'; return `<div class="rd ${done ? 'done' : isCur ? 'cur' : ''}"><i>${done ? '✓' : k + 1}</i><div><b>นัดที่ ${k + 1} · หลัง ${C.dateDay(r.date)}${done ? '' : offTag(r.date)}</b></div>${isCur ? `<div class="round-actions">${pill(r.status)}${n ? `<button class="btn btn-primary" data-move="${esc(i.id)}" data-round="${k}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>${n[1]} →</button>` : ''}<button class="btn btn-ghost" data-roundstatus="${esc(i.id)}" data-round="${k}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>แก้ไขสถานะ</button></div>` : done ? `<div class="round-actions"><span class="round-received">✓ รับยาแล้ว</span><button class="btn btn-ghost" data-roundstatus="${esc(i.id)}" data-round="${k}" type="button" data-needs-db ${state.online ? '' : 'disabled'}>แก้ไขสถานะ</button></div>` : `<div class="round-actions">${pill(r.status)}</div>`}</div>`; }));
       $('#panel').innerHTML = `${head}
@@ -853,7 +854,7 @@
       $('#sumcheck').innerHTML = formDrugs.map((d, j) => {
         if (d.quantity === '') return '';
         const need = formLeft(j), name = esc(d.name || 'ยาที่ ' + (j + 1));
-        return `<div class="sumcheck ok">${name}: ${need} ${esc(d.unit)} ต่อรอบ · ${formRounds.length} นัด</div>`;
+        return `<div class="sumcheck ok">${name}: ${need} ${esc(d.unit)} ต่อครั้ง · ${formRounds.length} นัด</div>`;
       }).join('');
     }
     function planRounds() {
@@ -1028,7 +1029,7 @@
 
     /* ===== ใบแจ้ง A4: วางข้อมูลลงแบบฟอร์มตามตำแหน่ง (% ของหน้ากระดาษ) ===== */
     // ใบที่ยังไม่มีรายการยา (ใบเปล่าที่จองเลขไว้ หรือรายชื่อที่นำเข้า) พิมพ์เฉพาะเลขที่ QR และข้อมูลผู้ป่วยที่มี ที่เหลือเว้นไว้เขียนมือ
-    // จำนวนยาต่อรอบ = จำนวนในนัดที่ยังไม่ได้รับนัดแรก (ไม่รวมยอดของทุกนัด)
+    // จำนวนยาต่อครั้ง = จำนวนในนัดที่ยังไม่ได้รับนัดแรก (ไม่รวมยอดของทุกนัด)
     const perRound = (i, j) => (i.rounds.find(r => r.status !== 'received') || i.rounds[0] || { qty: [] }).qty[j] || 0;
     function sheetHtml(i, n) {
       const dots = '........................................';
@@ -1036,7 +1037,7 @@
       const pending = i.rounds.map((r, k) => ({ ...r, number: k + 1 })).filter(r => r.status !== 'received' && r.date);
       const appointments = pending.length ? pending : Array.from({ length: 5 }, (_, k) => ({ number: k + 1 }));
       const dates = staff => appointments.map(r => `<div class="nv-appointment"><span>• ครั้งที่ ${r.number} วันที่</span><span class="nv-write">${r.date ? esc(C.dateLong(r.date)) : ''}</span>${staff ? '<span>เภสัชกร</span><span class="nv-sign"></span>' : ''}</div>`).join('');
-      const drugRows = i.drugs.length ? i.drugs.map((d,j) => { const info = readDrugDescription(d.name); return `<div class="nv-drug-row nv-drug-filled">${j+1}. ${esc(info.name)}<br><span class="nv-drug-details">${esc(info.usage || d.usage || d.instructions || '')}${info.usage || d.usage || d.instructions ? ' / ' : ''}${perRound(i, j)} ${esc(d.unit)} ต่อรอบ</span></div>`; }).join('') : Array.from({ length: 6 }, (_,k) => `<div class="nv-drug-row">${k+1}.<span></span></div>`).join('');
+      const drugRows = i.drugs.length ? i.drugs.map((d,j) => { const info = readDrugDescription(d.name); return `<div class="nv-drug-row nv-drug-filled"><i class="nv-drug-check" aria-label="ช่องเช็ครายการยา"></i>${j+1}. ${esc(info.name)}<br><span class="nv-drug-details">${esc(info.usage || d.usage || d.instructions || '')}${info.usage || d.usage || d.instructions ? ' / ' : ''}${perRound(i, j)} ${esc(d.unit)} ต่อครั้ง</span></div>`; }).join('') : Array.from({ length: 6 }, (_,k) => `<div class="nv-drug-row"><i class="nv-drug-check" aria-label="ช่องเช็ครายการยา"></i>${k+1}.<span></span></div>`).join('');
       const phoneField = value => C.isDraft(i) && !String(value || '').trim() ? '<span class="nv-phone-boxes" aria-label="ช่องเขียนเบอร์โทรศัพท์ 10 หลัก">' + '<span class="nv-phone-digit"></span>'.repeat(3) + '<span class="nv-phone-dash">-</span>' + '<span class="nv-phone-digit"></span>'.repeat(7) + '</span>' : '<span class="nv-phone-line">' + esc(value || '') + '</span>';
       const tick = method => `<span class="nv-check">${!C.isDraft(i) && i.receiveMethod === method ? '✓' : ''}</span>`;
       const recipient = esc(i.recipientName || i.patient || dots);
