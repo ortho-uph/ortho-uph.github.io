@@ -327,6 +327,7 @@
     .nv-round-count{font-weight:700;color:#194d70;font-size:12px;white-space:nowrap}
     .nv-drug-label{display:flex;align-items:center;flex-wrap:wrap;column-gap:12px}.nv-service-options{display:inline-flex;align-items:center;gap:12px;color:#194d70;font-weight:700}.nv-service-options>span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}.nv-service-check{display:inline-block;width:3.5mm;height:3.5mm;border:1px solid #777;background:#fff;flex:none}
     .nv-drug-heading{display:grid;grid-template-columns:max-content minmax(0,1fr);column-gap:6px;row-gap:7px;align-items:center;padding-bottom:5px}.nv-drug-heading h3{margin:0}.nv-drug-heading .nv-round-count{align-self:center}
+    .receive-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px}.receive-tools .chips{margin:0}.receive-tools label{display:flex;align-items:center;gap:8px}.receive-tools select{padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--text)}.receive-tools small{flex-basis:100%}
     .nv-cut{position:absolute;top:49.8%;left:3.5%;right:3.5%;border-top:1px dashed #888}
     .nv-patient{position:absolute;left:3.5%;right:3.5%;top:51%;bottom:2%;border:1px solid #444;display:flex;flex-direction:column}
     .nv-patient-header{height:100px;flex-shrink:0;border-bottom:1px solid #888}
@@ -377,6 +378,7 @@
     <div id="shipBanner"></div>
     <div id="draftBanner"></div>
     <div class="chips" id="chips"></div>
+    <div class="receive-tools"><div class="chips" id="receiveChips" aria-label="วิธีรับยา"></div><label>เรียงตาม <select id="appointmentSort"><option value="original">ลำดับเดิม</option><option value="asc">วันนัดใกล้ → ไกล</option><option value="desc">วันนัดไกล → ใกล้</option></select></label><small class="muted">จำนวนคนตามสถานะ คลินิก และคำค้นที่เลือก · ไม่นับใบที่รอกรอกข้อมูล</small></div>
     <div class="split">
       <div class="card table-wrap"><table><thead><tr><th>เลขที่</th><th>ผู้ป่วย</th><th>รายการยา</th><th>นัด</th><th>นัดรับหลัง</th><th>สถานะนัดนี้</th><th></th></tr></thead><tbody id="rows"></tbody></table><div class="empty hidden" id="empty">ไม่พบรายการ</div></div>
       <aside class="card panel" id="panel"><div class="empty">เลือกรายการเพื่อดูรายละเอียด</div></aside>
@@ -515,7 +517,7 @@
     let organization = { ...OWED_CONFIG.organization }, organizationIsCentral = false, organizationLogoUpload = false;
     function applyOrganization(value) { organizationIsCentral = Boolean(value); organization = { ...OWED_CONFIG.organization, ...(value || {}) }; $('#orgHeader').textContent = organization.department + ' · ' + organization.hospitalName; $('#orgBrandLogo img').src = organization.logoUrl || '../logo.png'; }
     let messagesEnabled = false, messageLoading = false, unreadMessages = 0, chatEnabled = false, activeChatId = '', chatBusy = false, chatReplyRequest = null;
-    const state = { items: [], holidays: [], clinics: [], drugNames: [], filter: 'all', sel: null, online: false, busy: false };
+    const state = { items: [], holidays: [], clinics: [], drugNames: [], filter: 'all', receiveFilter: 'all', sel: null, online: false, busy: false };
     let zipIndex = null, imp = null, editing = null, formDrugs = [], formRounds = [];
 
     function toast(text, isError) { const el = $('#toast'); el.textContent = text; el.className = 'toast show' + (isError ? ' err' : ''); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), isError ? 6000 : 3500); }
@@ -715,6 +717,12 @@
     }
     const statusUrl = i => new URL('status.html?token=' + encodeURIComponent(i.publicToken), location.href).toString();
 
+    function compareAppointmentDates(a,b,direction) {
+      const date = i => C.isDraft(i) ? '' : (C.curRound(i) || {}).date || '';
+      const da = date(a), db = date(b);
+      if (!da || !db) return da ? -1 : db ? 1 : 0;
+      return direction === 'desc' ? db.localeCompare(da) : da.localeCompare(db);
+    }
     /* ===== หน้าหลัก: ตาราง + แผงรายละเอียด ===== */
     const clinicName = code => (state.clinics.find(c => c.code === code) || {}).name || code || '-';
     const clinicCodes = () => [...new Set([...state.clinics.map(c => c.code), ...state.items.map(i => i.clinic).filter(Boolean)])];
@@ -736,7 +744,12 @@
       $('#draftBanner').innerHTML = drafts ? `<div class="banner">📥 มี ${drafts} ใบที่ยังไม่มีรายการยาหรือวันนัด<button class="btn btn-ghost" data-printdrafts type="button">🖨 พิมพ์ทั้งหมด ${drafts} ใบ</button><button class="btn btn-primary" data-filter="draft" type="button" style="margin-left:0">ดูรายการ</button></div>` : '';
       const counts = { all: scoped.length }; STATUS_KEYS.forEach(s => { counts[s] = scoped.filter(i => C.status(i) === s).length; });
       $('#chips').innerHTML = [['all', 'ทั้งหมด'], ...STATUS_KEYS.filter(s => s !== 'draft' || counts.draft).map(s => [s, C.STATUS[s]])].map(([k, l]) => `<button class="chip ${state.filter === k ? 'on' : ''}" data-filter="${k}" type="button">${l}<b>${counts[k]}</b></button>`).join('');
-      const rows = state.items.filter(i => (state.filter === 'all' || C.status(i) === state.filter) && matches(i));
+      const candidates = state.items.filter(i => (state.filter === 'all' || C.status(i) === state.filter) && matches(i));
+      const patients = method => new Set(candidates.filter(i => !C.isDraft(i) && i.receiveMethod === method).map(i => String(i.hn || '').trim() || i.id)).size;
+      $('#receiveChips').innerHTML = [['all','ทุกวิธี',null],['self','🏥 รับเอง',patients('self')],['mail','📦 ส่งไปรษณีย์',patients('mail')]].map(([key,label,count]) => '<button class="chip ' + (state.receiveFilter === key ? 'on' : '') + '" data-receive="' + key + '" type="button">' + label + (count === null ? '' : '<b>' + count + ' คน</b>') + '</button>').join('');
+      const rows = candidates.filter(i => state.receiveFilter === 'all' || (!C.isDraft(i) && i.receiveMethod === state.receiveFilter));
+      const direction = $('#appointmentSort').value;
+      if (direction !== 'original') rows.sort((a,b) => compareAppointmentDates(a,b,direction));
       $('#rows').innerHTML = rows.map(i => `<tr class="${i.id === state.sel ? 'sel' : ''}" data-open="${esc(i.id)}"><td class="ref">${esc(i.id)}</td><td class="who">${whoCell(i)}</td><td class="drug">${drugCell(i)}</td><td>${roundTag(i)}</td><td>${dateCell(i)}</td><td>${pill(C.status(i))}</td><td style="text-align:right">${actButton(i)}</td></tr>`).join('');
       $('#empty').classList.toggle('hidden', rows.length > 0);
       $('#empty').textContent = state.items.length ? 'ไม่พบรายการที่ตรงกับคำค้นหรือตัวกรอง' : (state.online ? 'ยังไม่มีรายการ · กด “บันทึกนัดเติมยา” หรือ “นำเข้าจาก Excel”' : 'ยังไม่ได้เชื่อมต่อฐานข้อมูลกลาง');
@@ -1262,6 +1275,8 @@
       else if (d.open) { state.sel = d.open; render(); }
     });
     $('#newBtn').onclick = () => openForm(null);
+    $('#receiveChips').addEventListener('click', e => { const button = e.target.closest('[data-receive]'); if (!button) return; state.receiveFilter = button.dataset.receive; render(); });
+    $('#appointmentSort').addEventListener('change', render);
     $('#q').addEventListener('input', render);
     $('#clinic').addEventListener('change', () => { localStorage.setItem(KEYS.clinic, $('#clinic').value); state.filter = 'all'; render(); });
     document.addEventListener('keydown', e => {
