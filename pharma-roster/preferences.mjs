@@ -16,17 +16,19 @@ function renderTable(){
  const box=$('staff-table');if(!data){box.innerHTML=`<p class="table-empty">${session?'กำลังโหลดตาราง…':''}</p>`;return;}
  const{year,month}=ym,days=new Date(year,month,0).getDate(),holidays=data.holidays||[],t=bangkokToday(),thisMonth=t.year===year&&t.month===month,me=data.person.id;
  const cls=d=>{const dow=new Date(year,month-1,d).getDay();return holidays.includes(d)?'holiday-cell':[0,6].includes(dow)?'weekend':'';};
- const rows=[{id:me,name:data.person.name,source,submittedAt:dirty?null:data.submittedAt,mine:true},...team.filter(p=>p.id!==me)];
+ // Same row order as the organiser's roster; the signed-in pharmacist's row is the only editable one.
+ const mine={id:me,name:data.person.name,source,submittedAt:dirty?null:data.submittedAt,mine:true},rows=teamShared?team.map(p=>p.id===me?mine:p):[mine];if(!rows.includes(mine))rows.unshift(mine);
+ const offHours=r=>Object.entries(r.source).reduce((n,[d,v])=>!v||v==='X'||v==='V'?n:n+v.includes('บ')+v.includes('ด')+(v.includes('ช')&&!!cls(+d)),0);
  let html='<table class="pref-table"><thead><tr><th class="name-cell">บุคลากร</th>';
  for(let d=1;d<=days;d++)html+=`<th class="${cls(d)}${thisMonth&&d===t.day?' today':''}"><small>${dows[new Date(year,month-1,d).getDay()]}</small>${d}</th>`;
- html+='</tr></thead><tbody>';
- for(const r of rows){
-  html+=`<tr class="${r.mine?'mine':''}"><th class="name-cell" scope="row" title="${esc(r.name)}"><span class="sub-dot${r.submittedAt?' on':''}" title="${r.submittedAt?'ส่งแล้ว':'ยังไม่ส่ง'}"></span>${esc(r.name)}${r.mine?'<em>คุณ</em>':''}</th>`;
-  for(let d=1;d<=days;d++){const v=r.source[d]||'';html+=r.mine?`<td class="${cls(d)}"><button class="pick ${v?colorOf(v):''}" data-day="${d}" ${data.preview?'disabled':''} aria-label="วันที่ ${d} ${esc(v||'ยังไม่กำหนด')}">${v?esc(v):'+'}</button>${notes[d]?'<i class="note-mark" title="มีบันทึก"></i>':''}</td>`:`<td class="${cls(d)}">${v?`<span class="code ${colorOf(v)}">${esc(v)}</span>`:''}</td>`;}
-  html+='</tr>';
- }
+ html+='<th class="sum" title="บ่าย + ดึก + เช้าวันหยุด ที่เลือกไว้">รวม</th></tr></thead><tbody>';
+ rows.forEach((r,i)=>{
+  html+=`<tr class="${r.mine?'mine':''}"><th class="name-cell" scope="row" title="${esc(r.name)}${r.submittedAt?' · ส่งแล้ว':' · ยังไม่ส่ง'}"><small>${i+1}</small>${esc(r.name)}<span class="sub-dot${r.submittedAt?' on':''}"></span>${r.mine?'<em>คุณ</em>':''}</th>`;
+  for(let d=1;d<=days;d++){const v=r.source[d]||'',k=[v==='V'?'leave':cls(d),v==='X'?'off-x':v?'':'rest'].filter(Boolean).join(' ');html+=r.mine&&!data.preview?`<td class="${k} pick" data-day="${d}" tabindex="0" role="button" aria-label="วันที่ ${d} ${esc(v||'ยังไม่กำหนด')}">${esc(v||'·')}${notes[d]?'<i class="note-mark" title="มีบันทึก"></i>':''}</td>`:`<td class="${k}">${esc(v||'·')}</td>`;}
+  html+=`<td class="sum">${offHours(r)}</td></tr>`;
+ });
  html+='</tbody><tfoot>';
- for(const[code,label]of[['บ','บ่ายที่เลือกแล้ว'],['ด','ดึกที่เลือกแล้ว']]){html+=`<tr><th class="name-cell" scope="row">${label}</th>`;for(let d=1;d<=days;d++){const n=rows.filter(r=>(r.source[d]||'').includes(code)).length,need=NEED[code];html+=`<td class="${n>need?'over':n===need?'full':''}">${n}/${need}</td>`;}html+='</tr>';}
+ for(const[code,label]of[['บ','บ่ายที่เลือกแล้ว'],['ด','ดึกที่เลือกแล้ว']]){html+=`<tr><th class="name-cell" scope="row">${label}</th>`;for(let d=1;d<=days;d++){const n=rows.filter(r=>(r.source[d]||'').includes(code)).length,need=NEED[code];html+=`<td class="${n>need?'over':n===need?'full':''}">${n}/${need}</td>`;}html+='<td class="sum"></td></tr>';}
  html+='</tfoot></table>';
  const left=box.scrollLeft,top=box.scrollTop;box.innerHTML=html;box.scrollLeft=left;box.scrollTop=top;
 }
@@ -47,6 +49,7 @@ function openDay(d){if(!data||data.preview)return;selectedDay=d;selectedCode=sou
  $('shift-options').innerHTML=options.map(([v,label])=>{const denied=(v.includes('ด')&&(!p.night||p.forbidNight?.includes(dow)))||(v.includes('บ')&&(!p.afternoon||p.forbidAfternoon?.includes(dow)));return`<button class="shift-option ${v===selectedCode?'selected':''}" data-code="${v}" ${denied?'disabled':''}>${v||'–'}<small>${label}</small></button>`;}).join('');
  const others=team.filter(x=>x.id!==p.id&&x.source[d]);$('day-others').hidden=!teamShared;$('day-others').innerHTML=others.length?'<b>เพื่อนที่เลือกวันนี้แล้ว</b>'+others.map(x=>`<span class="code ${colorOf(x.source[d])}">${esc(x.source[d])}</span>${esc(x.name)}`).join(' &nbsp;·&nbsp; '):'<b>ยังไม่มีเพื่อนเลือกวันนี้</b>';
  $('staff-day-dialog').showModal();}
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-day]')){e.preventDefault();openDay(+e.target.dataset.day);}});
 document.addEventListener('click',e=>{const date=e.target.closest('[data-day]'),choice=e.target.closest('[data-code]'),tab=e.target.closest('[data-ym]');if(tab){const[y,m]=tab.dataset.ym.split('-').map(Number);selectMonth(y,m);}if(date)openDay(+date.dataset.day);if(choice&&!choice.disabled){selectedCode=choice.dataset.code;document.querySelectorAll('[data-code]').forEach(b=>b.classList.toggle('selected',b===choice));}});
 $('day-save').onclick=()=>{if(selectedCode)source[selectedDay]=selectedCode;else delete source[selectedDay];const note=$('day-note').value.trim();if(note&&selectedCode)notes[selectedDay]=note;else delete notes[selectedDay];dirty=true;$('staff-day-dialog').close();render();};$('day-clear').onclick=()=>{delete source[selectedDay];delete notes[selectedDay];dirty=true;$('staff-day-dialog').close();render();};$('staff-day-close').onclick=()=>$('staff-day-dialog').close();
 $('month-prev').onclick=()=>stepMonth(-1);$('month-next').onclick=()=>stepMonth(1);$('reload-preferences').onclick=()=>{if(dirty&&!confirm('มีวันที่ยังไม่ส่ง ต้องการโหลดข้อมูลใหม่หรือไม่?'))return;loadMonth();};$('staff-person').onchange=loadMonth;

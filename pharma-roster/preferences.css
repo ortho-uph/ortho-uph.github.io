@@ -115,27 +115,33 @@ select:disabled{background-color:var(--surface-2);color:var(--muted);cursor:not-
 .pref-table thead th.holiday-cell{background:#fff1c9;color:#7a5a12}
 .pref-table thead th.today{box-shadow:inset 0 -3px 0 var(--brand);color:var(--brand)}
 .pref-table thead th.today small{color:var(--brand)}
-.pref-table .name-cell{position:sticky;left:0;z-index:2;min-width:150px;max-width:190px;padding:0 14px;background:var(--surface);text-align:left;font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;box-shadow:inset -1px 0 0 var(--line)}
+.pref-table .name-cell{position:sticky;left:0;z-index:2;min-width:160px;max-width:200px;padding:0 14px;background:var(--surface);text-align:left;font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;box-shadow:inset -1px 0 0 var(--line)}
+.pref-table .name-cell small{display:inline-block;width:22px;font-size:11px;font-weight:500;color:var(--faint)}
 .pref-table thead .name-cell{z-index:4;background:var(--surface-2);color:var(--muted)}
 .pref-table .name-cell em{margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--brand);font-size:11px;font-style:normal;font-weight:600;color:#fff}
-.sub-dot{display:inline-block;width:7px;height:7px;margin-right:8px;border-radius:50%;background:var(--line-strong);vertical-align:1px}
+.sub-dot{display:inline-block;width:6px;height:6px;margin-left:6px;border-radius:50%;background:var(--line-strong);vertical-align:2px}
 .sub-dot.on{background:#22a06b;box-shadow:0 0 0 3px rgba(34,160,107,.15)}
-.pref-table td{min-width:44px;color:var(--ink-2)}
+.pref-table td{min-width:46px;font-weight:500;color:var(--ink-2)}
 .pref-table td.weekend{background:#f7f8f7}
 .pref-table td.holiday-cell{background:#fff8e3}
-.pref-table tbody tr:not(.mine):hover td,.pref-table tbody tr:not(.mine):hover .name-cell{background-color:#fafcfb}
+.pref-table td.leave{background:var(--v-bg);color:var(--v);font-weight:600}
+.pref-table td.off-x{color:var(--red);font-weight:600}
+.pref-table td.rest{color:#c2cac6}
+.pref-table .sum{position:sticky;right:0;z-index:1;min-width:52px;background:#eef7f2;color:var(--brand);font-weight:700;box-shadow:inset 1px 0 0 var(--brand-100)}
+.pref-table thead .sum{z-index:4;background:#e3f1ea}
+.pref-table tfoot .sum{z-index:3}
+.pref-table tbody tr:not(.mine):hover td:not(.sum):not(.leave),.pref-table tbody tr:not(.mine):hover .name-cell{background-color:#fafcfb}
 .code{display:inline-block;min-width:26px;padding:3px 6px;border-radius:7px;font-size:12.5px;font-weight:600;line-height:1.4}
 .code.m{background:var(--m-bg);color:var(--m)}.code.b{background:var(--b-bg);color:var(--b)}.code.n{background:var(--n-bg);color:var(--n)}.code.v{background:var(--v-bg);color:var(--v)}.code.x{background:var(--x-bg);color:var(--x)}
-.pref-table tr.mine td,.pref-table tr.mine .name-cell{background:#f3faf6;border-bottom:2px solid var(--brand-100)}
-.pref-table tr.mine .name-cell{font-weight:650;box-shadow:inset 3px 0 0 var(--brand),inset -1px 0 0 var(--line)}
-.pref-table tr.mine td.weekend{background:#ebf4ef}
-.pref-table tr.mine td.holiday-cell{background:#fbf4dc}
-.pref-table tr.mine td{position:relative;padding:4px 3px}
-.pick{display:grid;place-items:center;width:100%;min-width:38px;height:34px;padding:0 4px;border:1px dashed #c3d6cb;border-radius:9px;background:rgba(255,255,255,.7);color:var(--faint);font-size:15px;font-weight:600;transition:all .18s var(--ease)}
-.pick:hover:not(:disabled){border-style:solid;border-color:var(--brand);background:var(--brand-50);color:var(--brand);transform:translateY(-1px)}
-.pick.m,.pick.b,.pick.n,.pick.v,.pick.x{border-style:solid;font-size:12.5px}
-.pick.m{border-color:#cfe4bd;background:var(--m-bg);color:var(--m)}.pick.b{border-color:#b9e3cf;background:var(--b-bg);color:var(--b)}.pick.n{border-color:#d4d2f4;background:var(--n-bg);color:var(--n)}.pick.v{border-color:#f1cde2;background:var(--v-bg);color:var(--v)}.pick.x{border-color:#f5d0c2;background:var(--x-bg);color:var(--x)}
-.pick:disabled{cursor:default}
+.pref-table tr.mine>*{border-top:2px solid var(--brand);border-bottom:2px solid var(--brand)}
+.pref-table tr.mine td:not(.leave):not(.sum){background:#f1f9f5}
+.pref-table tr.mine td.weekend:not(.leave){background:#e8f3ed}
+.pref-table tr.mine td.holiday-cell:not(.leave){background:#fbf4dc}
+.pref-table tr.mine .name-cell{background:#f1f9f5;font-weight:650;box-shadow:inset 3px 0 0 var(--brand),inset -1px 0 0 var(--line)}
+.pref-table td.pick{position:relative;cursor:pointer;transition:background .18s,box-shadow .18s,color .18s}
+.pref-table td.pick.rest{color:#9fbfb0}
+.pref-table td.pick:hover,.pref-table td.pick:focus-visible{background:var(--brand-50)!important;box-shadow:inset 0 0 0 2px var(--brand);color:var(--brand);outline:none}
+.pref-table td.pick.rest:hover:after{content:'+';position:absolute;inset:2px;display:grid;place-items:center;background:var(--brand-50);font-size:16px;font-weight:600;color:var(--brand)}
 .note-mark{position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;background:var(--amber);pointer-events:none}
 .pref-table tfoot td,.pref-table tfoot th{position:sticky;z-index:2;height:34px;background:var(--surface-2);font-size:12px;color:var(--muted)}
 .pref-table tfoot tr:first-child>*{bottom:34px;border-top:1px solid var(--line)}
@@ -225,9 +231,9 @@ dialog input{width:100%}
   .calendar-heading{padding:18px 14px 4px;flex-wrap:wrap}.calendar-heading h2{font-size:21px}.calendar-heading p{font-size:12.5px}
   .calendar-legend{padding:12px 14px 14px;gap:5px;font-size:11.5px}.calendar-legend>span{padding:2px 8px 2px 6px}.holiday-note{display:none!important}
   .table-scroll{max-height:62vh}
-  .pref-table .name-cell{min-width:104px;max-width:120px;padding:0 10px;font-size:12.5px}
-  .pref-table .name-cell em{display:none}
-  .pref-table td{min-width:40px}.pick{min-width:34px}
+  .pref-table .name-cell{min-width:112px;max-width:128px;padding:0 8px;font-size:12.5px}
+  .pref-table .name-cell em,.pref-table .name-cell small{display:none}
+  .pref-table td{min-width:40px}
   .calendar-bottom{flex-direction:column;align-items:stretch;padding:14px;gap:12px}
   .calendar-bottom>div:last-child{width:100%}.calendar-bottom .primary{flex:1}
   .help-card{padding:16px}
