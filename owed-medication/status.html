@@ -49,7 +49,7 @@
     .note b{display:block;font-size:13px;margin-bottom:2px}
     .steps{margin-top:14px;padding:14px 16px;border-radius:16px;background:#f0f4fc;color:#334f7e;font-size:14.5px;line-height:1.55}
     .call{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:16px;padding:16px;border-radius:16px;background:var(--brand);color:#fff;font-weight:800;font-size:17px;text-decoration:none}
-    .callsub{text-align:center;font-size:13px;color:var(--muted);margin:8px 0 0}
+    .callsub{text-align:center;font-size:17px;color:var(--ink);margin:12px 0 0;line-height:1.6}.call-number{display:block;font-size:19px;font-weight:600}.call-extension{font-size:23px;font-weight:800;color:var(--brand);white-space:nowrap}.call-extension strong{font-size:26px}.call-other-extensions{font-size:17px;color:var(--muted)}
     .updated{text-align:center;font-size:12.5px;color:var(--muted);margin:14px 0 0}
     .error{text-align:center;padding:26px 20px}.error h2{margin:0 0 8px}.error p{margin:0;color:var(--muted)}
     .loading{color:#eadfff;text-align:center}
@@ -65,12 +65,18 @@
     const $ = id => document.getElementById(id);
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const API = OWED_CONFIG.endpoint;
-    let PHONE = '<a class="call" href="tel:054466666">☎ โทรหาห้องยา</a><p class="callsub">054-466-666 ต่อ 7121, 7123, 7408</p>';
+    function contactPhoneHtml(phone, extensions) {
+      const parts = String(extensions || '').split(/[,;]+/).map(x => x.trim()).filter(Boolean);
+      const main = parts.includes('7121') ? '7121' : parts[0];
+      const others = parts.filter(x => x !== main);
+      return '<p class="callsub"><span class="call-number">' + esc(phone) + '</span>' + (main ? '<span class="call-extension">ต่อ <strong>' + esc(main) + '</strong></span>' : '') + (others.length ? '<span class="call-other-extensions">, ' + esc(others.join(', ')) + '</span>' : '') + '</p>';
+    }
+    let PHONE = '<a class="call" href="tel:054466666">☎ โทรหาห้องยา</a>' + contactPhoneHtml('054-466-666', '7121, 7123, 7408');
     function applyOrganization(profile) {
       const org = { ...OWED_CONFIG.organization, ...(profile || {}) };
       $('orgName').textContent = org.department + ' ' + org.hospitalName; document.querySelector('.org img').src = org.logoUrl || '../logo.png';
       const number = org.phone.replace(/[^+0-9]/g, '');
-      PHONE = (number ? '<a class="call" href="tel:' + esc(number) + '">☎ โทรหา' + esc(org.department) + '</a>' : '') + '<p class="callsub">' + esc(org.phone) + (org.extensions ? ' ต่อ ' + esc(org.extensions) : '') + '</p>';
+      PHONE = (number ? '<a class="call" href="tel:' + esc(number) + '">☎ โทรหา' + esc(org.department) + '</a>' : '') + contactPhoneHtml(org.phone, org.extensions);
     }
     let patientMessagesEnabled = false, patientMessageRequest = null, patientChatEnabled = false, patientChatBusy = false;
     const token = new URLSearchParams(location.search).get('token');
