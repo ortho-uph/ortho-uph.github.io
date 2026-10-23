@@ -81,9 +81,20 @@ input[type=checkbox]{height:auto;box-shadow:none}
 .dialog-header .eyebrow:before{display:none}
 h1{margin:0 0 6px;font-size:28px;font-weight:650;letter-spacing:-.025em;line-height:1.2}
 .heading p{margin:0;font-size:14px;color:var(--muted)}
-.month-controls{display:flex;align-items:flex-end;gap:8px;padding:10px;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow-sm)}
-.month-controls label{font-size:11.5px;font-weight:500;color:var(--muted)}
-.month-controls .button{height:38px}
+.month-strip{display:flex;align-items:stretch;gap:8px;margin:0 0 14px}
+.month-tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;flex:1;min-width:0}
+.month-tab{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink-2);text-align:left;box-shadow:var(--shadow-sm);transition:all .2s var(--ease)}
+.month-tab b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:600}
+.month-tab small{font-size:12px;color:var(--muted);white-space:nowrap}
+.month-tab:hover{border-color:var(--brand-100);background:var(--brand-50);transform:translateY(-1px)}
+.month-tab.active{border-color:var(--brand-600);background:var(--brand);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 8px 18px -10px rgba(14,76,60,.6)}
+.month-tab.active small{color:rgba(255,255,255,.78)}
+.month-tab.now:after{content:'';position:absolute;top:10px;right:10px;width:7px;height:7px;border-radius:50%;background:#22a06b;box-shadow:0 0 0 3px rgba(34,160,107,.18)}
+.month-tab.active.now:after{background:#9be2bf;box-shadow:0 0 0 3px rgba(255,255,255,.2)}
+.month-nav{display:grid;place-items:center;flex:none;width:40px;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink-2);box-shadow:var(--shadow-sm);transition:all .2s var(--ease)}
+.month-nav:hover:not(:disabled){border-color:var(--brand);background:var(--brand-50);color:var(--brand)}
+.month-nav:active:not(:disabled){transform:scale(.94)}
+.month-nav:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
 
 /* ---------- notice ---------- */
 #notice{display:flex;align-items:flex-start;gap:10px;margin-bottom:18px;padding:12px 16px;border:1px solid var(--brand-100);border-radius:12px;background:var(--brand-50);color:#0f4d3d;font-size:13px;line-height:1.7;box-shadow:var(--shadow-sm);animation:drop .45s var(--ease)}
@@ -94,34 +105,21 @@ h1{margin:0 0 6px;font-size:28px;font-weight:650;letter-spacing:-.025em;line-hei
 /* ---------- panels ---------- */
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
 
-/* workflow: three step cards */
-.flow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:14px;overflow:visible}
-.step-card{position:relative;display:flex;flex-direction:column;gap:12px;padding:18px 20px;border-right:1px solid var(--line);transition:background .3s}
-.step-card:nth-child(3){border-right:0}
-.step-card header{display:flex;gap:12px;align-items:flex-start}
-.step-card header b{display:grid;place-items:center;flex:none;width:28px;height:28px;border-radius:50%;border:1px solid var(--line-strong);background:var(--surface);font-size:13px;font-weight:650;color:var(--muted);transition:all .3s var(--ease)}
-.step-card h2{margin:2px 0 2px;font-size:15.5px;font-weight:650;letter-spacing:-.01em;color:var(--ink-2)}
-.step-card header p{margin:0;font-size:12.5px;line-height:1.6;color:var(--muted)}
-.step-actions{display:flex;gap:8px;flex-wrap:wrap}
-.step-more{display:flex;gap:4px 12px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--faint)}
-.step-more .text-button{font-size:12.5px;font-weight:500}
-.step-link{font-size:12.5px;font-weight:500;color:var(--muted);text-decoration:none}
-.step-link:hover{color:var(--brand);text-decoration:underline;text-underline-offset:3px}
-.step-hint{margin:0;font-size:12.5px;line-height:1.6;color:var(--muted)}
-.step-note{margin:0;padding:8px 10px;border-radius:9px;background:var(--brand-50);font-size:12.5px;line-height:1.6;color:#0f4d3d}
-.step-note:empty{display:none}
-.step-card:not(.active) .button.primary:not(:disabled){background:var(--surface);border-color:var(--line-strong);color:var(--ink);box-shadow:var(--shadow-sm)}
-.step-card:not(.active) .button.primary:not(:disabled):hover{background:var(--surface-2)}
-.step-card.active{background:linear-gradient(180deg,#f1f9f5,#fff 75%)}
-.step-card.active:before{content:'';position:absolute;inset:0 0 auto;height:3px;background:var(--brand)}
-.step-card.active header b{border-color:var(--brand);background:var(--brand);color:#fff;box-shadow:0 0 0 4px rgba(20,96,76,.12)}
-.step-card.active h2{color:var(--ink)}
-.step-card:has(~ .step-card.active) header b{border-color:var(--brand-100);background:var(--brand-50);color:transparent;position:relative}
-.step-card:has(~ .step-card.active) header b:after{content:'✓';position:absolute;inset:0;display:grid;place-items:center;color:var(--brand);font-size:14px}
-.cloud-list{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px;padding:14px 20px;border-top:1px solid var(--line);background:var(--surface-2)}
-.cloud-list:empty{display:none}
-.cloud-list p.issue{margin:0;padding:7px 12px 7px 28px;background:var(--surface);font-size:12.5px;line-height:1.5}
-.cloud-list p.issue:before{top:13px}
+/* auto-synced pharmacist preferences */
+.sync-bar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;padding:14px 18px;overflow:visible}
+.sync-main{display:flex;align-items:center;gap:12px;min-width:0}
+.sync-dot{position:relative;flex:none;width:10px;height:10px;border-radius:50%;background:#e0a21b;box-shadow:0 0 0 4px rgba(224,162,27,.18)}
+.sync-bar.complete .sync-dot{background:#22a06b;box-shadow:0 0 0 4px rgba(34,160,107,.16)}
+.sync-bar.error .sync-dot{background:var(--red);box-shadow:0 0 0 4px rgba(191,63,40,.16)}
+.sync-main b{display:block;font-size:14.5px;font-weight:650}
+.sync-main p{margin:0;font-size:12.5px;line-height:1.6;color:var(--muted)}
+.sync-bar.error .sync-main b{color:var(--red)}
+.sync-pending{display:flex;flex-wrap:wrap;align-items:center;gap:5px;flex:1;min-width:200px}
+.sync-pending span{margin-right:2px;font-size:12.5px;font-weight:600;color:#7a5a12}
+.sync-pending span.done{color:var(--brand)}
+.sync-pending em{padding:2px 9px;border:1px solid var(--amber-line);border-radius:999px;background:var(--amber-50);font-size:12px;font-style:normal;color:#7a5a12}
+.sync-actions{display:flex;align-items:center;gap:14px;margin-left:auto}
+.sync-actions .text-button{font-weight:500}
 
 /* stats */
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 14px}
@@ -265,8 +263,8 @@ dialog select,dialog input[type=text],#person-name{width:100%;margin:7px 0 14px}
 @keyframes pop{0%{transform:scale(.86)}60%{transform:scale(1.06)}100%{transform:scale(1)}}
 @keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
 @keyframes pulse{0%{transform:scale(1);opacity:.55}80%,100%{transform:scale(2.6);opacity:0}}
-.heading,.flow,.stats article,.schedule-panel,.bottom-grid .panel,#people-page,#rules-page{animation:rise .6s var(--ease) both}
-.flow{animation-delay:.05s}
+.heading,.month-strip,.sync-bar,.stats article,.schedule-panel,.bottom-grid .panel,#people-page,#rules-page{animation:rise .6s var(--ease) both}
+.month-strip{animation-delay:.03s}.sync-bar{animation-delay:.06s}
 .stats article:nth-child(1){animation-delay:.1s}.stats article:nth-child(2){animation-delay:.15s}.stats article:nth-child(3){animation-delay:.2s}
 .schedule-panel{animation-delay:.25s}
 .bottom-grid .panel{animation-delay:.3s}.bottom-grid .panel+.panel{animation-delay:.35s}
@@ -283,7 +281,6 @@ dialog select,dialog input[type=text],#person-name{width:100%;margin:7px 0 14px}
   main{margin-left:76px;padding:0 22px}.topbar{margin:0 -22px;padding:0 22px}
   .panel-header{flex-wrap:wrap;gap:0;padding-bottom:10px}.tabs{min-height:52px}.table-actions{margin-left:auto}
   .heading{flex-direction:column;align-items:flex-start}
-  .flow{grid-template-columns:1fr}.step-card{border-right:0;border-bottom:1px solid var(--line)}.step-card:nth-child(3){border-bottom:0}
 }
 @media(max-width:650px){
   .sidebar{inset:auto 0 0 0;width:auto;height:66px;padding:6px 8px calc(6px + env(safe-area-inset-bottom));flex-direction:row;justify-content:space-around;align-items:stretch;border-right:0;border-top:1px solid var(--line);background:rgba(251,252,251,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
@@ -296,10 +293,10 @@ dialog select,dialog input[type=text],#person-name{width:100%;margin:7px 0 14px}
   .topbar>span{font-size:13px}.topbar b,.workspace{display:none}
   .topbar .button{height:32px;padding:0 10px;font-size:12px}.topbar .button svg{display:none}
   .heading{padding:22px 0 18px}h1{font-size:23px}.heading p{font-size:13px}
-  .month-controls{width:100%;flex-wrap:wrap}.month-controls label:first-child{flex:1}.month-controls #month{width:100%}
+  .month-tabs{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(118px,1fr);overflow-x:auto;scrollbar-width:none}.month-nav{width:34px;border-radius:10px}
   .stats{grid-template-columns:1fr 1fr;gap:10px}.stats article{padding:14px}.stats article.health{grid-column:1/-1}
   .stats strong{font-size:20px}.stats .health strong{font-size:16px}.stats strong small{font-size:12px;margin-left:3px}
-  .step-card{padding:14px 16px}.cloud-list{padding:12px 16px;max-height:220px;overflow:auto}
+  .sync-bar{padding:12px 14px;gap:10px}.sync-actions{width:100%;justify-content:space-between;margin-left:0}
   .stats article{grid-template-columns:1fr}
   .panel-header{padding:0 12px 12px}.tabs{gap:0;overflow-x:auto;width:100%}.tab{padding:0 9px;font-size:13px}
   .table-actions{width:100%;justify-content:space-between}.table-actions .button{flex:1}
@@ -311,7 +308,7 @@ dialog select,dialog input[type=text],#person-name{width:100%;margin:7px 0 14px}
   dialog{padding:20px;border-radius:18px}
 }
 @media print{
-  .sidebar,.topbar,.month-controls,.bottom-grid,.presets,.table-actions,footer,#notice,.table-note,.panel-footer,.flow,.stats{display:none!important}
+  .sidebar,.topbar,.month-strip,.sync-bar,.bottom-grid,.presets,.table-actions,footer,#notice,.table-note,.panel-footer,.stats{display:none!important}
   *{animation:none!important}
   main{margin:0;padding:0}.heading{padding:10px 0}
   .table-scroll{max-height:none;overflow:visible}table{font-size:8px}.daycell{min-width:25px}.name-cell{min-width:90px;position:static}th,td{height:28px}
