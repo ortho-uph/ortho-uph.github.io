@@ -1,10 +1,11 @@
+import{capacityConflict}from'./capacity.mjs?v=capacity4';
 import{calendar,initial,counts,validate,readiness,display,codes,clone}from'./engine.mjs?v=solve3';
 const apiBase=(window.ROSTER_API_BASE||'').replace(/\/$/,'');
 const authHeaders=()=>({authorization:'Bearer '+(sessionStorage.getItem('roster-session')||'')});
 const authResponse=await fetch(apiBase+'/api/session',{headers:authHeaders()});
 if(!authResponse.ok||!(await authResponse.json()).owner){location.replace('./');throw Error('Admin login required');}
 const $=id=>document.getElementById(id),months=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'],days=['อา','จ','อ','พ','พฤ','ศ','ส'],key='roster-studio-v1';
-let state,mode='source',worker=null,cell=null,person=null,syncing=false,lastSync=0,syncPromise=null,preparing=false;
+let state,mode='source',worker=null,cell=null,person=null,syncing=false,lastSync=0,syncPromise=null,preparing=false,cellCapacity=null;
 const escape=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Month strip: six months from the current Bangkok month, each month's work kept separately in this browser.
 const archiveKey='roster-studio-months',MONTHS_SHOWN=6,MONTHS_MAX=12;let winStart=0;
@@ -35,7 +36,11 @@ function renderGrid(c,cs){const a=state.shifts||initial(state);let html='<table>
 function renderSummary(cs){$('table').innerHTML='<table><thead><tr><th class="name-cell">บุคลากร</th><th>เช้าวันหยุด</th><th>บ่าย</th><th>ดึก</th><th>รวมเวรนอกเวลา</th></tr></thead><tbody>'+state.people.map((p,i)=>`<tr><td class="name-cell">${i+1}. ${escape(p.name)}</td><td>${cs[i].m}</td><td>${cs[i].b}</td><td>${cs[i].n}</td><td class="sum">${cs[i].total}</td></tr>`).join('')+`<tr><td class="name-cell">รวม</td><td>${cs.reduce((n,c)=>n+c.m,0)}</td><td>${cs.reduce((n,c)=>n+c.b,0)}</td><td>${cs.reduce((n,c)=>n+c.n,0)}</td><td class="sum">${cs.reduce((n,c)=>n+c.total,0)}</td></tr></tbody></table>`;}
 function renderActions(){document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));$('generate').disabled=!!worker||preparing;if($('generate-from-issues'))$('generate-from-issues').disabled=!!worker||preparing;}
 function renderPeople(){$('people-list').innerHTML=state.people.map((p,i)=>`<div class="person-row" role="button" tabindex="0" data-person="${i}"><div><strong>${i+1}. ${escape(p.name)}</strong> <em>${p.night?'รับดึก':'ไม่รับดึก'}</em>${!p.addMorning?'<em>ไม่เพิ่มเช้าวันหยุด</em>':''}</div><span>${p.forbidNight.length?'งดดึก '+p.forbidNight.map(d=>days[d]).join(', ')+' · ':''}${p.forbidAfternoon.length?'งดบ่าย '+p.forbidAfternoon.map(d=>days[d]).join(', '):''} แก้ไข ↗</span></div>`).join('');}
-function openCell(i,d){if(worker||preparing)return;cell={i,d};$('cell-title').textContent=`${state.people[i].name} · ${d} ${months[state.month-1]}`;$('cell-code').value=state.source[i]?.[d]||'';$('cell-save-error').hidden=true;$('cell-dialog').showModal();}
+async function openCell(i,d){if(worker||preparing)return;cell={i,d};const current=cell;cellCapacity=null;$('cell-title').textContent=`${state.people[i].name} · ${d} ${months[state.month-1]}`;$('cell-code').value=state.source[i]?.[d]||'';$('cell-save-error').hidden=true;$('save-cell').disabled=true;$('cell-dialog').showModal();
+ try{const latest=await cloudRequest('/api/preferences?month='+cloudMonth()+'&person='+state.people[i].id);if(cell!==current)return;cellCapacity=latest;checkCellCapacity();}catch(error){if(cell!==current)return;$('cell-save-error').textContent=error.message;$('cell-save-error').hidden=false;}
+}
+function checkCellCapacity(){if(!cellCapacity)return;const {i,d}=cell,full=capacityConflict(cellCapacity,state.people[i].id,{[d]:$('cell-code').value},cellCapacity.source);$('save-cell').disabled=!!full;$('cell-save-error').hidden=!full;if(full)$('cell-save-error').textContent=`เวรที่ท่านเลือกเต็มแล้ว (วันที่ ${d} เวร${full.label})`;}
+$('cell-code').onchange=checkCellCapacity;
 function invalidate(){if(worker)finish();state.shifts=null;mode='source';save();render();notice('ปรับข้อมูลแล้ว กด “จัดเวรอัตโนมัติ” เพื่อจัดช่องที่เหลือ');}
 function openPerson(i){person=i;const p=i===null?freshPerson('',Math.max(0,...state.people.map(p=>p.id))+1):state.people[i];$('person-name').value=p.name;$('p-night').checked=p.night;$('p-afternoon').checked=p.afternoon;$('p-morning').checked=p.addMorning;for(const[key,ban]of[['p-ban-b',p.forbidAfternoon],['p-ban-n',p.forbidNight]])$(key).innerHTML=days.map((v,d)=>`<label><input type="checkbox" value="${d}" ${ban.includes(d)?'checked':''}>${v}</label>`).join('');$('delete-person').hidden=i===null;$('person-dialog').showModal();}
 function download(content,type,name){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
