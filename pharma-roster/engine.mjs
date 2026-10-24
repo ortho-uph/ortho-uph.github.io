@@ -42,10 +42,20 @@ export function validate(s,a=s.shifts||initial(s)){
  return{errors,warnings,exceptions:[...new Set(exceptions)],counts:cs};
 }
 class Flow{constructor(n){this.g=Array.from({length:n},()=>[]);}add(u,v,c){const e={v,c,r:null},r={v:u,c:0,r:e};e.r=r;this.g[u].push(e);this.g[v].push(r);return e;}run(s,t){let n=0;while(true){const q=[s],prev=new Map([[s,null]]);for(let pos=0;pos<q.length&&!prev.has(t);pos++){const u=q[pos];for(const e of this.g[u])if(e.c&&!prev.has(e.v)){prev.set(e.v,[u,e]);q.push(e.v);}}if(!prev.has(t))return n;for(let v=t;v!==s;){const[u,e]=prev.get(v);e.c--;e.r.c++;v=u;}n++;}}}
+export function readiness(s){
+ const c=calendar(s),base=initial(s),check=validate(s,base),errors=check.errors.filter(e=>e.i!==null),missing=[];
+ for(let d=1;d<=c.days;d++)for(const[k,need,label]of [[1,2,'บ่าย'],[2,1,'ดึก'],...(c.off.includes(d)?[[0,2,'เช้าวันหยุด']]:[])]){
+  const have=base.filter(r=>r[d][k]).length;if(have>need)errors.push({message:`วันที่ ${d}: กำหนด${label}ไว้ ${have} คน เกินจำนวน ${need} คน`,d,i:null});
+  if(have<need)missing.push({d,k,count:need-have});
+ }
+ const ceiling=Math.ceil(c.total/s.people.length);check.counts.forEach((n,i)=>{if(n.total>ceiling)errors.push({message:`${s.people[i].name} มีเวรเดิม ${n.total} ครั้ง เกินเป้า ${ceiling} ครั้ง กรุณาปรับเวรที่กำหนดเองก่อน`,i});});
+ return{errors,missing,remaining:missing.reduce((n,v)=>n+v.count,0)};
+}
 const pick=a=>a[Math.floor(Math.random()*a.length)],shuffle=a=>a.sort(()=>Math.random()-.5);
 export function solve(s,{timeMs=22000,onProgress=()=>{}}={}){
  const{days,dow,off,total}=calendar(s),P=s.people.length,base=initial(s),source=(i,d)=>s.source[i]?.[d]||'',fixed=(i,d,k)=>['ช','บ','ด'][k]&&source(i,d).includes(['ช','บ','ด'][k]);
  if(P<2)throw Error('ต้องมีบุคลากรอย่างน้อย 2 คน');
+ const ready=readiness(s);if(ready.errors.length)throw Error('จัดเวรไม่ได้: '+ready.errors.slice(0,4).map(e=>e.message).join(' · '));
  const floor=Math.floor(total/P),ceil=Math.ceil(total/P),start=Date.now();
  for(let i=0;i<P;i++){const c=counts(s,base)[i];if(c.total>ceil)throw Error(`${s.people[i].name} มีเวรเดิม ${c.total} ครั้ง เกินเป้า ${ceil} ครั้ง กรุณาปรับเวรที่กำหนดเองก่อน`);}
  function can(i,d,k,a){const p=s.people[i],v=source(i,d);if(['X','V','ช'].includes(v)||a[i][d][1]||a[i][d][2])return false;if(k===2){if(!p.night||p.forbidNight.includes(dow(d))||(s.noNightAfterV&&source(i,d-1)==='V'))return false;}else{if(!p.afternoon||p.forbidAfternoon.includes(dow(d)))return false;for(const pair of s.apart||[]){const mate=pair[0]===p.id?pair[1]:pair[1]===p.id?pair[0]:null,j=s.people.findIndex(p=>p.id===mate);if(j>=0&&a[j][d][1])return false;}}return true;}
