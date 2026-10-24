@@ -242,3 +242,17 @@ dialog input{width:100%}
 }
 
 #day-capacity-error{background:#fff0eb;color:#b33824;border:1px solid #f3c2b5;border-radius:10px;padding:12px 14px;margin:12px 0;}
+#personal-print{display:none}
+@page{size:A4 landscape;margin:10mm}
+@media print{
+ body{background:white!important;color:#111!important;font-family:'IBM Plex Sans Thai',sans-serif}
+ body>*:not(#personal-print){display:none!important}
+ #personal-print{display:block!important;width:100%;margin:0;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+ #personal-print h1{font-size:18pt;margin:0 0 2mm}
+ .print-summary{font-size:10pt;margin:0 0 3mm}.print-person{font-size:13pt;margin:0 0 3mm}.print-person span{font-size:9pt;float:right}
+ .print-calendar{width:100%;table-layout:fixed;border-collapse:collapse;font-size:10pt}
+ .print-calendar th{border:1px solid #aaa;padding:1mm;background:#edf5ef}
+ .print-calendar td{position:relative;border:1px solid #aaa;height:20mm;padding:1mm 2mm;vertical-align:top;break-inside:avoid}
+ .print-calendar td b{font-size:10pt}.print-calendar td strong{display:block;text-align:center;font-size:16pt;line-height:1.1}
+ .print-calendar .print-off{background:#f3f4f3}.print-legend{font-size:9pt;margin:3mm 0 0}
+}

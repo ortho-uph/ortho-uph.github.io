@@ -1,0 +1,10 @@
+const months=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export function personalSummary({year,month,source,holidays=[]}){
+ const result={regularMorning:0,m:0,b:0,n:0,x:0,v:0,total:0};for(const[d,code]of Object.entries(source)){const day=Number(d),off=[0,6].includes(new Date(year,month-1,day).getDay())||holidays.includes(day);if(code==='X')result.x++;if(code==='V')result.v++;if(code.includes('ช'))result[off?'m':'regularMorning']++;if(code.includes('บ'))result.b++;if(code.includes('ด'))result.n++;}result.total=result.m+result.b+result.n;return result;
+}
+export function personalPrintHTML({year,month,name,source,holidays=[],locked=false}){
+ const summary=personalSummary({year,month,source,holidays});const days=new Date(year,month,0).getDate(),start=new Date(year,month-1,1).getDay(),rows=Math.ceil((start+days)/7);let html=`<h1>ตารางเวรส่วนบุคคล · ${months[month-1]} ${year+543}</h1><p class="print-person">${esc(name)} <span>${locked?'ตารางบันทึกและล็อกแล้ว':'ความประสงค์ — ยังไม่ใช่ตารางจัดเวรฉบับอนุมัติ'}</span></p><p class="print-summary">เช้าปกติ ${summary.regularMorning} · เช้าวันหยุด ${summary.m} · บ่าย ${summary.b} · ดึก ${summary.n} · หยุด X ${summary.x} · ลา V ${summary.v} · รวมเวรนอกเวลา ${summary.total} ครั้ง</p><table class="print-calendar"><thead><tr>${['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'].map(d=>'<th>'+d+'</th>').join('')}</tr></thead><tbody>`;
+ for(let w=0;w<rows;w++){html+='<tr>';for(let dow=0;dow<7;dow++){const day=w*7+dow-start+1,valid=day>=1&&day<=days;html+=valid?`<td class="${[0,6].includes(dow)||holidays.includes(day)?'print-off':''}"><b>${day}</b><strong>${esc(source[day]||'–')}</strong></td>`:'<td></td>';}html+='</tr>';}
+ return html+'</tbody></table><p class="print-legend">ช = เช้า · บ = บ่าย · ด = ดึก · X = หยุด · V = ลาพักผ่อน · – = ไม่มีเวร</p>';
+}
