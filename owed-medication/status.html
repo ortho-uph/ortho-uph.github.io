@@ -94,9 +94,10 @@
       const view = C.patientView(s), k = C.cur(s), round = C.curRound(s);
       $('name').textContent = /^ผู้รับบริการ/.test(s.patient) ? 'ผู้รับบริการ' : 'คุณ' + s.patient.replace(/^(นาย|นางสาว|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.)/, '');
       const delivery = s.receiveMethod === 'mail' && round?.status === 'delivery';
+      const readyPickup = s.receiveMethod !== 'mail' && round?.status === 'ready';
       const contactDate = delivery ? round.deliveryContactBy : round?.date;
-      const contactText = delivery ? 'โปรดรอติดต่อจากเจ้าหน้าที่จัดส่งยา' : 'โปรดรอติดต่อจากเจ้าหน้าที่';
-      const appointmentDate = contactDate ? `<div class="count"><div><span>${contactText}&nbsp;&nbsp;${delivery ? 'ภายในวันที่' : 'ในวันที่'}</span><small>${esc(C.dateLong(contactDate))}</small></div></div>` : delivery ? `<div class="count"><div><span>${contactText}</span></div></div>` : '';
+      const contactText = delivery ? 'โปรดรอติดต่อจากเจ้าหน้าที่จัดส่งยา' : readyPickup ? 'โปรดนำบัตรนัดรับยามาติดต่อที่ ห้องจ่ายยาผู้ป่วยนอกชั้น 1' : 'โปรดรอติดต่อจากเจ้าหน้าที่';
+      const appointmentDate = contactDate ? `<div class="count"><div><span>${contactText}&nbsp;&nbsp;${delivery ? 'ภายในวันที่' : readyPickup ? 'ตั้งแต่วันที่' : 'ในวันที่'}</span><small>${esc(C.dateLong(contactDate))}</small></div></div>` : delivery ? `<div class="count"><div><span>${contactText}</span></div></div>` : '';
       const status = `<section class="card status t-${view.tone}"><div class="ic">${view.icon}</div><h2>${esc(view.title)}</h2>${view.round ? `<span class="rn">นัดที่ ${view.round.number} จาก ${view.round.total}</span>` : ''}<p>${esc(view.message)}</p>${appointmentDate}</section>`;
       const items = round && C.roundItems(s, round).length ? `<section class="card"><h3>ยาที่จะได้รับใน${view.round ? 'นัดนี้' : 'ครั้งนี้'}</h3>${s.drugs.map((d, j) => (round.qty[j] ? `<div class="r"><span>${esc(d.name)}</span><b>${round.qty[j]} ${esc(d.unit)}</b></div>` : '')).join('')}</section>` : '';
       const rows = [];
