@@ -2,8 +2,11 @@ import{capacityConflict}from'./capacity.mjs?v=capacity4';
 import{calendar,initial,counts,validate,readiness,display,codes,clone,parsePreferenceCSV}from'./engine.mjs?v=roster7';
 const apiBase=(window.ROSTER_API_BASE||'').replace(/\/$/,'');
 const authHeaders=()=>({authorization:'Bearer '+(sessionStorage.getItem('roster-session')||'')});
-const authResponse=await fetch(apiBase+'/api/session',{headers:authHeaders()});
-if(!authResponse.ok||!(await authResponse.json()).owner){location.replace('./');throw Error('Admin login required');}
+async function apiFetch(path,options={}){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);try{return await fetch(apiBase+path,{...options,signal:controller.signal});}finally{clearTimeout(timer);}}
+function showConnectionError(error){const bar=document.getElementById('sync-bar'),title=document.getElementById('sync-title'),detail=document.getElementById('sync-detail'),retry=document.getElementById('sync-now');bar?.classList.add('error');if(title)title.textContent='เชื่อมต่อระบบส่วนกลางไม่ได้';if(detail)detail.textContent=error?.name==='AbortError'?'ระบบไม่ตอบกลับภายใน 15 วินาที กรุณากด “ลองเชื่อมต่อใหม่”':'ไม่สามารถติดต่อบริการบัญชีและตารางเวรได้ กรุณากด “ลองเชื่อมต่อใหม่” หรือติดต่อผู้ดูแลระบบ';if(retry){retry.disabled=false;retry.textContent='↻ ลองเชื่อมต่อใหม่';retry.onclick=()=>location.reload();}}
+let authResponse,auth;
+try{authResponse=await apiFetch('/api/session',{headers:authHeaders()});if(!authResponse.ok){location.replace('./');throw Error('Admin login required');}auth=await authResponse.json();}catch(error){if(error.message==='Admin login required')throw error;showConnectionError(error);throw error;}
+if(!auth.owner){location.replace('./');throw Error('Admin login required');}
 const $=id=>document.getElementById(id),months=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'],days=['อา','จ','อ','พ','พฤ','ศ','ส'],key='roster-studio-v1';
 let state,mode='source',worker=null,cell=null,person=null,syncing=false,lastSync=0,syncPromise=null,preparing=false,cellCapacity=null;
 const escape=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -79,7 +82,7 @@ $('generate').onclick=async()=>{
 };$('cancel').onclick=()=>{finish();notice('หยุดค้นหาแล้ว ตารางเดิมยังคงอยู่');};
 try{const saved=localStorage.getItem(key);if(saved){state=checkImport(JSON.parse(saved));render();}else await preset('january');}catch{await preset('january');notice('เริ่มด้วยตัวอย่างมกราคม 2570 คุณสามารถสำรองข้อมูลเป็น JSON ได้');}
 const cloudMonth=()=>`${state.year}-${String(state.month).padStart(2,'0')}`;
-async function cloudRequest(path,options={}){const r=await fetch(apiBase+path,{...options,headers:{...authHeaders(),...(options.body?{'content-type':'application/json'}:{})}});let j;try{j=await r.json();}catch{throw Error('บริการรับความประสงค์ยังไม่พร้อมใช้งาน');}if(!r.ok)throw Error(j.error||'เชื่อมต่อไม่ได้');return j;}
+async function cloudRequest(path,options={}){const r=await apiFetch(path,{...options,headers:{...authHeaders(),...(options.body?{'content-type':'application/json'}:{})}});let j;try{j=await r.json();}catch{throw Error('บริการรับความประสงค์ยังไม่พร้อมใช้งาน');}if(!r.ok)throw Error(j.error||'เชื่อมต่อไม่ได้');return j;}
 $('admin-logout').onclick=async()=>{try{await cloudRequest('/api/logout',{method:'POST'});}catch{}sessionStorage.removeItem('roster-session');location.replace('./');};
 // Submitted preferences lock into the table on their own: a person's row is replaced only when they send a newer submission.
 const sameRow=(a,b)=>{const x=Object.entries(a).filter(([,v])=>v);return x.length===Object.values(b).filter(Boolean).length&&x.every(([d,v])=>b[d]===v);};
