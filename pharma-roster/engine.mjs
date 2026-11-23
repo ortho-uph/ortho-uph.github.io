@@ -439,10 +439,8 @@ export function solve(s,{timeMs=22000,onProgress=()=>{},allowQuotaPreview=false}
  // Only change the search order among available assignments; locks and eligibility are already resolved.
  shuffleForSearch(ready.missing);
  for(const slot of ready.missing)shuffleForSearch(slot.candidates);
- if(allowQuotaPreview&&ready.errors.length&&ready.errors.every(e=>e.kind==='quota-shortfall')){
+ if(allowQuotaPreview&&ready.errors.length){
   const shifts=previewUnderQuota(s,ready,Math.min(deadline,began+1800));
-  const invalid=validate(s,shifts).errors.find(e=>e.i!=null);
-  if(invalid)throw Error(invalid.message);
   return shifts;
  }
  if(ready.errors.length)throw Error('จัดเวรไม่ได้: '+ready.errors.slice(0,4).map(e=>e.message).join(' · '));
@@ -450,7 +448,11 @@ export function solve(s,{timeMs=22000,onProgress=()=>{},allowQuotaPreview=false}
  const base=initial(s),fixed=counts(s,base);
  const {min:floor,max:ceil}=monthlyQuota(total,people);
  const limits=fixed.map(({total})=>({min:Math.max(0,floor-total),max:ceil-total}));
- checkSharedCapacity(ready.missing,limits);
+ try{checkSharedCapacity(ready.missing,limits);}
+ catch(error){
+  if(allowQuotaPreview)return previewUnderQuota(s,ready,Date.now()+1800);
+  throw error;
+ }
 
  const fixedNights=fixed.filter((_,i)=>s.people[i].night).map(({n})=>n);
  let tries=0,lowest=Infinity,lastProgress=0;
@@ -490,6 +492,7 @@ export function solve(s,{timeMs=22000,onProgress=()=>{},allowQuotaPreview=false}
   if(check.warnings.some(message=>message.startsWith('ยอดเวรรวม')))throw Error('ตารางที่ได้กระจายยอดรวมต่างกันเกิน 1 ครั้ง');
   return result.shifts;
  }
+ if(allowQuotaPreview)return previewUnderQuota(s,ready,Date.now()+1800);
  if(result.complete)throw Error('จัดเวรไม่ได้ด้วยชุดเงื่อนไขนี้ แม้จำนวนคนที่ลงได้รายวันจะพอ แต่เมื่อรวมเวรที่ล็อกไว้ ข้อจำกัดรายบุคคล และเป้าต่อคนแล้วไม่มีตารางที่ผ่านครบ');
  const closest=Number.isFinite(lowest)?' ร่างที่ใกล้ที่สุดยังขาด '+lowest+' เวร':'';
  throw Error('ค้นหาตารางไม่เสร็จในเวลาที่กำหนด (ตรวจ '+tries+' ทางเลือก)'+closest+' ยังยืนยันไม่ได้ว่าชุดเงื่อนไขนี้ไม่มีคำตอบ');
