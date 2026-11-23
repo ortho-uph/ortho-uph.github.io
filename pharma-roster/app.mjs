@@ -35,7 +35,18 @@ function render(){const c=calendar(state),check=validate(state),cs=check.counts,
 }
 function renderGrid(c,cs){const a=state.shifts||initial(state);let html='<table><thead><tr><th class="name-cell">บุคลากร</th>';for(let d=1;d<=c.days;d++)html+=`<th class="${state.holidays.includes(d)?'holiday-cell':c.off.includes(d)?'weekend':''}"><small>${days[c.dow(d)]}</small>${d}</th>`;html+='<th>เช้าหยุด</th><th>บ่าย</th><th>ดึก</th><th class="sum">รวม</th></tr></thead><tbody>';
  state.people.forEach((p,i)=>{html+=`<tr><td class="name-cell"><small>${i+1}</small>${escape(p.name)}</td>`;for(let d=1;d<=c.days;d++){const v=mode==='source'?(state.source[i]?.[d]||'·'):display(state,i,d),locked=!!state.source[i]?.[d],extra=!locked&&a[i][d].slice(1).some(Boolean);html+=`<td tabindex="0" role="button" data-cell="${i},${d}" aria-label="${escape(p.name)} วันที่ ${d} ${escape(v)}" class="daycell ${v==='V'?'leave':state.holidays.includes(d)?'holiday-cell':c.off.includes(d)?'weekend':''} ${locked?'locked':extra?'assigned':''} ${v==='X'?'off-x':v==='–'||v==='·'?'rest':''}">${escape(v)}</td>`;}html+=`<td class="number">${cs[i].m}</td><td class="number">${cs[i].b}</td><td class="number">${cs[i].n}</td><td class="number sum">${cs[i].total}</td></tr>`;});
- html+='<tr class="coverage"><td class="name-cell">บ่าย / ดึก</td>';for(let d=1;d<=c.days;d++)html+=`<td>${a.filter(r=>r[d][1]).length}/2 · ${a.filter(r=>r[d][2]).length}/1</td>`;html+='<td></td><td></td><td></td><td></td></tr></tbody></table>';$('table').innerHTML=html;}
+ const coverage=mode==='source'?initial(state):a;
+ html+='</tbody><tfoot>';
+ for(const [label,shift,required] of [['บ่ายที่เลือกแล้ว',1,2],['ดึกที่เลือกแล้ว',2,1]]){
+  html+=`<tr class="coverage"><th scope="row" class="name-cell">${label}</th>`;
+  for(let d=1;d<=c.days;d++){
+   const selected=coverage.filter(row=>row[d][shift]).length;
+   const status=selected===required?'coverage-full':selected>required?'coverage-over':'';
+   html+=`<td class="${status}">${selected}/${required}</td>`;
+  }
+  html+='<td></td><td></td><td></td><td class="sum"></td></tr>';
+ }
+ $('table').innerHTML=html+'</tfoot></table>';}
 function renderSummary(cs){const columns=[['regularMorning','เช้าปกติ'],['m','เช้าวันหยุด'],['b','บ่าย'],['n','ดึก'],['x','หยุด X'],['v','ลา V'],['total','รวมเวรนอกเวลา']];$('table').innerHTML='<table><thead><tr><th class="name-cell">บุคลากร</th>'+columns.map(([,label])=>'<th>'+label+'</th>').join('')+'</tr></thead><tbody>'+state.people.map((p,i)=>`<tr><td class="name-cell">${i+1}. ${escape(p.name)}</td>${columns.map(([k])=>`<td class="${k==='total'?'sum':''}">${cs[i][k]}</td>`).join('')}</tr>`).join('')+'<tr><td class="name-cell">รวม</td>'+columns.map(([k])=>`<td class="${k==='total'?'sum':''}">${cs.reduce((n,c)=>n+c[k],0)}</td>`).join('')+'</tr></tbody></table>';}
 function renderActions(){document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));$('generate').disabled=!!worker||preparing||!!state.locked;$('publish-roster').disabled=!!worker||preparing||!!state.locked||!state.shifts||validate(state).errors.length>0;$('publish-roster').hidden=!!state.locked;$('unlock-roster').hidden=!state.locked;$('unlock-roster').disabled=preparing;$('import-manual').hidden=mode!=='source'||!!state.locked;$('import-manual').disabled=!!worker||preparing;$('export').textContent=mode==='source'?'↓ แบบฟอร์ม CSV':'↓ ส่งออก CSV';$('export').onclick=mode==='source'?manualTemplateCSV:csv;if($('generate-from-issues'))$('generate-from-issues').disabled=!!worker||preparing;}
 function renderPeople(){$('people-list').innerHTML=state.people.map((p,i)=>`<div class="person-row" role="button" tabindex="0" data-person="${i}"><div><strong>${i+1}. ${escape(p.name)}</strong> <em>${p.night?'รับดึก':'ไม่รับดึก'}</em>${!p.addMorning?'<em>ไม่เพิ่มเช้าวันหยุด</em>':''}</div><span>${p.forbidNight.length?'งดดึก '+p.forbidNight.map(d=>days[d]).join(', ')+' · ':''}${p.forbidAfternoon.length?'งดบ่าย '+p.forbidAfternoon.map(d=>days[d]).join(', '):''} แก้ไข ↗</span></div>`).join('');}
@@ -49,7 +60,51 @@ function openPerson(i){if(state.locked)return notice('กรุณาปลด�
 function download(content,type,name){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function csv(){const c=calendar(state),cs=counts(state),quote=v=>`"${String(v).replaceAll('"','""')}"`,rows=[['ตารางเวร',months[state.month-1],state.year+543],['ชื่อ',...Array.from({length:c.days},(_,i)=>`${i+1} ${days[c.dow(i+1)]}`),'เช้าปกติ','เช้าวันหยุด','บ่าย','ดึก','หยุด X','ลา V','รวมเวรนอกเวลา','เวรที่กำหนดเอง JSON'],...state.people.map((p,i)=>[p.name,...Array.from({length:c.days},(_,d)=>display(state,i,d+1)),cs[i].regularMorning,cs[i].m,cs[i].b,cs[i].n,cs[i].x,cs[i].v,cs[i].total,JSON.stringify(state.source[i]||{})])];download('\uFEFF'+rows.map(r=>r.map(quote).join(',')).join('\r\n'),'text/csv;charset=utf-8',`ตารางเวร_${state.month}_${state.year+543}.csv`);}
 function manualTemplateCSV(){const c=calendar(state),quote=v=>`"${String(v).replaceAll('"','""')}"`,rows=[['ตารางเวร',months[state.month-1],state.year+543],['ชื่อ',...Array.from({length:c.days},(_,i)=>`${i+1} ${days[c.dow(i+1)]}`)],...state.people.map((p,i)=>[p.name,...Array.from({length:c.days},(_,d)=>state.source[i]?.[d+1]||'')])];download('\uFEFF'+rows.map(r=>r.map(quote).join(',')).join('\r\n'),'text/csv;charset=utf-8',`แบบฟอร์มเวร_${state.month}_${state.year+543}.csv`);}
-function importManualCSV(text){const imported=parsePreferenceCSV(text,state),c=calendar(state);if(imported.days!==c.days)throw Error(`ไฟล์มีคอลัมน์วันที่ ${imported.days} วัน แต่เดือนนี้มี ${c.days} วัน`);if(imported.people!==state.people.length)throw Error(`ไฟล์มีบุคลากร ${imported.people}/${state.people.length} คน กรุณาใส่ให้ครบทุกคนก่อนนำเข้า`);if(imported.monthLabel||imported.yearLabel){const month=months.indexOf(imported.monthLabel)+1,year=Number(imported.yearLabel);if(month&&(month!==state.month||![state.year,state.year+543].includes(year)))throw Error(`ไฟล์เป็น ${imported.monthLabel} ${imported.yearLabel} แต่กำลังเปิด ${months[state.month-1]}`);if(!month||!Number.isFinite(year))throw Error('ข้อมูลเดือน/ปีในไฟล์ไม่ถูกต้อง');}if(imported.isRenderedExport&&!imported.hasManualSource){for(const row of imported.source)for(const[d,value]of Object.entries(row)){if(!c.off.includes(+d)&&value.includes('ช')){const kept=value.split('/').filter(code=>code!=='ช');if(kept.length)row[d]=kept.join('/');else delete row[d];}}imported.total=imported.source.reduce((n,row)=>n+Object.values(row).filter(Boolean).length,0);}const cfg={year:state.year,month:state.month,holidays:state.holidays,team:state.people.map((p,i)=>({id:p.id,source:imported.source[i]}))};for(let i=0;i<state.people.length;i++){const conflict=capacityConflict(cfg,state.people[i].id,imported.source[i],{});if(conflict)throw Error(`วันที่ ${conflict.day}: เวร${conflict.label}เกินจำนวน ${conflict.limit} คน`);}return imported;}
+function importManualCSV(text){
+ const imported=parsePreferenceCSV(text,state),c=calendar(state);
+ if(imported.days!==c.days)throw Error(`ไฟล์มีคอลัมน์วันที่ ${imported.days} วัน แต่เดือนนี้มี ${c.days} วัน`);
+ if(imported.monthLabel||imported.yearLabel){
+  const month=months.indexOf(imported.monthLabel)+1,year=Number(imported.yearLabel);
+  if(month&&(month!==state.month||![state.year,state.year+543].includes(year)))throw Error(`ไฟล์เป็น ${imported.monthLabel} ${imported.yearLabel} แต่กำลังเปิด ${months[state.month-1]}`);
+  if(!month||!Number.isFinite(year))throw Error('ข้อมูลเดือน/ปีในไฟล์ไม่ถูกต้อง');
+ }
+ if(imported.isRenderedExport&&!imported.hasManualSource){
+  for(const row of imported.source)for(const[d,value]of Object.entries(row)){
+   if(!c.off.includes(+d)&&value.includes('ช')){
+    const withoutMorning=value.split('/').filter(code=>code!=='ช').join('/');
+    if(!withoutMorning)delete row[d];
+    else if(codes.includes(withoutMorning))row[d]=withoutMorning;
+   }
+  }
+  imported.total=imported.source.reduce((n,row)=>n+Object.values(row).filter(Boolean).length,0);
+ }
+ return imported;
+}
+
+function planManualCSV(imported){
+ const partial=imported.people<state.people.length;
+ const changes=[];
+ let retained=0;
+ const team=state.people.map((person,i)=>{
+  if(!partial)return{id:person.id,source:imported.source[i]};
+  const source={...state.source[i]};
+  for(const[day,code]of Object.entries(imported.source[i])){
+   if(source[day]){
+    if(source[day]!==code)retained++;
+    continue;
+   }
+   source[day]=code;
+   changes.push({personId:person.id,day:Number(day),code});
+  }
+  return{id:person.id,source};
+ });
+ const cfg={year:state.year,month:state.month,holidays:state.holidays,team};
+ for(const [i,person] of team.entries()){
+  const conflict=capacityConflict(cfg,person.id,person.source,partial?state.source[i]:{});
+  if(conflict)throw Error(`วันที่ ${conflict.day}: เวร${conflict.label}เกินจำนวน ${conflict.limit} คน`);
+ }
+ return{...imported,partial,changes,retained};
+}
 async function applyImportedManualCSV(imported){const removals=[],additions=[];for(let i=0;i<state.people.length;i++){const old=state.source[i]||{},next=imported.source[i]||{};for(const[d,value]of Object.entries(old))if(value&&next[d]!==value)removals.push({personId:state.people[i].id,day:+d,code:''});for(const[d,value]of Object.entries(next))if(value&&old[d]!==value)additions.push({personId:state.people[i].id,day:+d,code:value});}const changes=[...removals,...additions];for(let i=0;i<changes.length;i++){const item=changes[i];try{await cloudRequest('/api/overrides',{method:'POST',body:JSON.stringify({month:cloudMonth(),...item})});notice(`กำลังบันทึกเวรจากไฟล์ส่วนกลาง ${i+1}/${changes.length} ช่อง`);}catch(error){throw Error(`บันทึกเวรจากไฟล์ได้ ${i}/${changes.length} ช่องแล้ว · ${error.message}`);}}state.source=imported.source;state.shifts=null;mode='source';state.synced??={};save();render();if(!await syncPreferences())throw Error('บันทึกไฟล์แล้ว แต่โหลดสถานะส่วนกลางกลับมาไม่สำเร็จ กรุณากด “โหลดล่าสุด”');}
 function checkImport(s){if(!s||!Array.isArray(s.people)||s.people.length<2||s.people.length>40||!Array.isArray(s.source)||s.source.length!==s.people.length||!Number.isInteger(s.year)||s.year<1900||s.year>2100||!Number.isInteger(s.month)||s.month<1||s.month>12||!Array.isArray(s.holidays))throw Error('JSON ไม่ตรงรูปแบบโปรแกรมนี้');const ids=new Set();s.people.forEach(p=>{if(!p||typeof p.name!=='string'||!p.name.trim()||ids.has(p.id)||![p.forbidNight,p.forbidAfternoon].every(Array.isArray)||![p.night,p.afternoon,p.addMorning].every(v=>typeof v==='boolean'))throw Error('ข้อมูลบุคลากรไม่ถูกต้อง');ids.add(p.id);});s.source.forEach(row=>{if(!row||typeof row!=='object'||Array.isArray(row)||Object.values(row).some(v=>!codes.includes(v)))throw Error('รหัสเวรใน JSON ไม่ถูกต้อง');});const c=calendar(s);if(s.holidays.some(d=>!Number.isInteger(d)||d<1||d>c.days))throw Error('วันหยุดไม่ถูกต้อง');if(s.shifts&&(!Array.isArray(s.shifts)||s.shifts.length!==s.people.length||s.shifts.some(row=>!Array.isArray(row)||row.length!==c.days+1||row.some(v=>!Array.isArray(v)||v.length!==3||v.some(b=>typeof b!=='boolean')))))throw Error('ตารางผลลัพธ์ใน JSON ไม่ถูกต้อง');return s;}
 $('cell-code').innerHTML=codes.map(c=>`<option value="${c}">${c||'ช่องว่าง — ให้โปรแกรมจัด'}</option>`).join('');
@@ -59,7 +114,52 @@ $('save-cell').onclick=async e=>{e.preventDefault();if(!$('cell-dialog').querySe
 $('save-person').onclick=e=>{e.preventDefault();if(!$('person-dialog').querySelector('form').reportValidity())return;const p=person===null?freshPerson('',Math.max(0,...state.people.map(p=>p.id))+1):state.people[person];p.name=$('person-name').value.trim();if(!p.name){notice('กรุณาระบุชื่อ',true);return;}p.night=$('p-night').checked;p.afternoon=$('p-afternoon').checked;p.addMorning=$('p-morning').checked;p.forbidAfternoon=[...$('p-ban-b').querySelectorAll('input:checked')].map(n=>+n.value);p.forbidNight=[...$('p-ban-n').querySelectorAll('input:checked')].map(n=>+n.value);if(person===null){state.people.push(p);state.source.push({});}$('person-dialog').close();invalidate();};
 $('delete-person').onclick=()=>{if(state.people.length<=2)return notice('ต้องมีอย่างน้อย 2 คน',true);if(!confirm('ลบบุคลากรคนนี้และเวรที่กำหนดไว้?'))return;const id=state.people[person].id;state.people.splice(person,1);state.source.splice(person,1);state.apart=state.apart.filter(p=>!p.includes(id));$('person-dialog').close();invalidate();};
 $('add-person').onclick=()=>openPerson(null);$('spacing').onchange=e=>{state.spacing=e.target.checked;invalidate();};$('no-v').onchange=e=>{state.noNightAfterV=e.target.checked;invalidate();};
-$('backup').onclick=()=>download(JSON.stringify(state,null,2),'application/json',`จัดเวร_${state.month}_${state.year+543}.json`);$('export').onclick=csv;$('import-manual').onclick=()=>$('manual-file').click();$('manual-file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{if(state.locked)throw Error('ตารางเดือนนี้ล็อกแล้ว กรุณาปลดล็อกก่อนนำเข้า');const imported=importManualCSV(await f.text()),sourceNote=imported.isRenderedExport&&!imported.hasManualSource?'\n\nไฟล์ผลลัพธ์รุ่นเก่าไม่มีข้อมูลเวรที่ล็อกจริง ระบบจะไม่นำ “ช” เช้าวันปกติมาล็อกซ้ำ':'';const message=`นำเข้าไฟล์ ${f.name}\nเดือน ${months[state.month-1]} ${state.year+543}\nบุคลากร ${imported.people} คน · วันที่ ${imported.days} วัน · เวรตั้งต้น ${imported.total} ช่อง${sourceNote}\n\nเวรที่กำหนดเองและความประสงค์เดิมของทั้งทีมในเดือนนี้จะถูกแทนที่ ช่องว่างในไฟล์จะเปิดให้โปรแกรมจัดเวร ต้องการดำเนินการต่อหรือไม่?`;if(confirm(message)){preparing=true;renderActions();try{if(!await syncPreferences())throw Error('โหลดข้อมูลล่าสุดไม่ได้ กรุณาลองใหม่');if(state.locked)throw Error('ตารางเดือนนี้ล็อกแล้ว กรุณาปลดล็อกก่อนนำเข้า');const latest=importManualCSV(await f.text());await applyImportedManualCSV(latest);notice(`นำเข้าและบันทึกเวรส่วนกลาง ${latest.total} ช่องแล้ว ตรวจข้อสังเกตและกดจัดเวรอัตโนมัติเพื่อเติมเวรที่เหลือ`);}finally{preparing=false;renderActions();}}}catch(error){if(/บันทึกเวรจากไฟล์ได้/.test(error.message))await syncPreferences();notice('นำเข้าเวรไม่ได้: '+error.message,true);}e.target.value='';};$('import').onclick=()=>$('file').click();$('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const imported=checkImport(JSON.parse(await f.text()));if(confirm('นำเข้าข้อมูลแทนตารางปัจจุบัน?')){state=imported;save();render();notice('นำเข้าข้อมูลแล้ว');syncPreferences();}}catch(error){notice('นำเข้าไม่ได้: '+error.message,true);}e.target.value='';};$('validate').onclick=()=>{render();notice('ตรวจเงื่อนไขล่าสุดแล้ว ดูรายละเอียดในส่วนข้อสังเกต');};
+$('backup').onclick=()=>download(JSON.stringify(state,null,2),'application/json',`จัดเวร_${state.month}_${state.year+543}.json`);
+$('export').onclick=csv;
+$('import-manual').onclick=()=>$('manual-file').click();
+$('manual-file').onchange=async e=>{
+ const input=e.target,file=input.files[0];
+ if(!file||preparing||worker)return;
+ preparing=true;
+ renderActions();
+ try{
+  if(state.locked)throw Error('ตารางเดือนนี้ล็อกแล้ว กรุณาปลดล็อกก่อนนำเข้า');
+  const text=await file.text();
+  if(!await syncPreferences())throw Error('โหลดข้อมูลล่าสุดไม่ได้ กรุณาลองใหม่');
+  if(state.locked)throw Error('ตารางเดือนนี้ล็อกแล้ว กรุณาปลดล็อกก่อนนำเข้า');
+  const plan=planManualCSV(importManualCSV(text));
+  const retained=plan.retained?` คงเวรเดิมที่ต่างจากไฟล์ ${plan.retained} ช่อง` : '';
+  if(plan.partial&&!plan.changes.length){
+   notice('ไฟล์นี้ไม่มีเวรใหม่สำหรับเติมในช่องว่าง'+retained);
+   return;
+  }
+  const oldExport=plan.isRenderedExport&&!plan.hasManualSource
+   ? '\n\nไฟล์ผลลัพธ์รุ่นเก่าไม่มีข้อมูลเวรที่ล็อกจริง เวรเช้าปกติที่ระบบเติมอัตโนมัติจะไม่ถูกล็อกซ้ำ' : '';
+  const action=plan.partial
+   ? `เติมเฉพาะช่องว่าง ${plan.changes.length} ช่อง เก็บเวรเดิมและข้อมูลของคนที่ไม่มีชื่อในไฟล์ไว้${retained}`
+   : 'เวรที่กำหนดเองและความประสงค์เดิมของทั้งทีมในเดือนนี้จะถูกแทนที่ ช่องว่างในไฟล์จะเปิดให้โปรแกรมจัดเวร';
+  const message=`นำเข้าไฟล์ ${file.name}\nเดือน ${months[state.month-1]} ${state.year+543}\nบุคลากร ${plan.people}/${state.people.length} คน · วันที่ ${plan.days} วัน${oldExport}\n\n${action}\n\nยืนยันนำเข้า?`;
+  if(!confirm(message))return;
+  if(plan.partial){
+   const result=await cloudRequest('/api/overrides/import-missing',{
+    method:'POST',body:JSON.stringify({month:cloudMonth(),revision:state.bookingRevision,changes:plan.changes})
+   });
+   if(!await syncPreferences())throw Error('บันทึกเวรแล้ว แต่โหลดสถานะส่วนกลางกลับมาไม่สำเร็จ กรุณากด “โหลดล่าสุด”');
+   notice(`นำเข้าเวรใหม่ ${result.count} ช่องแล้ว${retained}`);
+  }else{
+   await applyImportedManualCSV(plan);
+   notice(`นำเข้าและบันทึกเวรส่วนกลาง ${plan.total} ช่องแล้ว ตรวจข้อสังเกตก่อนจัดเวรต่อ`);
+  }
+ }catch(error){
+  if(/บันทึกเวรจากไฟล์ได้/.test(error.message))await syncPreferences();
+  notice('นำเข้าเวรไม่ได้: '+error.message,true);
+ }finally{
+  preparing=false;
+  input.value='';
+  renderActions();
+ }
+};
+$('import').onclick=()=>$('file').click();$('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const imported=checkImport(JSON.parse(await f.text()));if(confirm('นำเข้าข้อมูลแทนตารางปัจจุบัน?')){state=imported;save();render();notice('นำเข้าข้อมูลแล้ว');syncPreferences();}}catch(error){notice('นำเข้าไม่ได้: '+error.message,true);}e.target.value='';};$('validate').onclick=()=>{render();notice('ตรวจเงื่อนไขล่าสุดแล้ว ดูรายละเอียดในส่วนข้อสังเกต');};
 function finish(){worker?.terminate();worker=null;$('generate').disabled=false;if($('generate-from-issues'))$('generate-from-issues').disabled=false;$('generate').textContent='✦ จัดเวรอัตโนมัติ';$('cancel').hidden=true;}
 $('generate').onclick=async()=>{
  if(worker||preparing||state.locked)return;
