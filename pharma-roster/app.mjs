@@ -321,7 +321,7 @@ $('generate').onclick=async()=>{
   if(state.locked)throw Error('ตารางนี้บันทึกและล็อกแล้ว กรุณาปลดล็อกก่อนจัดใหม่');
   const {year,month,people,source,holidays,apart,spacing,noNightAfterV}=state;
   const input=clone({year,month,people,source,holidays,apart,spacing,noNightAfterV});
-  worker=new Worker(new URL('./worker.mjs?v=partial2',import.meta.url),{type:'module'});
+  worker=new Worker(new URL('./worker.mjs?v=cp1',import.meta.url),{type:'module'});
   $('generate').textContent='กำลังจัดเวร…';$('cancel').hidden=false;notice('กำลังจัดเวรให้ครบทุกวัน โดยคงเวรที่กำหนดไว้');
   const fail=message=>{finish();notice(message+(state.shifts?' · ยังแสดงผลจากรอบก่อน':''),true);$('notice').scrollIntoView({behavior:'smooth',block:'center'});};
   worker.onmessage=e=>{const r=e.data;if(r.type==='progress')notice(`กำลังจัดเวร · ตรวจแล้ว ${r.tries} ทางเลือก · เหลือ ${r.remaining} เวรในร่างที่ใกล้ที่สุด`);else if(r.type==='done'){
@@ -336,6 +336,7 @@ $('generate').onclick=async()=>{
     comparison=changed?` · เวรเปลี่ยนจากรอบก่อน ${changed} ช่อง`:' · คำนวณใหม่แล้ว ได้เวรตรงกับรอบก่อนทุกช่อง';
    }
    try{rememberCurrent();}catch{ return fail('พื้นที่เก็บประวัติไม่พร้อม ตารางเดิมยังอยู่'); }
+   comparison+=' · '+r.solver;
    state.shifts=r.shifts;state.quotaPreview=preview;mode='result';finish();save();render();
    if(preview){notice('เปิดตารางร่างแล้ว ดูยอดรายคนและเวรที่ยังขาดใต้ตาราง'+comparison);$('table').closest('.schedule-panel').scrollIntoView({behavior:'smooth',block:'start'});}
    else notice('จัดเวรเสร็จแล้ว บ่าย 2 คน ดึก 1 คนครบทุกวัน และยอดรวมต่างกันไม่เกิน 1 ครั้ง'+comparison);

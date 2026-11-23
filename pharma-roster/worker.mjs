@@ -1,2 +1,13 @@
-import{solve}from'./engine.mjs?v=partial2';
-self.onmessage=e=>{try{const shifts=solve(e.data,{allowQuotaPreview:true,onProgress:p=>self.postMessage({type:'progress',...p})});self.postMessage({type:'done',shifts});}catch(error){self.postMessage({type:'error',message:error.message});}};
+import {solve} from './engine.mjs?v=edit1';
+self.onmessage=async({data})=>{
+ try{
+  const {solveCP}=await import('./cp-roster.mjs?v=cp1');
+  const shifts=await solveCP(data);
+  self.postMessage({type:'done',shifts,solver:'CP-SAT'});
+ }catch(error){
+  try{
+   const shifts=solve(data,{allowQuotaPreview:true});
+   self.postMessage({type:'done',shifts,solver:'ตัวจัดสำรอง',reason:error.message});
+  }catch(fallback){self.postMessage({type:'error',message:fallback.message});}
+ }
+};
