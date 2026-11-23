@@ -11,8 +11,21 @@ export function parsePreferenceCSV(text,s){
  if(!seen.size)throw Error('ไม่มีแถวข้อมูลบุคลากร');if(manualSourceColumn>=0)total=source.reduce((n,row)=>n+Object.values(row).filter(Boolean).length,0);const metadata=rows.find(r=>r[0]?.trim()==='ตารางเวร');return{source,total,people:seen.size,days:seenDays.size,monthLabel:metadata?.[1]?.trim()||null,yearLabel:metadata?.[2]?.trim()||null,isRenderedExport,hasManualSource:manualSourceColumn>=0};
 }
 export function calendar(s){const days=new Date(s.year,s.month,0).getDate(),dow=d=>new Date(s.year,s.month-1,d).getDay(),off=Array.from({length:days},(_,i)=>i+1).filter(d=>[0,6].includes(dow(d))||s.holidays.includes(d));return{days,dow,off,total:days*3+off.length*2};}
-export function initial(s){const{days,off}=calendar(s);return s.people.map((p,i)=>Array.from({length:days+1},(_,d)=>{if(!d)return[false,false,false];const v=s.source[i]?.[d]||'';if(['X','V'].includes(v))return[false,false,false];return[v.includes('ช')||!off.includes(d),v.includes('บ'),v.includes('ด')];}));}
-export function display(s,i,d){const v=s.source[i]?.[d];if(v==='X'||v==='V')return v;const a=(s.shifts||initial(s))[i][d];return ['ด','ช','บ'].filter(t=>a[{ช:0,บ:1,ด:2}[t]]).join('/')||'–';}
+export function initial(s,{regularMorning=true}={}){
+ const {days,off}=calendar(s);
+ return s.people.map((_,i)=>Array.from({length:days+1},(_,d)=>{
+  if(!d)return [false,false,false];
+  const v=s.source[i]?.[d]||'';
+  if(v==='X'||v==='V')return [false,false,false];
+  return [v.includes('ช')||(regularMorning&&!off.includes(d)),v.includes('บ'),v.includes('ด')];
+ }));
+}
+export function display(s,i,d,shifts=s.shifts){
+ const v=s.source[i]?.[d];
+ if(!shifts||v==='X'||v==='V')return v||'–';
+ const [morning,afternoon,night]=shifts[i][d];
+ return [night&&'ด',morning&&'ช',afternoon&&'บ'].filter(Boolean).join('/')||'–';
+}
 export function counts(s,a=s.shifts||initial(s)){const c=calendar(s);return s.people.map((p,i)=>{const m=c.off.filter(d=>a[i][d][0]).length,b=a[i].slice(1).filter(v=>v[1]).length,n=a[i].slice(1).filter(v=>v[2]).length;return{m,b,n,regularMorning:a[i].slice(1).filter((v,d)=>!c.off.includes(d+1)&&v[0]).length,x:Object.values(s.source[i]||{}).filter(v=>v==='X').length,v:Object.values(s.source[i]||{}).filter(v=>v==='V').length,total:m+b+n};});}
 export function validate(s,a=s.shifts||initial(s)){
  const{days,dow,off}=calendar(s),errors=[],warnings=[],exceptions=[];const add=(message,i,d)=>errors.push({message,i,d});
