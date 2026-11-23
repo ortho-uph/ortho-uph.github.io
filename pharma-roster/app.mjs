@@ -1,5 +1,5 @@
 import{capacityConflict}from'./capacity.mjs?v=capacity4';
-import{monthlyQuota,requestQuotaError,calendar,initial,counts,validate,readiness,display,codes,clone,parsePreferenceCSV}from'./engine.mjs?v=preview1';
+import{monthlyQuota,requestQuotaError,calendar,initial,counts,validate,readiness,display,codes,clone,parsePreferenceCSV}from'./engine.mjs?v=rerun1';
 const apiBase=(window.ROSTER_API_BASE||'').replace(/\/$/,'');
 const authHeaders=()=>({authorization:'Bearer '+(sessionStorage.getItem('roster-session')||'')});
 async function apiFetch(path,options={}){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);try{return await fetch(apiBase+path,{...options,signal:controller.signal});}finally{clearTimeout(timer);}}
@@ -257,18 +257,27 @@ $('generate').onclick=async()=>{
  try{
   if(!await syncPreferences())throw Error('ยังเริ่มจัดเวรไม่ได้ เพราะโหลดความประสงค์ล่าสุดไม่สำเร็จ กรุณาเข้าสู่ระบบใหม่หากหมดเวลา');
   if(state.locked)throw Error('ตารางนี้บันทึกและล็อกแล้ว กรุณาปลดล็อกก่อนจัดใหม่');const blockers=readiness(state).errors.filter(e=>e.kind!=='quota-shortfall');if(blockers.length)throw Error(blockers.slice(0,4).map(e=>e.message).join(' · '));
-  const input=clone(state);
+  const {year,month,people,source,holidays,apart,spacing,noNightAfterV}=state;
+  const input=clone({year,month,people,source,holidays,apart,spacing,noNightAfterV});
   const readyForPreview=readiness(input).errors.some(e=>e.kind==='quota-shortfall');
-  worker=new Worker(new URL('./worker.mjs?v=preview1',import.meta.url),{type:'module'});
+  worker=new Worker(new URL('./worker.mjs?v=rerun1',import.meta.url),{type:'module'});
   $('generate').textContent='กำลังจัดเวร…';$('cancel').hidden=false;notice('กำลังจัดเวรให้ครบทุกวัน โดยคงเวรที่กำหนดไว้');
-  const fail=message=>{finish();notice(message,true);$('notice').scrollIntoView({behavior:'smooth',block:'center'});};
+  const fail=message=>{finish();notice(message+(state.shifts?' · ยังแสดงผลจากรอบก่อน':''),true);$('notice').scrollIntoView({behavior:'smooth',block:'center'});};
   worker.onmessage=e=>{const r=e.data;if(r.type==='progress')notice(`กำลังจัดเวร · ตรวจแล้ว ${r.tries} ทางเลือก · เหลือ ${r.remaining} เวรในร่างที่ใกล้ที่สุด`);else if(r.type==='done'){
    const check=validate(input,r.shifts);
    const preview=readyForPreview&&check.errors.length>0;
    if(check.errors.length&&(!preview||check.errors.some(e=>e.i!=null)))return fail('ผลจัดเวรยังไม่ครบเงื่อนไข: '+check.errors[0].message);
+   let comparison='';
+   if(state.shifts){
+    let changed=0;
+    r.shifts.forEach((row,i)=>row.slice(1).forEach((shift,d)=>{
+     if(shift.some((value,k)=>value!==state.shifts[i][d+1][k]))changed++;
+    }));
+    comparison=changed?` · เวรเปลี่ยนจากรอบก่อน ${changed} ช่อง`:' · คำนวณใหม่แล้ว ได้เวรตรงกับรอบก่อนทุกช่อง';
+   }
    state.shifts=r.shifts;state.quotaPreview=preview;mode='result';finish();save();render();
-   if(preview){notice('เปิดตารางร่างแล้ว ดูยอดรายคนและเวรที่ยังขาดใต้ตาราง');$('table').closest('.schedule-panel').scrollIntoView({behavior:'smooth',block:'start'});}
-   else notice('จัดเวรเสร็จแล้ว บ่าย 2 คน ดึก 1 คนครบทุกวัน และยอดรวมต่างกันไม่เกิน 1 ครั้ง');
+   if(preview){notice('เปิดตารางร่างแล้ว ดูยอดรายคนและเวรที่ยังขาดใต้ตาราง'+comparison);$('table').closest('.schedule-panel').scrollIntoView({behavior:'smooth',block:'start'});}
+   else notice('จัดเวรเสร็จแล้ว บ่าย 2 คน ดึก 1 คนครบทุกวัน และยอดรวมต่างกันไม่เกิน 1 ครั้ง'+comparison);
   }else fail(r.message||'จัดเวรไม่สำเร็จ กรุณาลองใหม่');};
   worker.onerror=()=>fail('โหลดโปรแกรมจัดเวรไม่สำเร็จ กรุณารีเฟรชหน้าเว็บแล้วกดจัดเวรอีกครั้ง');
   worker.postMessage(input);

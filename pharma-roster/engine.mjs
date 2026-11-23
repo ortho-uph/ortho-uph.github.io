@@ -410,11 +410,21 @@ function previewUnderQuota(s,ready,deadline){
  return best;
 }
 
+function shuffleForSearch(items){
+ for(let i=items.length-1;i>0;i--){
+  const j=Math.floor(Math.random()*(i+1));
+  [items[i],items[j]]=[items[j],items[i]];
+ }
+}
+
 export function solve(s,{timeMs=22000,onProgress=()=>{},allowQuotaPreview=false}={}){
  const began=Date.now(),deadline=began+timeMs;
  const {total,days}=calendar(s),people=s.people.length;
  if(people<2)throw Error('ต้องมีบุคลากรอย่างน้อย 2 คน');
  const ready=readiness(s);
+ // Only change the search order among available assignments; locks and eligibility are already resolved.
+ shuffleForSearch(ready.missing);
+ for(const slot of ready.missing)shuffleForSearch(slot.candidates);
  if(allowQuotaPreview&&ready.errors.length&&ready.errors.every(e=>e.kind==='quota-shortfall')){
   const shifts=previewUnderQuota(s,ready,Math.min(deadline,began+1800));
   const invalid=validate(s,shifts).errors.find(e=>e.i!=null);
