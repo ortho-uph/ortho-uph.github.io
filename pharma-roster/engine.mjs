@@ -55,39 +55,316 @@ export function validate(s,a=s.shifts||initial(s)){
  return{errors,warnings,exceptions:[...new Set(exceptions)],counts:cs};
 }
 class Flow{constructor(n){this.g=Array.from({length:n},()=>[]);}add(u,v,c){const e={v,c,r:null},r={v:u,c:0,r:e};e.r=r;this.g[u].push(e);this.g[v].push(r);return e;}run(s,t){let n=0;while(true){const q=[s],prev=new Map([[s,null]]);for(let pos=0;pos<q.length&&!prev.has(t);pos++){const u=q[pos];for(const e of this.g[u])if(e.c&&!prev.has(e.v)){prev.set(e.v,[u,e]);q.push(e.v);}}if(!prev.has(t))return n;for(let v=t;v!==s;){const[u,e]=prev.get(v);e.c--;e.r.c++;v=u;}n++;}}}
-export function readiness(s){
- const c=calendar(s),base=initial(s),check=validate(s,base),errors=check.errors.filter(e=>e.i!==null),missing=[];
- for(let d=1;d<=c.days;d++)for(const[k,need,label]of [[1,2,'บ่าย'],[2,1,'ดึก'],...(c.off.includes(d)?[[0,2,'เช้าวันหยุด']]:[])]){
-  const have=base.filter(r=>r[d][k]).length;if(have>need)errors.push({message:`วันที่ ${d}: กำหนด${label}ไว้ ${have} คน เกินจำนวน ${need} คน`,d,i:null});
-  if(have<need)missing.push({d,k,count:need-have});
+function fixedShiftEligibility(s, c, base, counts, ceiling){
+ const indexById=new Map(s.people.map((person,index)=>[person.id,index]));
+ const afternoonConflicts=s.people.map(()=>[]);
+ for(const [firstId,secondId] of s.apart||[]){
+  const first=indexById.get(firstId),second=indexById.get(secondId);
+  if(first===undefined||second===undefined)continue;
+  afternoonConflicts[first].push(second);
+  afternoonConflicts[second].push(first);
  }
- const ceiling=Math.ceil(c.total/s.people.length);check.counts.forEach((n,i)=>{if(n.total>ceiling)errors.push({message:`${s.people[i].name} มีเวรเดิม ${n.total} ครั้ง เกินเป้า ${ceiling} ครั้ง กรุณาปรับเวรที่กำหนดเองก่อน`,i});});
- return{errors,missing,remaining:missing.reduce((n,v)=>n+v.count,0)};
+
+ const hasOvertime=(i,d)=>base[i][d]?.[1]||base[i][d]?.[2];
+ return (i,d,k)=>{
+  const person=s.people[i], original=s.source[i]?.[d]||'';
+  if(counts[i].total>=ceiling||original==='X'||original==='V')return false;
+  if(k===0)return person.addMorning&&!base[i][d][0];
+  if(original==='ช'||hasOvertime(i,d))return false;
+  if(s.spacing&&(hasOvertime(i,d-1)||hasOvertime(i,d+1)))return false;
+  if(k===2){
+   return person.night&&!person.forbidNight.includes(c.dow(d))&&!(s.noNightAfterV&&s.source[i]?.[d-1]==='V');
+  }
+  return person.afternoon&&!person.forbidAfternoon.includes(c.dow(d))&&
+   !afternoonConflicts[i].some(other=>base[other][d][1]);
+ };
 }
-const pick=a=>a[Math.floor(Math.random()*a.length)],shuffle=a=>a.sort(()=>Math.random()-.5);
-export function solve(s,{timeMs=22000,onProgress=()=>{}}={}){
- const{days,dow,off,total}=calendar(s),P=s.people.length,base=initial(s),source=(i,d)=>s.source[i]?.[d]||'',fixed=(i,d,k)=>['ช','บ','ด'][k]&&source(i,d).includes(['ช','บ','ด'][k]);
- if(P<2)throw Error('ต้องมีบุคลากรอย่างน้อย 2 คน');
- const ready=readiness(s);if(ready.errors.length)throw Error('จัดเวรไม่ได้: '+ready.errors.slice(0,4).map(e=>e.message).join(' · '));
- const floor=Math.floor(total/P),ceil=Math.ceil(total/P),start=Date.now();
- for(let i=0;i<P;i++){const c=counts(s,base)[i];if(c.total>ceil)throw Error(`${s.people[i].name} มีเวรเดิม ${c.total} ครั้ง เกินเป้า ${ceil} ครั้ง กรุณาปรับเวรที่กำหนดเองก่อน`);}
- function can(i,d,k,a){const p=s.people[i],v=source(i,d);if(['X','V','ช'].includes(v)||a[i][d][1]||a[i][d][2])return false;if(k===2){if(!p.night||p.forbidNight.includes(dow(d))||(s.noNightAfterV&&source(i,d-1)==='V'))return false;}else{if(!p.afternoon||p.forbidAfternoon.includes(dow(d)))return false;for(const pair of s.apart||[]){const mate=pair[0]===p.id?pair[1]:pair[1]===p.id?pair[0]:null,j=s.people.findIndex(p=>p.id===mate);if(j>=0&&a[j][d][1])return false;}}return true;}
- function allocate(k,target,a){const sink=P+days+1,f=new Flow(sink+1),edges=[];let need=0;for(const i of shuffle(Array.from({length:P},(_,i)=>i))){const n=target[i]-a[i].slice(1).filter(v=>v[k]).length;if(n<0)return false;need+=n;f.add(0,i+1,n);}for(const d of shuffle(Array.from({length:days},(_,i)=>i+1))){const n=(k===1?2:1)-a.filter(r=>r[d][k]).length;if(n<0)return false;f.add(P+d,sink,n);for(const i of shuffle(Array.from({length:P},(_,i)=>i)))if(can(i,d,k,a))edges.push([i,d,f.add(i+1,P+d,1)]);}if(f.run(0,sink)!==need)return false;for(const[i,d,e]of edges)if(!e.c)a[i][d][k]=true;return true;}
- function bads(a){if(!s.spacing)return[];const bad=[];for(let i=0;i<P;i++)for(let d=1;d<days;d++)if((a[i][d][1]||a[i][d][2])&&(a[i][d+1][1]||a[i][d+1][2])&&!(/[บด]/.test(source(i,d))&&/[บด]/.test(source(i,d+1))))bad.push([i,d]);return bad;}
- let tries=0,closest=Infinity;
- while(Date.now()-start<timeMs){tries++;const a=clone(base),minimum=counts(s,a),targets=Array(P).fill(floor),high=total-floor*P,forced=minimum.map((v,i)=>v.total>floor?i:-1).filter(i=>i>=0);if(forced.length>high)throw Error('เวรที่กำหนดเองทำให้แบ่งยอดต่างกันไม่เกิน 1 ไม่ได้');const win=[...forced,...shuffle(Array.from({length:P},(_,i)=>i).filter(i=>!forced.includes(i))).slice(0,high-forced.length)];win.forEach(i=>targets[i]=ceil);
-  let possible=true;
-  for(const d of off){let missing=2-a.filter(r=>r[d][0]).length;if(missing<0)throw Error(`วันที่ ${d} มีเช้าที่กำหนดไว้เกิน 2 คน`);const candidates=shuffle(Array.from({length:P},(_,i)=>i).filter(i=>s.people[i].addMorning&&!a[i][d][0]&&!['X','V'].includes(source(i,d))&&counts(s,a)[i].total<targets[i]));if(candidates.length<missing){possible=false;break;}for(const i of candidates.slice(0,missing))a[i][d][0]=true;}
-  if(!possible)continue;
-  const cs=counts(s,a),nt=cs.map(c=>c.n),max=cs.map((c,i)=>s.people[i].night?targets[i]-c.m-c.b:0);let remaining=days-nt.reduce((v,n)=>v+n,0);if(max.some((v,i)=>v<nt[i]))continue;
-  while(remaining>0){const candidates=Array.from({length:P},(_,i)=>i).filter(i=>s.people[i].night&&nt[i]<max[i]);if(!candidates.length){possible=false;break;}const low=Math.min(...candidates.map(i=>nt[i]));nt[pick(candidates.filter(i=>nt[i]===low))]++;remaining--;}
-  if(!possible)continue;const bt=cs.map((c,i)=>targets[i]-c.m-nt[i]);if(!allocate(2,nt,a)||!allocate(1,bt,a))continue;
-  for(let it=0;it<90000&&Date.now()-start<timeMs;it++){
-   const bad=bads(a);if(bad.length<closest){closest=bad.length;onProgress({tries,remaining:closest});}
-   if(!bad.length){const check=validate(s,a);if(!check.errors.length&&!check.warnings.some(v=>v.startsWith('ยอด')))return a;break;}
-   let i,d,k;if(Math.random()<.92){[i,d]=pick(bad);d+=Math.random()<.5?0:1;const ks=[1,2].filter(k=>a[i][d][k]&&!fixed(i,d,k));if(!ks.length)continue;k=pick(ks);}else{i=Math.floor(Math.random()*P);d=1+Math.floor(Math.random()*days);k=pick([1,2]);if(!a[i][d][k]||fixed(i,d,k))continue;}
-   const j=Math.floor(Math.random()*P);if(i===j)continue;const options=Array.from({length:days},(_,d)=>d+1).filter(e=>e!==d&&a[j][e][k]&&!fixed(j,e,k));if(!options.length)continue;const e=pick(options);a[i][d][k]=false;a[j][e][k]=false;if(!can(i,e,k,a)||!can(j,d,k,a)){a[i][d][k]=true;a[j][e][k]=true;continue;}a[i][e][k]=true;a[j][d][k]=true;const delta=bads(a).length-bad.length,temp=.55*(1-(it%12000)/12000)+.02;if(delta>0&&Math.random()>Math.exp(-delta/temp)){a[i][d][k]=true;a[j][e][k]=true;a[i][e][k]=false;a[j][d][k]=false;}
+
+export function readiness(s){
+ const c=calendar(s), base=initial(s), check=validate(s,base);
+ const errors=check.errors.filter(error=>error.i!==null), missing=[];
+ const floor=Math.floor(c.total/s.people.length), ceiling=Math.ceil(c.total/s.people.length);
+ const canTake=fixedShiftEligibility(s,c,base,check.counts,ceiling);
+ const potential=s.people.map(()=>({mornings:0,overtimeDays:new Set()}));
+ for(let d=1;d<=c.days;d++){
+  const required=[[1,2,'บ่าย'],[2,1,'ดึก']];
+  if(c.off.includes(d))required.push([0,2,'เช้าวันหยุด']);
+  for(const [k,need,label] of required){
+   const have=base.filter(row=>row[d][k]).length;
+   if(have>need)errors.push({message:`วันที่ ${d}: กำหนด${label}ไว้ ${have} คน เกินจำนวน ${need} คน`,d,i:null});
+   if(have>=need)continue;
+   const count=need-have, candidates=[];
+   for(let i=0;i<s.people.length;i++){
+    if(!canTake(i,d,k))continue;
+    candidates.push(i);
+    if(k===0)potential[i].mornings++;
+    else potential[i].overtimeDays.add(d);
+   }
+   missing.push({d,k,count,candidates});
+   if(candidates.length<count){
+    errors.push({message:`วันที่ ${d}: เวร${label}ยังขาด ${count} คน แต่มีผู้ลงได้ ${candidates.length} คนตามเวรเดิมและข้อจำกัด`,d,i:null});
+   }
   }
  }
- throw Error(`ยังหาตารางที่ผ่านทุกเงื่อนไขไม่พบในเวลาที่กำหนด (ลอง ${tries} แบบ) ลองจัดใหม่ หรือทบทวนวันหยุดและเวรที่กำหนดเอง โดยตารางเดิมยังคงอยู่`);
+ check.counts.forEach(({total},i)=>{
+  const name=s.people[i].name;
+  if(total>ceiling){
+   errors.push({message:`${name} มีเวรเดิม ${total} ครั้ง เกินเป้า ${ceiling} ครั้ง กรุณาปรับเวรที่กำหนดเองก่อน`,i});
+   return;
+  }
+  if(total>=floor)return;
+  const {mornings,overtimeDays}=potential[i];
+  let extraOvertime=0,last=-Infinity;
+  for(const d of overtimeDays){
+   if(!s.spacing||d>last+1){extraOvertime++;last=d;}
+  }
+  const maximum=total+mornings+extraOvertime;
+  if(maximum<floor){
+   errors.push({message:`${name} ลงเวรนอกเวลาได้สูงสุด ${maximum} ครั้งตามช่องที่ว่างและข้อจำกัด แต่ต้องได้อย่างน้อย ${floor} ครั้ง`,i});
+  }
+ });
+ const highCount=c.total-floor*s.people.length;
+ if(floor!==ceiling&&check.counts.filter(({total})=>total>floor).length>highCount){
+  errors.push({message:`มีบุคลากรล็อกไว้เกิน ${floor} เวรมากกว่า ${highCount} คน จึงกระจายยอดให้ต่างกันไม่เกิน 1 ครั้งไม่ได้`,i:null});
+ }
+ return {errors,missing,remaining:missing.reduce((sum,slot)=>sum+slot.count,0)};
+}
+function searchRoster(s,base,missing,limits,{nightRange,deadline,progress}){
+ const groups=[],choices=[],values=[],trail=[];
+ const dayCount=base[0].length;
+ const totals=limits.map(({min,max})=>addGroup(min,max));
+ const nightLoads=counts(s,base).map(({n})=>n);
+ const nights=nightLoads.map((n,i)=>nightRange && s.people[i].night
+  ? addGroup(Math.max(0,nightRange.min-n),nightRange.max-n)
+  : null);
+ const overtime=s.people.map(()=>Array.from({length:dayCount},()=>[]));
+ const afternoons=Array.from({length:dayCount},()=>new Map());
+ const daily=new Set();
+ let filled=0;
+
+ function addGroup(min,max){
+  const id=groups.length;
+  groups.push({min,max,assigned:0,open:0,choices:[]});
+  return id;
+ }
+ function addChoice(i,d,k,ids){
+  const id=choices.length;
+  choices.push({i,d,k,groups:ids,conflicts:[]});
+  values.push(0);
+  for(const g of ids){
+   groups[g].choices.push(id);
+   groups[g].open++;
+  }
+  return id;
+ }
+ function excludeTogether(a,b){
+  choices[a].conflicts.push(b);
+  choices[b].conflicts.push(a);
+ }
+ for(const {d,k,count,candidates} of missing){
+  const dayGroup=addGroup(count,count);
+  daily.add(dayGroup);
+  for(const i of candidates){
+   const ids=[dayGroup,totals[i]];
+   if(k===2&&nights[i]!==null)ids.push(nights[i]);
+   const id=addChoice(i,d,k,ids);
+   if(k>0)overtime[i][d].push(id);
+   if(k===1)afternoons[d].set(s.people[i].id,id);
+  }
+ }
+ for(const row of overtime){
+  for(let d=1;d<dayCount;d++){
+   const current=row[d];
+   for(let a=0;a<current.length;a++){
+    for(let b=a+1;b<current.length;b++)excludeTogether(current[a],current[b]);
+    if(s.spacing&&d+1<dayCount){
+     for(const next of row[d+1])excludeTogether(current[a],next);
+    }
+   }
+  }
+ }
+ for(const [first,second] of s.apart||[]){
+  for(const byPerson of afternoons){
+   if(first!==second&&byPerson.has(first)&&byPerson.has(second))excludeTogether(byPerson.get(first),byPerson.get(second));
+  }
+ }
+
+ function propagate(choice,value){
+  const dirty=new Set();
+  function assign(id,next){
+   if(values[id])return values[id]===next;
+   values[id]=next;
+   trail.push(id);
+   const candidate=choices[id];
+   if(next===1){
+    filled++;
+    if(candidate.k===2)nightLoads[candidate.i]++;
+   }
+   for(const g of candidate.groups){
+    const group=groups[g];
+    group.open--;
+    if(next===1)group.assigned++;
+    dirty.add(g);
+   }
+   if(next===1){
+    for(const blocked of candidate.conflicts){
+     if(!assign(blocked,-1))return false;
+    }
+   }
+   return true;
+  }
+  if(choice===null)groups.forEach((_,id)=>dirty.add(id));
+  else if(!assign(choice,value))return false;
+  for(const id of dirty){
+   dirty.delete(id);
+   const group=groups[id];
+   if(group.assigned>group.max||group.assigned+group.open<group.min)return false;
+   const forced=group.assigned===group.max?-1:group.assigned+group.open===group.min?1:0;
+   if(forced){
+    for(const id of group.choices){
+     if(!values[id]&&!assign(id,forced))return false;
+    }
+   }
+  }
+  return true;
+ }
+ function undo(mark){
+  while(trail.length>mark){
+   const id=trail.pop(),wasChosen=values[id]===1;
+   values[id]=0;
+   const candidate=choices[id];
+   if(wasChosen){
+    filled--;
+    if(candidate.k===2)nightLoads[candidate.i]--;
+   }
+   for(const g of candidate.groups){
+    groups[g].open++;
+    if(wasChosen)groups[g].assigned--;
+   }
+  }
+ }
+ function nextChoice(){
+  let selected=null,tightest=Infinity;
+  for(const [id,group] of groups.entries()){
+   const need=group.min-group.assigned;
+   if(need<=0)continue;
+   const slack=(group.open-need)/need;
+   if(slack<tightest||(slack===tightest&&daily.has(id))){
+    selected=group;
+    tightest=slack;
+   }
+  }
+  if(!selected)return null;
+  let best=null,bestScore=-Infinity;
+  for(const id of selected.choices){
+   if(values[id])continue;
+   const {i,k,groups:members,conflicts}=choices[id],total=groups[totals[i]];
+   const need=Math.max(0,total.min-total.assigned);
+   const pressure=need/Math.max(1,total.open);
+   const blocks=conflicts.reduce((n,other)=>n+(values[other]===0),0);
+   const day=groups[members[0]],dayPressure=(day.min-day.assigned)/day.open;
+   const score=pressure*3+dayPressure-blocks*0.08-(k===2?nightLoads[i]*0.45:0);
+   if(score>bestScore){best=id;bestScore=score;}
+  }
+  return best;
+ }
+ function visit(){
+  if(!progress.step(filled,deadline))return false;
+  const id=nextChoice();
+  if(id===null)return true;
+  const before=trail.length;
+  for(const value of [1,-1]){
+   if(propagate(id,value)&&visit())return true;
+   undo(before);
+   if(Date.now()>=deadline)return false;
+  }
+  return false;
+ }
+ if(Date.now()>=deadline)return {shifts:null,complete:false};
+ if(!propagate(null,0))return {shifts:null,complete:true};
+ if(!visit())return {shifts:null,complete:Date.now()<deadline};
+ const shifts=clone(base);
+ for(const [id,{i,d,k}] of choices.entries()){
+  if(values[id]===1)shifts[i][d][k]=true;
+ }
+ return {shifts,complete:true};
+}
+
+function checkSharedCapacity(missing,limits){
+ const personStart=1,slotStart=personStart+limits.length,sink=slotStart+missing.length;
+ const available=new Flow(sink+1),required=new Flow(sink+1);
+ let shifts=0,minimum=0;
+ for(const [i,{min,max}] of limits.entries()){
+  available.add(personStart+i,sink,max);
+  required.add(0,personStart+i,min);
+  minimum+=min;
+ }
+ for(const [i,{count,candidates}] of missing.entries()){
+  available.add(0,slotStart+i,count);
+  required.add(slotStart+i,sink,count);
+  shifts+=count;
+  for(const person of candidates){
+   available.add(slotStart+i,personStart+person,1);
+   required.add(personStart+person,slotStart+i,1);
+  }
+ }
+ const coverage=available.run(0,sink);
+ if(coverage<shifts)throw Error('ผู้ที่ลงเวรได้เติมได้สูงสุด '+coverage+' จาก '+shifts+' เวร ภายใต้เวรที่ล็อกไว้และเพดานเวรต่อคน');
+ const sharedMinimum=required.run(0,sink);
+ if(sharedMinimum<minimum)throw Error('ช่องเวรที่ลงได้ทับกันระหว่างบุคลากร จึงเติมได้ '+sharedMinimum+' จาก '+minimum+' เวรที่ต้องใช้เพื่อให้ทุกคนถึงยอดขั้นต่ำ');
+}
+
+export function solve(s,{timeMs=22000,onProgress=()=>{}}={}){
+ const began=Date.now(),deadline=began+timeMs;
+ const {total,days}=calendar(s),people=s.people.length;
+ if(people<2)throw Error('ต้องมีบุคลากรอย่างน้อย 2 คน');
+ const ready=readiness(s);
+ if(ready.errors.length)throw Error('จัดเวรไม่ได้: '+ready.errors.slice(0,4).map(e=>e.message).join(' · '));
+
+ const base=initial(s),fixed=counts(s,base);
+ const floor=Math.floor(total/people),ceil=Math.ceil(total/people);
+ const limits=fixed.map(({total})=>({min:Math.max(0,floor-total),max:ceil-total}));
+ checkSharedCapacity(ready.missing,limits);
+
+ const fixedNights=fixed.filter((_,i)=>s.people[i].night).map(({n})=>n);
+ let tries=0,lowest=Infinity,lastProgress=0;
+ const progress={step(filled,until){
+  const now=Date.now();
+  tries++;
+  const remaining=ready.remaining-filled;
+  lowest=Math.min(lowest,remaining);
+  if(now>=until)return false;
+  if(now-lastProgress>=180||lowest===0){
+   onProgress({tries,remaining:lowest});
+   lastProgress=now;
+  }
+  return true;
+ }};
+
+ // Start with the smallest night spread and reserve time for a search without a night range.
+ // Daily coverage, locked assignments and total balance are hard requirements in every pass.
+ let result={shifts:null,complete:false};
+ if(fixedNights.length){
+  const min=Math.floor(days/fixedNights.length),max=Math.ceil(days/fixedNights.length);
+  const balancedUntil=Math.min(deadline,began+Math.floor(timeMs*0.55));
+  const ranges=[{min,max},{min:Math.max(0,min-1),max},{min,max:max+1}];
+  for(const nightRange of ranges){
+   if(Date.now()>=balancedUntil)break;
+   if(fixedNights.some(n=>n>nightRange.max))continue;
+   if(fixedNights.reduce((sum,n)=>sum+Math.max(n,nightRange.min),0)>days)continue;
+   const passUntil=Math.min(balancedUntil,Date.now()+Math.max(1,Math.floor(timeMs*0.19)));
+   result=searchRoster(s,base,ready.missing,limits,{nightRange,deadline:passUntil,progress});
+   if(result.shifts)break;
+  }
+ }
+ if(!result.shifts)result=searchRoster(s,base,ready.missing,limits,{nightRange:null,deadline,progress});
+ if(result.shifts){
+  const check=validate(s,result.shifts);
+  if(check.errors.length)throw Error('ตารางที่ได้ไม่ผ่านการตรวจซ้ำ: '+check.errors[0].message);
+  if(check.warnings.some(message=>message.startsWith('ยอดเวรรวม')))throw Error('ตารางที่ได้กระจายยอดรวมต่างกันเกิน 1 ครั้ง');
+  return result.shifts;
+ }
+ if(result.complete)throw Error('จัดเวรไม่ได้ด้วยชุดเงื่อนไขนี้ แม้จำนวนคนที่ลงได้รายวันจะพอ แต่เมื่อรวมเวรที่ล็อกไว้ ข้อจำกัดรายบุคคล และเป้าต่อคนแล้วไม่มีตารางที่ผ่านครบ');
+ const closest=Number.isFinite(lowest)?' ร่างที่ใกล้ที่สุดยังขาด '+lowest+' เวร':'';
+ throw Error('ค้นหาตารางไม่เสร็จในเวลาที่กำหนด (ตรวจ '+tries+' ทางเลือก)'+closest+' ยังยืนยันไม่ได้ว่าชุดเงื่อนไขนี้ไม่มีคำตอบ');
 }

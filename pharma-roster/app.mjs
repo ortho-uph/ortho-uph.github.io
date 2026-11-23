@@ -1,5 +1,5 @@
 import{capacityConflict}from'./capacity.mjs?v=capacity4';
-import{calendar,initial,counts,validate,readiness,display,codes,clone,parsePreferenceCSV}from'./engine.mjs?v=roster-morning1';
+import{calendar,initial,counts,validate,readiness,display,codes,clone,parsePreferenceCSV}from'./engine.mjs?v=solve4';
 const apiBase=(window.ROSTER_API_BASE||'').replace(/\/$/,'');
 const authHeaders=()=>({authorization:'Bearer '+(sessionStorage.getItem('roster-session')||'')});
 async function apiFetch(path,options={}){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);try{return await fetch(apiBase+path,{...options,signal:controller.signal});}finally{clearTimeout(timer);}}
@@ -247,10 +247,10 @@ $('generate').onclick=async()=>{
   if(!await syncPreferences())throw Error('ยังเริ่มจัดเวรไม่ได้ เพราะโหลดความประสงค์ล่าสุดไม่สำเร็จ กรุณาเข้าสู่ระบบใหม่หากหมดเวลา');
   if(state.locked)throw Error('ตารางนี้บันทึกและล็อกแล้ว กรุณาปลดล็อกก่อนจัดใหม่');const ready=readiness(state);if(ready.errors.length)throw Error(ready.errors.slice(0,4).map(e=>e.message).join(' · '));
   const input=clone(state);
-  worker=new Worker(new URL('./worker.mjs?v=solve3',import.meta.url),{type:'module'});
+  worker=new Worker(new URL('./worker.mjs?v=solve4',import.meta.url),{type:'module'});
   $('generate').textContent='กำลังจัดเวร…';$('cancel').hidden=false;notice('กำลังจัดเวรให้ครบทุกวัน โดยคงเวรที่กำหนดไว้');
   const fail=message=>{finish();notice(message,true);$('notice').scrollIntoView({behavior:'smooth',block:'center'});};
-  worker.onmessage=e=>{const r=e.data;if(r.type==='progress')notice(`กำลังจัดเวร · ลอง ${r.tries} แบบ · จุดเวรติดกันที่กำลังแก้ ${r.remaining}`);else if(r.type==='done'){
+  worker.onmessage=e=>{const r=e.data;if(r.type==='progress')notice(`กำลังจัดเวร · ตรวจแล้ว ${r.tries} ทางเลือก · เหลือ ${r.remaining} เวรในร่างที่ใกล้ที่สุด`);else if(r.type==='done'){
    const check=validate(input,r.shifts);if(check.errors.length)return fail('ผลจัดเวรยังไม่ครบเงื่อนไข: '+check.errors[0].message);
    state.shifts=r.shifts;mode='result';finish();save();render();notice('จัดเวรเสร็จแล้ว บ่าย 2 คน ดึก 1 คนครบทุกวัน และยอดรวมต่างกันไม่เกิน 1 ครั้ง');
   }else fail(r.message||'จัดเวรไม่สำเร็จ กรุณาลองใหม่');};
