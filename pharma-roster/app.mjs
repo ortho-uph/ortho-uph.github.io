@@ -1,5 +1,5 @@
 import{capacityConflict}from'./capacity.mjs?v=capacity4';
-import{monthlyQuota,requestQuotaError,calendar,initial,counts,validate,readiness,display,codes,clone,parsePreferenceCSV}from'./engine.mjs?v=rerun1';
+import{applySourceRow,monthlyQuota,requestQuotaError,calendar,initial,counts,validate,readiness,display,codes,clone,parsePreferenceCSV}from'./engine.mjs?v=edit1';
 const apiBase=(window.ROSTER_API_BASE||'').replace(/\/$/,'');
 const authHeaders=()=>({authorization:'Bearer '+(sessionStorage.getItem('roster-session')||'')});
 async function apiFetch(path,options={}){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);try{return await fetch(apiBase+path,{...options,signal:controller.signal});}finally{clearTimeout(timer);}}
@@ -15,7 +15,7 @@ const archiveKey='roster-studio-months',MONTHS_SHOWN=6,MONTHS_MAX=12;let winStar
 function bangkokToday(){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit'}).formatToParts(new Date()),part=t=>Number(parts.find(p=>p.type===t).value);return{year:part('year'),month:part('month')};}
 const monthAt=o=>{const t=bangkokToday(),d=new Date(t.year,t.month-1+o,1);return{year:d.getFullYear(),month:d.getMonth()+1};},offsetOf=(y,m)=>{const t=bangkokToday();return(y-t.year)*12+m-t.month;},monthKey=(y,m)=>`${y}-${String(m).padStart(2,'0')}`;
 function renderMonths(){const t=bangkokToday(),o=offsetOf(state.year,state.month);if(o>=0&&o<MONTHS_MAX){if(o<winStart)winStart=o;if(o>=winStart+MONTHS_SHOWN)winStart=o-MONTHS_SHOWN+1;}$('month-prev').disabled=o<=0;$('month-next').disabled=o>=MONTHS_MAX-1;$('month-tabs').innerHTML=Array.from({length:MONTHS_SHOWN},(_,i)=>monthAt(winStart+i)).map(m=>{const active=m.year===state.year&&m.month===state.month,now=m.year===t.year&&m.month===t.month;return`<button class="month-tab${active?' active':''}${now?' now':''}" data-ym="${m.year}-${m.month}" aria-pressed="${active}"><b>${months[m.month-1]}</b><small>พ.ศ. ${m.year+543}${now?' · เดือนนี้':''}</small></button>`;}).join('');}
-function switchMonth(year,month){if(preparing||worker||(state.year===year&&state.month===month))return;let archive={};try{archive=JSON.parse(localStorage.getItem(archiveKey)||'{}');}catch{}archive[monthKey(state.year,state.month)]=state;let next=null,broken=false;try{if(archive[monthKey(year,month)])next=checkImport(archive[monthKey(year,month)]);}catch{broken=true;}if(!next)next={...clone(state),year,month,source:state.people.map(()=>({})),holidays:[],shifts:null,synced:{},locked:false,bookingRevision:null,excludedPersonIds:[]};try{localStorage.setItem(archiveKey,JSON.stringify(archive));}catch{notice('พื้นที่บันทึกในเครื่องเต็ม กรุณาสำรอง JSON',true);}state=next;mode=next.shifts&&next.quotaPreview?'result':'source';$('notice').hidden=true;save();render();if(broken)notice('ข้อมูลที่เก็บไว้ของเดือนนี้อ่านไม่ได้ จึงเริ่มเดือนใหม่จากรายชื่อเดิม',true);syncPreferences();}
+function switchMonth(year,month){if(preparing||worker||(state.year===year&&state.month===month))return;let archive={};try{archive=JSON.parse(localStorage.getItem(archiveKey)||'{}');}catch{}archive[monthKey(state.year,state.month)]=state;let next=null,broken=false;try{if(archive[monthKey(year,month)])next=checkImport(archive[monthKey(year,month)]);}catch{broken=true;}if(!next)next={...clone(state),year,month,source:state.people.map(()=>({})),holidays:[],shifts:null,synced:{},locked:false,bookingRevision:null,excludedPersonIds:[]};try{localStorage.setItem(archiveKey,JSON.stringify(archive));}catch{notice('พื้นที่บันทึกในเครื่องเต็ม กรุณาสำรอง JSON',true);}state=next;mode=next.shifts?'result':'source';$('notice').hidden=true;save();render();if(broken)notice('ข้อมูลที่เก็บไว้ของเดือนนี้อ่านไม่ได้ จึงเริ่มเดือนใหม่จากรายชื่อเดิม',true);syncPreferences();}
 function stepMonth(delta){const o=Math.min(Math.max(offsetOf(state.year,state.month)+delta,0),MONTHS_MAX-1),m=monthAt(o);switchMonth(m.year,m.month);}
 function notice(text,error=false){$('notice').hidden=false;$('notice').textContent=text;$('notice').className=error?'error':'';}
 function save(){try{localStorage.setItem(key,JSON.stringify(state));$('saved').textContent='บันทึกแล้วในเครื่องนี้';}catch{notice('พื้นที่บันทึกในเครื่องไม่พร้อมใช้งาน กรุณาสำรอง JSON',true);}}
@@ -35,7 +35,7 @@ function render(){const c=calendar(state),check=validate(state),shifts=visibleSh
  if(!hasResult){$('health').textContent=ready.errors.length?`${ready.errors.length} จุดต้องแก้ก่อนจัด`:'ยังไม่ได้จัดเวร';$('health').style.color=ready.errors.length?'#ae695a':'';$('health-detail').textContent=ready.errors.length?'ตรวจเวรที่กำหนดเองด้านล่าง':`พร้อมเติมเวรอีก ${ready.remaining} ครั้ง`;}
  const shortfalls=preview?check.counts.flatMap((r,i)=>r.total<quota.min?[{message:`${state.people[i].name} ได้ ${r.total} เวร ขาด ${quota.min-r.total} เวรจากขั้นต่ำ ${quota.min}`}]:[]):[];
  const shown=hasResult?[...shortfalls,...check.errors]:ready.errors;
- if(preview){$('issues-title').textContent='จุดที่ยังขาดในตารางร่าง';$('health').textContent='ตารางร่าง';$('health-detail').textContent=shortfalls.map(v=>v.message).join(' · ');}
+ if(preview){$('issues-title').textContent='จุดที่ยังขาดในตารางร่าง';$('health').textContent='ตารางร่าง';$('health-detail').textContent=shortfalls.map(v=>v.message).join(' · ')||check.errors[0]?.message||'';}
  else if(!hasResult&&ready.errors.length&&ready.errors.every(e=>e.kind==='quota-shortfall')){
   $('health').textContent='จัดตารางร่างได้';$('health-detail').textContent='กดจัดเวรอัตโนมัติเพื่อดูตารางและยอดที่ยังขาด';
  }
@@ -59,13 +59,17 @@ function renderGrid(c,cs,a){let html='<table><thead><tr><th class="name-cell">�
 function renderSummary(cs){const columns=[['regularMorning','เช้าปกติ'],['m','เช้าวันหยุด'],['b','บ่าย'],['n','ดึก'],['x','หยุด X'],['v','ลา V'],['total','รวมเวรนอกเวลา']];$('table').innerHTML='<table><thead><tr><th class="name-cell">บุคลากร</th>'+columns.map(([,label])=>'<th>'+label+'</th>').join('')+'</tr></thead><tbody>'+state.people.map((p,i)=>`<tr><td class="name-cell">${i+1}. ${escape(p.name)}</td>${columns.map(([k])=>`<td class="${k==='total'?'sum':''}">${cs[i][k]}</td>`).join('')}</tr>`).join('')+'<tr><td class="name-cell">รวม</td>'+columns.map(([k])=>`<td class="${k==='total'?'sum':''}">${cs.reduce((n,c)=>n+c[k],0)}</td>`).join('')+'</tr></tbody></table>';}
 function renderActions(){document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));$('generate').disabled=!!worker||preparing||!!state.locked;$('publish-roster').disabled=!!worker||preparing||!!state.locked||!state.shifts||state.quotaPreview||validate(state).errors.length>0;$('publish-roster').hidden=!!state.locked;$('unlock-roster').hidden=!state.locked;$('unlock-roster').disabled=preparing;$('import-manual').hidden=mode!=='source'||!!state.locked;$('import-manual').disabled=!!worker||preparing;$('export').textContent=mode==='source'?'↓ แบบฟอร์ม CSV':'↓ ส่งออก CSV';$('export').onclick=mode==='source'?manualTemplateCSV:csv;if($('generate-from-issues'))$('generate-from-issues').disabled=!!worker||preparing;}
 function renderPeople(){$('people-list').innerHTML=state.people.map((p,i)=>`<div class="person-row" role="button" tabindex="0" data-person="${i}"><div><strong>${i+1}. ${escape(p.name)}</strong> <em>${p.night?'รับดึก':'ไม่รับดึก'}</em>${!p.addMorning?'<em>ไม่เพิ่มเช้าวันหยุด</em>':''}</div><span>${p.forbidNight.length?'งดดึก '+p.forbidNight.map(d=>days[d]).join(', ')+' · ':''}${p.forbidAfternoon.length?'งดบ่าย '+p.forbidAfternoon.map(d=>days[d]).join(', '):''} แก้ไข ↗</span></div>`).join('');}
-async function openCell(i,d){if(state.locked){notice('ตารางนี้บันทึกและล็อกแล้ว กดปลดล็อกตารางก่อนแก้ไข');return;}if(worker||preparing)return;const personId=state.people[i]?.id;if(!personId)return;cell={personId,d};const current=cell;cellCapacity=null;$('cell-title').textContent=`${state.people[i].name} · ${d} ${months[state.month-1]}`;$('cell-code').value=state.source[i]?.[d]||'';$('cell-save-error').hidden=true;$('save-cell').disabled=true;$('cell-dialog').showModal();
+async function openCell(i,d){if(state.locked){notice('ตารางนี้บันทึกและล็อกแล้ว กดปลดล็อกตารางก่อนแก้ไข');return;}if(worker||preparing)return;const personId=state.people[i]?.id;if(!personId)return;cell={personId,d,month:cloudMonth()};const current=cell;cellCapacity=null;$('cell-title').textContent=`${state.people[i].name} · ${d} ${months[state.month-1]}`;const shown=mode==='result'&&state.shifts?display(state,i,d):'';$('cell-code').value=state.source[i]?.[d]||(codes.includes(shown)?shown:'');$('cell-save-error').hidden=true;$('save-cell').disabled=true;$('cell-dialog').showModal();
  try{const latest=await cloudRequest('/api/preferences?month='+cloudMonth()+'&person='+personId);if(cell!==current)return;cellCapacity=latest;checkCellCapacity();}catch(error){if(cell!==current)return;$('cell-save-error').textContent=error.message;$('cell-save-error').hidden=false;}
 }
 function checkCellCapacity(){if(!cellCapacity)return;const {personId,d}=cell,full=capacityConflict(cellCapacity,personId,{[d]:$('cell-code').value},cellCapacity.source);const quotaError=requestQuotaError(cellCapacity,cellCapacity.team,personId,cellCapacity.source,{...cellCapacity.source,[d]:$('cell-code').value});
  const error=full?`เวรที่ท่านเลือกเต็มแล้ว (วันที่ ${d} เวร${full.label})`:quotaError;
  $('save-cell').disabled=!!error;$('cell-save-error').hidden=!error;$('cell-save-error').textContent=error;}
 $('cell-code').onchange=checkCellCapacity;
+function saveEditedRoster(){
+ if(state.shifts)state.quotaPreview=validate(state).errors.length>0;
+ save();render();
+}
 function invalidate(){if(worker)finish();state.shifts=null;mode='source';save();render();notice('ปรับข้อมูลแล้ว กด “จัดเวรอัตโนมัติ” เพื่อจัดช่องที่เหลือ');}
 function freshDraftPerson(){
  const ids=[...state.people.map(p=>p.id),...(state.excludedPersonIds||[])];
@@ -158,7 +162,26 @@ function checkImport(s){if(!s||!Array.isArray(s.people)||s.people.length<2||s.pe
 $('cell-code').innerHTML=codes.map(c=>`<option value="${c}">${c||'ช่องว่าง — ให้โปรแกรมจัด'}</option>`).join('');
 document.addEventListener('click',e=>{const t=e.target.closest('[data-cell],[data-person],[data-holiday],[data-mode],[data-page],[data-preset],[data-remove-pair]');if(!t)return;if(t.dataset.cell){const[i,d]=t.dataset.cell.split(',').map(Number);openCell(i,d);}else if(t.dataset.person!==undefined)openPerson(+t.dataset.person);else if(t.dataset.holiday){const d=+t.dataset.holiday;saveHolidays(state.holidays.includes(d)?state.holidays.filter(v=>v!==d):[...state.holidays,d]);}else if(t.dataset.mode){mode=t.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b===t));render();}else if(t.dataset.page){const page=t.dataset.page;['schedule','people','rules'].forEach(p=>$(p+'-page').hidden=p!==page);document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b===t));$('breadcrumb').textContent=t.textContent.trim();}else if(t.dataset.preset)preset(t.dataset.preset,true).catch(e=>notice(e.message,true));else if(t.dataset.removePair!==undefined){if(state.locked)return;state.apart.splice(+t.dataset.removePair,1);invalidate();}});
 document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-cell],[data-person]')){e.preventDefault();e.target.click();}});
-$('save-cell').onclick=async e=>{e.preventDefault();if(!$('cell-dialog').querySelector('form').reportValidity())return;const{personId,d}=cell,code=$('cell-code').value;$('save-cell').disabled=true;$('cell-save-error').hidden=true;try{const result=await cloudRequest('/api/overrides',{method:'POST',body:JSON.stringify({month:cloudMonth(),personId,day:d,code})});const index=state.people.findIndex(p=>p.id===personId);if(index>=0){state.source[index]=result.source;state.synced??={};state.synced[personId]=result.submittedAt;}$('cell-dialog').close();invalidate();notice('บันทึกเวรส่วนกลางแล้ว ตารางของเภสัชกรจะอัปเดตตาม');}catch(error){$('cell-save-error').textContent=error.message;$('cell-save-error').hidden=false;}finally{$('save-cell').disabled=false;}};
+$('save-cell').onclick=async e=>{
+ e.preventDefault();
+ if(!cellCapacity||$('save-cell').disabled||!$('cell-dialog').querySelector('form').reportValidity())return;
+ const {personId,d,month}=cell,code=$('cell-code').value;
+ const clearGenerated=mode==='result'&&!code;
+ $('save-cell').disabled=true;$('cell-save-error').hidden=true;
+ try{
+  const result=await cloudRequest('/api/overrides',{method:'POST',body:JSON.stringify({month,personId,day:d,code})});
+  if(month!==cloudMonth()||state.locked)return;
+  const index=state.people.findIndex(p=>p.id===personId);
+  if(index>=0&&!(state.synced?.[personId]>result.submittedAt)){
+   applySourceRow(state,index,result.source,clearGenerated?d:null);
+   state.synced??={};state.synced[personId]=result.submittedAt;
+  }
+  $('cell-dialog').close();
+  saveEditedRoster();
+  notice(state.shifts?'บันทึกแล้ว ตรวจยอดรายคนและจำนวนเวรที่ขาดในตารางได้เลย':'บันทึกเวรที่กำหนดเองแล้ว');
+ }catch(error){$('cell-save-error').textContent=error.message;$('cell-save-error').hidden=false;}
+ finally{$('save-cell').disabled=false;}
+};
 $('save-person').onclick=e=>{e.preventDefault();if(preparing||state.locked||!$('person-dialog').querySelector('form').reportValidity())return;const p=person===null?freshDraftPerson():state.people.find(p=>p.id===person);if(!p)return;p.name=$('person-name').value.trim();if(!p.name){notice('กรุณาระบุชื่อ',true);return;}p.night=$('p-night').checked;p.afternoon=$('p-afternoon').checked;p.addMorning=$('p-morning').checked;p.forbidAfternoon=[...$('p-ban-b').querySelectorAll('input:checked')].map(n=>+n.value);p.forbidNight=[...$('p-ban-n').querySelectorAll('input:checked')].map(n=>+n.value);if(person===null){state.people.push(p);state.source.push({});}$('person-dialog').close();invalidate();};
 $('delete-person').onclick=async()=>{
  if(preparing||worker||state.locked||person===null)return;
@@ -249,7 +272,7 @@ $('manual-file').onchange=async e=>{
   renderActions();
  }
 };
-$('import').onclick=()=>$('file').click();$('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const imported=checkImport(JSON.parse(await f.text()));if(confirm('นำเข้าข้อมูลแทนตารางปัจจุบัน?')){state=imported;save();render();notice('นำเข้าข้อมูลแล้ว');syncPreferences();}}catch(error){notice('นำเข้าไม่ได้: '+error.message,true);}e.target.value='';};$('validate').onclick=()=>{render();notice('ตรวจเงื่อนไขล่าสุดแล้ว ดูรายละเอียดในส่วนข้อสังเกต');};
+$('import').onclick=()=>$('file').click();$('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const imported=checkImport(JSON.parse(await f.text()));if(confirm('นำเข้าข้อมูลแทนตารางปัจจุบัน?')){state=imported;mode=state.shifts?'result':'source';save();render();notice('นำเข้าข้อมูลแล้ว');syncPreferences();}}catch(error){notice('นำเข้าไม่ได้: '+error.message,true);}e.target.value='';};$('validate').onclick=()=>{render();notice('ตรวจเงื่อนไขล่าสุดแล้ว ดูรายละเอียดในส่วนข้อสังเกต');};
 function finish(){worker?.terminate();worker=null;$('generate').disabled=false;if($('generate-from-issues'))$('generate-from-issues').disabled=false;$('generate').textContent='✦ จัดเวรอัตโนมัติ';$('cancel').hidden=true;}
 $('generate').onclick=async()=>{
  if(worker||preparing||state.locked)return;
@@ -284,7 +307,7 @@ $('generate').onclick=async()=>{
  }catch(error){finish();notice(error.message,true);$('notice').scrollIntoView({behavior:'smooth',block:'center'});}
  finally{preparing=false;renderActions();if($('generate-from-issues'))$('generate-from-issues').disabled=!!worker;}
 };$('cancel').onclick=()=>{finish();notice('หยุดค้นหาแล้ว ตารางเดิมยังคงอยู่');};
-try{const saved=localStorage.getItem(key);if(saved){state=checkImport(JSON.parse(saved));if(state.quotaPreview&&state.shifts)mode='result';render();}else await preset('january');}catch{await preset('january');notice('เริ่มด้วยตัวอย่างมกราคม 2570 คุณสามารถสำรองข้อมูลเป็น JSON ได้');}
+try{const saved=localStorage.getItem(key);if(saved){state=checkImport(JSON.parse(saved));if(state.shifts)mode='result';render();}else await preset('january');}catch{await preset('january');notice('เริ่มด้วยตัวอย่างมกราคม 2570 คุณสามารถสำรองข้อมูลเป็น JSON ได้');}
 const cloudMonth=()=>`${state.year}-${String(state.month).padStart(2,'0')}`;
 async function cloudRequest(path,options={}){const r=await apiFetch(path,{...options,headers:{...authHeaders(),...(options.body?{'content-type':'application/json'}:{})}});let j;try{j=await r.json();}catch{throw Error('บริการรับความประสงค์ยังไม่พร้อมใช้งาน');}if(!r.ok)throw Error(j.error||'เชื่อมต่อไม่ได้');return j;}
 $('admin-logout').onclick=async()=>{try{await cloudRequest('/api/logout',{method:'POST'});}catch{}sessionStorage.removeItem('roster-session');location.replace('./');};
@@ -338,13 +361,9 @@ async function loadPreferences(){
   if(useShared)state.holidays=result.holidays;
   $('share-holidays').hidden=useShared||!differentHolidays;
   const removed=removePersonRows(excludedPersonIds);
+  if(removed)state.shifts=null;
   const wasLocked=state.locked;
-  if(wasLocked){
-   state.locked=false;
-   state.shifts=null;
-   state.synced={};
-   state.source=state.people.map(p=>source[people.findIndex(x=>x.id===p.id)]||{});
-  }
+  if(wasLocked){state.locked=false;mode='result';}
   state.synced??={};
   const fresh=[];
   let added=false;
@@ -359,23 +378,23 @@ async function loadPreferences(){
     added=true;
     return;
    }
-   if(!at||(state.synced[person.id]&&state.synced[person.id]>=at))return;
+   if(!wasLocked&&(!at||(state.synced[person.id]&&state.synced[person.id]>=at)))return;
    state.synced[person.id]=at;
    if(!sameRow(row,state.source[i]||{})){
-    state.source[i]=row;
+    applySourceRow(state,i,row);
     fresh.push(person.name);
    }
   });
   lastSync=Date.now();
   renderSync(status);
-  if(useShared||removed||added||fresh.length){
-   const had=!!state.shifts;
+  if(useShared||removed||added){
    invalidate();
    if(removed)notice('อัปเดตรายชื่อบุคลากรของเดือนนี้แล้ว');
-   else if(fresh.length)notice(`ล็อกความประสงค์ใหม่ของ ${fresh.join(', ')} ในตารางแล้ว`+(had?' · กรุณาจัดเวรใหม่':''));
+  }else if(fresh.length||wasLocked){
+   saveEditedRoster();
+   if(fresh.length)notice(`อัปเดตเวรที่แก้ของ ${fresh.join(', ')} แล้ว`);
   }else{
    save();
-   if(wasLocked)render();
   }
   return true;
  }catch(error){
@@ -391,5 +410,5 @@ async function loadPreferences(){
 $('month-prev').onclick=()=>stepMonth(-1);$('month-next').onclick=()=>stepMonth(1);$('month-tabs').onclick=e=>{const b=e.target.closest('[data-ym]');if(b){const[y,m]=b.dataset.ym.split('-').map(Number);switchMonth(y,m);}};
 $('sync-now').onclick=syncPreferences;document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!preparing&&Date.now()-lastSync>60000)syncPreferences();});syncPreferences();
 
-$('publish-roster').onclick=async()=>{if(preparing||worker||state.locked)return;preparing=true;renderActions();try{if(!await syncPreferences())throw Error('โหลดความประสงค์ล่าสุดไม่สำเร็จ');if(state.locked)return;if(state.quotaPreview&&state.shifts)throw Error('ตารางร่างยังมีเวรไม่ครบตามเป้ารายคน');if(!state.shifts)throw Error('มีความประสงค์เปลี่ยนแปลง กรุณาจัดเวรใหม่ก่อนบันทึก');await cloudRequest('/api/roster',{method:'POST',body:JSON.stringify({month:cloudMonth(),state:clone(state),revision:state.bookingRevision})});await syncPreferences();notice('บันทึกและล็อกตารางแล้ว เภสัชกรทุกคนเห็นตารางเดียวกันและแก้เวรไม่ได้');}catch(error){notice(error.message,true);}finally{preparing=false;renderActions();}};
-$('unlock-roster').onclick=async()=>{if(preparing||!state.locked)return;preparing=true;renderActions();try{await cloudRequest('/api/roster/unlock',{method:'POST',body:JSON.stringify({month:cloudMonth(),revision:state.bookingRevision})});await syncPreferences();notice('ปลดล็อกแล้ว กลับสู่ความประสงค์เดิม เมื่อจัดเสร็จให้บันทึกและล็อกอีกครั้ง');}catch(error){notice(error.message,true);}finally{preparing=false;renderActions();}};
+$('publish-roster').onclick=async()=>{if(preparing||worker||state.locked)return;preparing=true;renderActions();try{if(!await syncPreferences())throw Error('โหลดความประสงค์ล่าสุดไม่สำเร็จ');if(state.locked)return;if(state.shifts&&validate(state).errors.length)throw Error('กรุณาตรวจจุดที่ยังขาดหรือขัดเงื่อนไขก่อนล็อกตาราง');if(!state.shifts)throw Error('มีความประสงค์เปลี่ยนแปลง กรุณาจัดเวรใหม่ก่อนบันทึก');await cloudRequest('/api/roster',{method:'POST',body:JSON.stringify({month:cloudMonth(),state:clone(state),revision:state.bookingRevision})});await syncPreferences();notice('บันทึกและล็อกตารางแล้ว เภสัชกรทุกคนเห็นตารางเดียวกันและแก้เวรไม่ได้');}catch(error){notice(error.message,true);}finally{preparing=false;renderActions();}};
+$('unlock-roster').onclick=async()=>{if(preparing||!state.locked)return;preparing=true;renderActions();try{await cloudRequest('/api/roster/unlock',{method:'POST',body:JSON.stringify({month:cloudMonth(),revision:state.bookingRevision})});if(!await syncPreferences())throw Error('ปลดล็อกแล้ว กรุณาโหลดล่าสุดเพื่อตรวจสถานะ');notice('ปลดล็อกแล้ว แก้ไขตารางที่จัดไว้ได้ เมื่อเสร็จให้บันทึกและล็อกอีกครั้ง');}catch(error){notice(error.message,true);}finally{preparing=false;renderActions();}};

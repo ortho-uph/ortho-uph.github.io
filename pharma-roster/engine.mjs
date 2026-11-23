@@ -39,13 +39,27 @@ export function requestQuotaError(config,team,personId,previous,next){
  }
  return '';
 }
+function shiftParts(code,regularMorning){
+ if(code==='X'||code==='V')return [false,false,false];
+ return [code.includes('ช')||regularMorning,code.includes('บ'),code.includes('ด')];
+}
+export function applySourceRow(s,i,row,clearDay=null){
+ const old=s.source[i]||{};
+ if(s.shifts){
+  const {off,days}=calendar(s);
+  for(let d=1;d<=days;d++){
+   const code=row[d]||'';
+   if((old[d]||'')!==code||d===clearDay)s.shifts[i][d]=shiftParts(code,!off.includes(d));
+  }
+ }
+ s.source[i]=row;
+}
 export function initial(s,{regularMorning=true}={}){
  const {days,off}=calendar(s);
  return s.people.map((_,i)=>Array.from({length:days+1},(_,d)=>{
   if(!d)return [false,false,false];
   const v=s.source[i]?.[d]||'';
-  if(v==='X'||v==='V')return [false,false,false];
-  return [v.includes('ช')||(regularMorning&&!off.includes(d)),v.includes('บ'),v.includes('ด')];
+  return shiftParts(v,regularMorning&&!off.includes(d));
  }));
 }
 export function display(s,i,d,shifts=s.shifts){
