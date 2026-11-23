@@ -1,5 +1,5 @@
 import{capacityConflict}from'./capacity.mjs?v=capacity4';
-import{applySourceRow,monthlyQuota,requestQuotaError,calendar,initial,counts,validate,readiness,display,codes,clone,parsePreferenceCSV}from'./engine.mjs?v=partial2';
+import{applySourceRow,monthlyQuota,requestQuotaError,calendar,initial,counts,validate,readiness,display,codes,clone,parsePreferenceCSV}from'./engine.mjs?v=pairs1';
 const apiBase=(window.ROSTER_API_BASE||'').replace(/\/$/,'');
 const authHeaders=()=>({authorization:'Bearer '+(sessionStorage.getItem('roster-session')||'')});
 async function apiFetch(path,options={}){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);try{return await fetch(apiBase+path,{...options,signal:controller.signal});}finally{clearTimeout(timer);}}
@@ -39,7 +39,7 @@ function render(){const c=calendar(state),check=validate(state),shifts=visibleSh
  else if(!hasResult&&ready.errors.length){
   $('health').textContent='จัดตารางร่างได้';$('health-detail').textContent='กดจัดเวรอัตโนมัติเพื่อดูตารางและยอดที่ยังขาด';
  }
- $('issues').innerHTML=[...(!hasResult?[`<p class="issue">ยังไม่ได้จัดเวรอัตโนมัติ · มีเวรที่ต้องเติม ${ready.remaining} ครั้ง</p><button class="button primary" id="generate-from-issues">✦ จัดเวรอัตโนมัติ</button>`]:[]),...(preview?shown:shown.slice(0,6)).map(v=>`<p class="issue error">${escape(v.message)}</p>`),...(!preview&&shown.length>6?[`<p class="muted">อีก ${shown.length-6} จุดที่ต้องตรวจ</p>`]:[]),...(hasResult?check.warnings.map(v=>`<p class="issue warning">${escape(v)}</p>`):[]),...(hasResult&&!check.errors.length?[`<p class="issue">บ่ายและดึกครบทุกวัน · คงเวรต้นฉบับและวันลา</p>`]:[]),...check.exceptions.map(v=>`<p class="issue">${escape(v)} (ยกเว้นตามเวรเดิม)</p>`)].join('');
+ $('issues').innerHTML=[...(!hasResult?[`<p class="issue">ยังไม่ได้จัดเวรอัตโนมัติ · มีเวรที่ต้องเติม ${ready.remaining} ครั้ง</p><button class="button primary" id="generate-from-issues">✦ จัดเวรอัตโนมัติ</button>`]:[]),...(preview?shown:shown.slice(0,6)).map(v=>`<p class="issue error">${escape(v.message)}</p>`),...(!preview&&shown.length>6?[`<p class="muted">อีก ${shown.length-6} จุดที่ต้องตรวจ</p>`]:[]),...(hasResult?check.warnings.map(v=>`<p class="issue warning">${escape(v)}</p>`):[]),...(hasResult&&!check.errors.length?[`<p class="issue">บ่ายและดึกครบทุกวัน · คงเวรต้นฉบับและวันลา</p>`]:[]),...check.exceptions.map(v=>`<p class="issue">${escape(v)}</p>`)].join('');
  if($('generate-from-issues')){$('generate-from-issues').disabled=!!worker||preparing;$('generate-from-issues').onclick=()=>{$('generate').click();$('notice').scrollIntoView({behavior:'smooth',block:'center'});};}
  renderPeople();renderActions();$('spacing').checked=state.spacing;$('no-v').checked=state.noNightAfterV;$('spacing').disabled=!!state.locked;$('no-v').disabled=!!state.locked;$('apart-editor').innerHTML=(state.apart||[]).map((pair,i)=>({pair,i})).filter(({pair})=>pair.every(id=>state.people.some(p=>p.id===id))).map(({pair,i})=>`<p>${pair.map(id=>escape(state.people.find(p=>p.id===id)?.name||'?')).join(' + ')} <button class="text-button" data-remove-pair="${i}">ยกเลิก</button></p>`).join('')||'<p>ยังไม่ได้กำหนดคู่ที่ห้ามบ่ายร่วมกัน</p>';
 }
@@ -321,7 +321,7 @@ $('generate').onclick=async()=>{
   if(state.locked)throw Error('ตารางนี้บันทึกและล็อกแล้ว กรุณาปลดล็อกก่อนจัดใหม่');
   const {year,month,people,source,holidays,apart,spacing,noNightAfterV}=state;
   const input=clone({year,month,people,source,holidays,apart,spacing,noNightAfterV});
-  worker=new Worker(new URL('./worker.mjs?v=cp1',import.meta.url),{type:'module'});
+  worker=new Worker(new URL('./worker.mjs?v=pairs1',import.meta.url),{type:'module'});
   $('generate').textContent='กำลังจัดเวร…';$('cancel').hidden=false;notice('กำลังจัดเวรให้ครบทุกวัน โดยคงเวรที่กำหนดไว้');
   const fail=message=>{finish();notice(message+(state.shifts?' · ยังแสดงผลจากรอบก่อน':''),true);$('notice').scrollIntoView({behavior:'smooth',block:'center'});};
   worker.onmessage=e=>{const r=e.data;if(r.type==='progress')notice(`กำลังจัดเวร · ตรวจแล้ว ${r.tries} ทางเลือก · เหลือ ${r.remaining} เวรในร่างที่ใกล้ที่สุด`);else if(r.type==='done'){

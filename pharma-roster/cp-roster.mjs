@@ -1,5 +1,5 @@
 import {CpModel,CpSolver,CpSolverStatus,LinearExpr} from './vendor/cpsat/dist/solver.mjs';
-import {initial,calendar,monthlyQuota,readiness,counts} from './engine.mjs?v=edit1';
+import {approvedPair,initial,calendar,monthlyQuota,readiness,counts} from './engine.mjs?v=pairs1';
 
 export async function solveCP(s){
  const solver=await CpSolver.create(),model=new CpModel();
@@ -34,7 +34,12 @@ export async function solveCP(s){
   for(let d=1;d<=days;d++){
    const busy=row[d].slice(1).filter(Boolean);
    model.add(sum(busy).le(1));
-   if(s.spacing&&d<days)model.add(sum([...busy,...row[d+1].slice(1).filter(Boolean)]).le(1));
+   if(s.spacing&&d<days){
+    for(const k of [1,2])for(const next of [1,2]){
+     if(row[d][k]&&row[d+1][next]&&!approvedPair(s,i,d,k,next))
+      model.add(sum([row[d][k],row[d+1][next]]).le(1));
+    }
+   }
   }
  }
  for(const pair of s.apart||[]){

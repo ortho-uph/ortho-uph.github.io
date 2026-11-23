@@ -69,6 +69,13 @@ export function display(s,i,d,shifts=s.shifts){
  return [night&&'ด',morning&&'ช',afternoon&&'บ'].filter(Boolean).join('/')||'–';
 }
 export function counts(s,a=s.shifts||initial(s)){const c=calendar(s);return s.people.map((p,i)=>{const m=c.off.filter(d=>a[i][d][0]).length,b=a[i].slice(1).filter(v=>v[1]).length,n=a[i].slice(1).filter(v=>v[2]).length;return{m,b,n,regularMorning:a[i].slice(1).filter((v,d)=>!c.off.includes(d+1)&&v[0]).length,x:Object.values(s.source[i]||{}).filter(v=>v==='X').length,v:Object.values(s.source[i]||{}).filter(v=>v==='V').length,total:m+b+n};});}
+// Shift indexes are 1 for afternoon and 2 for night. The day is the first day of the pair.
+export function approvedPair(s,i,day,first,second){
+ if(s.year!==2026||s.month!==12||second!==1)return false;
+ const id=s.people[i].id;
+ if(id===8)return first===1&&(day===2||day===17);
+ return id===9&&((first===1&&day===8)||(first===2&&(day===14||day===28)));
+}
 export function validate(s,a=s.shifts||initial(s)){
  const{days,dow,off}=calendar(s),errors=[],warnings=[],exceptions=[];const add=(message,i,d)=>errors.push({message,i,d});
  const original=(i,d)=>s.source[i]?.[d]||'',oh=(i,d)=>/[บด]/.test(original(i,d));
@@ -88,7 +95,8 @@ export function validate(s,a=s.shifts||initial(s)){
    if(r[1]&&p.forbidAfternoon.includes(dow(d)))add(`${name} วันที่ ${d}: บ่ายตรงวันที่ไม่รับ`,i,d);
    if(s.noNightAfterV&&r[2]&&original(i,d-1)==='V')add(`${name} วันที่ ${d}: ดึกต่อจาก V`,i,d);
    if(r[1]&&r[2]&&!(v.includes('บ')&&v.includes('ด')))add(`${name} วันที่ ${d}: มีบ่ายและดึกที่ไม่ได้กำหนดเอง`,i,d);
-   if(s.spacing&&d<days&&(r[1]||r[2])&&(a[i][d+1][1]||a[i][d+1][2])){if(oh(i,d)&&oh(i,d+1))exceptions.push(`${name}: เวรเดิมติดกัน ${d}–${d+1}`);else add(`${name}: เวรบ่าย/ดึกติดกัน ${d}–${d+1}`,i,d);}
+   if(s.spacing&&d<days&&(r[1]||r[2])&&(a[i][d+1][1]||a[i][d+1][2])){if([1,2].every(k=>!r[k]||[1,2].every(next=>!a[i][d+1][next]||approvedPair(s,i,d,k,next))))exceptions.push(`${name}: คู่เวรที่อนุญาต ${d}–${d+1}`);
+    else if(oh(i,d)&&oh(i,d+1))exceptions.push(`${name}: เวรเดิมติดกัน ${d}–${d+1}`);else add(`${name}: เวรบ่าย/ดึกติดกัน ${d}–${d+1}`,i,d);}
    if(d<days&&r.every(Boolean)&&a[i][d+1][0]&&!['ช','บ','ด'].every(t=>v.includes(t)))add(`${name}: สามเวรต่อเช้า ${d}–${d+1}`,i,d);
   });
  }
@@ -118,7 +126,9 @@ function fixedShiftEligibility(s, c, base, counts, ceiling){
   if(counts[i].total>=ceiling||original==='X'||original==='V')return false;
   if(k===0)return person.addMorning&&!base[i][d][0];
   if(original==='ช'||hasOvertime(i,d))return false;
-  if(s.spacing&&(hasOvertime(i,d-1)||hasOvertime(i,d+1)))return false;
+  if(s.spacing&&[1,2].some(other=>
+   (base[i][d-1]?.[other]&&!approvedPair(s,i,d-1,other,k))||
+   (base[i][d+1]?.[other]&&!approvedPair(s,i,d,k,other))))return false;
   if(k===2){
    return person.night&&!person.forbidNight.includes(c.dow(d))&&!(s.noNightAfterV&&s.source[i]?.[d-1]==='V');
   }
@@ -164,7 +174,7 @@ export function readiness(s){
   const {mornings,overtimeDays}=potential[i];
   let extraOvertime=0,last=-Infinity;
   for(const d of overtimeDays){
-   if(!s.spacing||d>last+1){extraOvertime++;last=d;}
+   if(!s.spacing||d>last+1||approvedPair(s,i,last,1,1)||approvedPair(s,i,last,2,1)){extraOvertime++;last=d;}
   }
   const maximum=total+mornings+extraOvertime;
   capacity[i]=Math.min(ceiling,maximum);
@@ -231,7 +241,10 @@ function searchRoster(s,base,missing,limits,{nightRange,deadline,progress,vacanc
    for(let a=0;a<current.length;a++){
     for(let b=a+1;b<current.length;b++)excludeTogether(current[a],current[b]);
     if(s.spacing&&d+1<dayCount){
-     for(const next of row[d+1])excludeTogether(current[a],next);
+     for(const next of row[d+1]){
+      const first=choices[current[a]],second=choices[next];
+      if(!approvedPair(s,first.i,d,first.k,second.k))excludeTogether(current[a],next);
+     }
     }
    }
   }
