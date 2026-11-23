@@ -1,3 +1,4 @@
+import{monthlyQuota,calendar,requestedOvertime,requestQuotaError}from'./engine.mjs?v=quota1';
 import{personalPrintHTML}from'./personal-print.mjs?v=roster5';
 import{capacityConflict}from'./capacity.mjs?v=capacity4';
 import{mergeRemoteDraft}from'./team-view.mjs?v=team2';
@@ -40,6 +41,10 @@ function render(){
  document.querySelector('.calendar-card').hidden=!session;if(!ym)return;
  renderMonths();$('calendar-title').textContent=`${months[ym.month-1]} พ.ศ. ${ym.year+543}`;renderTable();
  const chosen=Object.keys(source).filter(d=>source[d]).length;$('selected-count').textContent=`เลือกไว้ ${chosen} วัน · ช/บ/ด ${Object.values(source).filter(v=>/[ชบด]/.test(v)).length} วัน · หยุด/ลา ${Object.values(source).filter(v=>['X','V'].includes(v)).length} วัน`;
+ if(data&&teamShared&&team.length){
+  const {total,off}=calendar(data),quota=monthlyQuota(total,team.length);
+  $('selected-count').textContent+=` · ขอเวรนอกเวลาแล้ว ${requestedOvertime(off,source)} เวร · เป้า ${quota.range} เวรต่อคน (${total} เวร ÷ ${team.length} คน)`;
+ }
  $('submission-badge').textContent=dirty?'มีการแก้ไข ยังไม่ส่ง':data?.submittedAt?'ส่งแล้ว · '+new Date(data.submittedAt).toLocaleDateString('th-TH'):'ยังไม่ส่งความประสงค์';$('submission-badge').className='status-badge'+(!dirty&&data?.submittedAt?' submitted':'');$('submit-preferences').disabled=!data||!!data.preview||!!data.locked||saving;$('print-personal').disabled=!data||saving;if(data?.locked){$('submission-badge').textContent='ตารางบันทึกและล็อกแล้ว';$('calendar-subtitle').textContent='ตารางเวรที่จัดแล้วของทั้งทีม เดือนนี้ล็อกแล้ว ไม่สามารถแก้ไขได้';}$('staff-table').inert=saving;$('reload-preferences').disabled=saving;document.querySelectorAll('[data-ym]').forEach(b=>b.disabled=saving);$('preview-note').hidden=!data?.preview;
  document.querySelector('.who').hidden=!data?.preview;$('personal-hint').textContent=data?.locked?'ตารางล็อกแล้ว · กดพิมพ์เวรของฉันเพื่อพิมพ์เฉพาะเวรของคุณ':'กดบันทึกวันนี้เพื่อจองเวรทันที ช่องว่างหมายถึงให้ผู้จัดตารางจัดได้';if(data?.locked)$('selected-count').textContent='ตารางเวรที่จัดแล้ว · '+data.person.name;
  $('calendar-subtitle').textContent=data?.preview?'ตัวอย่างหน้าของเภสัชกร — ใช้บัญชีเภสัชกรเพื่อส่งจริง':!data?'':teamShared?'คลิกช่องในแถวของคุณเพื่อเลือกเวร แถวอื่นคือเวรที่เพื่อนเลือกไว้แล้ว':'คลิกช่องในแถวของคุณเพื่อเลือกเวร (เซิร์ฟเวอร์ยังไม่ส่งรายการของคนอื่นมา)';if(data?.locked)$('calendar-subtitle').textContent='ตารางเวรที่จัดแล้วของทั้งทีม เดือนนี้ล็อกแล้ว ไม่สามารถแก้ไขได้';
@@ -51,7 +56,9 @@ function openDay(d){if(!data||data.preview||data.locked)return;selectedDay=d;sel
  $('day-capacity-error').hidden=true;renderShiftOptions();
  const others=team.filter(x=>x.id!==p.id&&x.source[d]);$('day-others').hidden=!teamShared;$('day-others').innerHTML=others.length?'<b>เพื่อนที่เลือกวันนี้แล้ว</b>'+others.map(x=>`<span class="code ${colorOf(x.source[d])}">${esc(x.source[d])}</span>${esc(x.name)}`).join(' &nbsp;·&nbsp; '):'<b>ยังไม่มีเพื่อนเลือกวันนี้</b>';
  $('staff-day-dialog').showModal();}
-function fullSelection(code,day=selectedDay){return capacityConflict({...ym,holidays:data.holidays,team},data.person.id,{[day]:code},data.source);}
+function fullSelection(code,day=selectedDay){const daily=capacityConflict({...ym,holidays:data.holidays,team},data.person.id,{[day]:code},data.source);
+ if(daily)return `เวรที่ท่านเลือกเต็มแล้ว (วันที่ ${day} เวร${daily.label})`;
+ return teamShared&&team.length?requestQuotaError(data,team,data.person.id,data.source,{...source,[day]:code}):'';}
 function showCapacityError(message){$('day-capacity-error').textContent=message;$('day-capacity-error').hidden=false;}
 function renderShiftOptions(){const p=data.person,dow=new Date(ym.year,ym.month-1,selectedDay).getDay();
  const options=[['ช','เช้า'],['ช/บ','เช้า + บ่าย'],['ด/ช','ดึก + เช้า'],['บ','บ่าย'],['ด','ดึก'],['ด/ช/บ','สามเวร'],['X','หยุด'],['V','ลาพักผ่อน'],['','ไม่กำหนด']];
@@ -59,7 +66,7 @@ function renderShiftOptions(){const p=data.person,dow=new Date(ym.year,ym.month-
 }
 async function saveDay(){if(saving||!data||data.locked)return;const day=selectedDay,code=selectedCode,note=$('day-note').value.trim();saving=true;$('day-save').disabled=true;$('day-clear').disabled=true;$('staff-day-close').disabled=true;
  try{
-  await syncLatest();if(data.locked)throw Error('ตารางเดือนนี้บันทึกและล็อกแล้ว ไม่สามารถแก้เวรได้');const full=fullSelection(code,day);if(full)throw Error(`เวรที่ท่านเลือกเต็มแล้ว (วันที่ ${day} เวร${full.label})`);
+  await syncLatest();if(data.locked)throw Error('ตารางเดือนนี้บันทึกและล็อกแล้ว ไม่สามารถแก้เวรได้');const full=fullSelection(code,day);if(full)throw Error(full);
   const result=await api('/api/preferences/cell',{method:'POST',body:JSON.stringify({month:key(),personId:data.person.id,day,code,note,revision:data.revision})}),merged=mergeRemoteDraft(data,result,source,notes);
   source=merged.source;notes=merged.notes;dirty=merged.dirty;data={...data,...result};const mine=team.find(p=>p.id===data.person.id);if(mine){mine.source={...result.source};mine.submittedAt=result.submittedAt;}
   $('staff-day-dialog').close();status('บันทึกเวรวันที่ '+day+' แล้ว ทุกคนเห็นเวรที่ท่านเลือกทันที');
@@ -67,7 +74,7 @@ async function saveDay(){if(saving||!data||data.locked)return;const day=selected
  finally{saving=false;$('day-save').disabled=false;$('day-clear').disabled=false;$('staff-day-close').disabled=false;render();}
 }
 document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-day]')){e.preventDefault();openDay(+e.target.dataset.day);}});
-document.addEventListener('click',e=>{const date=e.target.closest('[data-day]'),choice=e.target.closest('[data-code]'),tab=e.target.closest('[data-ym]');if(tab){const[y,m]=tab.dataset.ym.split('-').map(Number);selectMonth(y,m);}if(date)openDay(+date.dataset.day);if(choice&&!choice.disabled){const full=fullSelection(choice.dataset.code);if(full){showCapacityError(`เวรที่ท่านเลือกเต็มแล้ว (วันที่ ${selectedDay} เวร${full.label})`);return;}$('day-capacity-error').hidden=true;selectedCode=choice.dataset.code;document.querySelectorAll('[data-code]').forEach(b=>b.classList.toggle('selected',b===choice));}});
+document.addEventListener('click',e=>{const date=e.target.closest('[data-day]'),choice=e.target.closest('[data-code]'),tab=e.target.closest('[data-ym]');if(tab){const[y,m]=tab.dataset.ym.split('-').map(Number);selectMonth(y,m);}if(date)openDay(+date.dataset.day);if(choice&&!choice.disabled){const full=fullSelection(choice.dataset.code);if(full){showCapacityError(full);return;}$('day-capacity-error').hidden=true;selectedCode=choice.dataset.code;document.querySelectorAll('[data-code]').forEach(b=>b.classList.toggle('selected',b===choice));}});
 $('day-save').onclick=saveDay;$('day-clear').onclick=()=>{selectedCode='';saveDay();};$('staff-day-close').onclick=()=>$('staff-day-dialog').close();
 $('month-prev').onclick=()=>stepMonth(-1);$('month-next').onclick=()=>stepMonth(1);$('reload-preferences').onclick=()=>{if(dirty&&!confirm('มีวันที่ยังไม่ส่ง ต้องการโหลดข้อมูลใหม่หรือไม่?'))return;loadMonth();};$('staff-person').onchange=loadMonth;
 async function syncLatest(){if(!data||syncing)return;const month=key(),old=data;syncing=true;try{const incoming=await api('/api/preferences?month='+month);if(key()!==month||data!==old)return;if(incoming.rosterRevision!==old.rosterRevision||incoming.locked!==old.locked){source={...incoming.source};notes={...incoming.notes};dirty=false;if(incoming.locked)$('staff-day-dialog').close();status(incoming.locked?'ตารางบันทึกและล็อกแล้ว เวรทั้งทีมอัปเดตตามตารางที่จัดแล้ว':'admin ปลดล็อกเดือนนี้แล้ว สามารถเลือกเวรได้');}else if(incoming.revision!==old.revision){if(dirty){const merged=mergeRemoteDraft(old,incoming,source,notes);source=merged.source;notes=merged.notes;dirty=merged.dirty;}else{source={...incoming.source};notes={...incoming.notes};}status(incoming.adminEdited?'admin แก้ไขเวรแล้ว ข้อมูลของคุณอัปเดตตามแล้ว':'อัปเดตข้อมูลล่าสุดแล้ว');}data=incoming;teamShared=Array.isArray(incoming.team);team=incoming.team||[];render();}finally{syncing=false;}}

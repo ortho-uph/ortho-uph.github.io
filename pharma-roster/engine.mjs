@@ -11,6 +11,34 @@ export function parsePreferenceCSV(text,s){
  if(!seen.size)throw Error('ไม่มีแถวข้อมูลบุคลากร');if(manualSourceColumn>=0)total=source.reduce((n,row)=>n+Object.values(row).filter(Boolean).length,0);const metadata=rows.find(r=>r[0]?.trim()==='ตารางเวร');return{source,total,people:seen.size,days:seenDays.size,monthLabel:metadata?.[1]?.trim()||null,yearLabel:metadata?.[2]?.trim()||null,isRenderedExport,hasManualSource:manualSourceColumn>=0};
 }
 export function calendar(s){const days=new Date(s.year,s.month,0).getDate(),dow=d=>new Date(s.year,s.month-1,d).getDay(),off=Array.from({length:days},(_,i)=>i+1).filter(d=>[0,6].includes(dow(d))||s.holidays.includes(d));return{days,dow,off,total:days*3+off.length*2};}
+export function monthlyQuota(total, people){
+ const min=Math.floor(total/people),max=Math.ceil(total/people);
+ return {min,max,range:min===max?String(min):min+'–'+max};
+}
+export function requestedOvertime(off, source){
+ let count=0;
+ for(const [day,code] of Object.entries(source)){
+  if(code.includes('บ'))count++;
+  if(code.includes('ด'))count++;
+  if(code.includes('ช')&&off.includes(Number(day)))count++;
+ }
+ return count;
+}
+export function requestQuotaError(config,team,personId,previous,next){
+ const people=team.length;
+ const {off,total}=calendar(config),{min,max}=monthlyQuota(total,people);
+ const count=requestedOvertime(off,next),prior=requestedOvertime(off,previous);
+ if(count<=prior)return '';
+ if(count>max){
+  return `ขอเวรได้สูงสุด ${max} เวรต่อคนในเดือนนี้ (${total} เวร ÷ ${people} คน) รายการนี้จะทำให้รวมเป็น ${count} เวร`;
+ }
+ if(count>min&&prior<=min){
+  const upperPlaces=total%people;
+  const used=team.filter(p=>p.id!==personId&&requestedOvertime(off,p.source)>min).length;
+  if(used>=upperPlaces)return `เดือนนี้มีผู้ขอครบ ${max} เวรแล้ว ${upperPlaces} คน จากยอดรวม ${total} เวร คุณขอได้สูงสุด ${min} เวร`;
+ }
+ return '';
+}
 export function initial(s,{regularMorning=true}={}){
  const {days,off}=calendar(s);
  return s.people.map((_,i)=>Array.from({length:days+1},(_,d)=>{
@@ -50,7 +78,12 @@ export function validate(s,a=s.shifts||initial(s)){
    if(d<days&&r.every(Boolean)&&a[i][d+1][0]&&!['ช','บ','ด'].every(t=>v.includes(t)))add(`${name}: สามเวรต่อเช้า ${d}–${d+1}`,i,d);
   });
  }
- const cs=counts(s,a),ts=cs.map(c=>c.total);if(Math.max(...ts)-Math.min(...ts)>1)warnings.push('ยอดเวรรวมต่างกันเกิน 1 ครั้ง');
+ const cs=counts(s,a),ts=cs.map(c=>c.total);if(Math.max(...ts)-Math.min(...ts)>1){
+  if(errors.length===0){
+   const quota=monthlyQuota(calendar(s).total,s.people.length);
+   add(`ตารางที่จัดครบแล้วต้องมีเวรนอกเวลา ${quota.range} เวรต่อคน`,null,null);
+  }else warnings.push('ยอดเวรรวมต่างกันเกิน 1 ครั้ง');
+ }
  const ns=cs.filter((_,i)=>s.people[i].night).map(c=>c.n);if(ns.length&&Math.max(...ns)-Math.min(...ns)>1)warnings.push('เวรดึกต่างกันเกิน 1 ครั้ง โปรดดูเวรที่กำหนดไว้และยอดรวมรายคน');
  return{errors,warnings,exceptions:[...new Set(exceptions)],counts:cs};
 }
@@ -83,7 +116,7 @@ function fixedShiftEligibility(s, c, base, counts, ceiling){
 export function readiness(s){
  const c=calendar(s), base=initial(s), check=validate(s,base);
  const errors=check.errors.filter(error=>error.i!==null), missing=[];
- const floor=Math.floor(c.total/s.people.length), ceiling=Math.ceil(c.total/s.people.length);
+ const {min:floor,max:ceiling,range}=monthlyQuota(c.total,s.people.length);
  const canTake=fixedShiftEligibility(s,c,base,check.counts,ceiling);
  const potential=s.people.map(()=>({mornings:0,overtimeDays:new Set()}));
  for(let d=1;d<=c.days;d++){
@@ -120,7 +153,7 @@ export function readiness(s){
   }
   const maximum=total+mornings+extraOvertime;
   if(maximum<floor){
-   errors.push({message:`${name} ลงเวรนอกเวลาได้สูงสุด ${maximum} ครั้งตามช่องที่ว่างและข้อจำกัด แต่ต้องได้อย่างน้อย ${floor} ครั้ง`,i});
+   errors.push({message:`${name} ยังขาดอย่างน้อย ${floor-maximum} เวรเพื่อให้ถึงเป้า ${range} เวรต่อคนของเดือนนี้ เมื่อคงเวรเดิมและข้อจำกัด จะจัดได้ไม่เกิน ${maximum} เวร`,i});
   }
  });
  const highCount=c.total-floor*s.people.length;
@@ -322,7 +355,7 @@ export function solve(s,{timeMs=22000,onProgress=()=>{}}={}){
  if(ready.errors.length)throw Error('จัดเวรไม่ได้: '+ready.errors.slice(0,4).map(e=>e.message).join(' · '));
 
  const base=initial(s),fixed=counts(s,base);
- const floor=Math.floor(total/people),ceil=Math.ceil(total/people);
+ const {min:floor,max:ceil}=monthlyQuota(total,people);
  const limits=fixed.map(({total})=>({min:Math.max(0,floor-total),max:ceil-total}));
  checkSharedCapacity(ready.missing,limits);
 
