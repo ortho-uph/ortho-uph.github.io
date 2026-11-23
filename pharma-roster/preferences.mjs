@@ -28,7 +28,7 @@ function renderTable(){
  html+='<th class="sum" title="บ่าย + ดึก + เช้าวันหยุด ที่เลือกไว้">รวม</th></tr></thead><tbody>';
  rows.forEach((r,i)=>{
   html+=`<tr class="${r.mine?'mine':''}"><th class="name-cell" scope="row" title="${esc(r.name)}${r.submittedAt?' · ส่งแล้ว':' · ยังไม่ส่ง'}"><small>${i+1}</small>${esc(r.name)}<span class="sub-dot${r.submittedAt?' on':''}"></span>${r.mine?'<em>คุณ</em>':''}</th>`;
-  for(let d=1;d<=days;d++){const v=r.source[d]||'',k=[v==='V'?'leave':cls(d),v==='X'?'off-x':v?'':'rest'].filter(Boolean).join(' ');html+=r.mine&&!data.preview&&!data.locked?`<td class="${k} pick" data-day="${d}" tabindex="0" role="button" aria-label="วันที่ ${d} ${esc(v||'ยังไม่กำหนด')}">${esc(v||'·')}${notes[d]?'<i class="note-mark" title="มีบันทึก"></i>':''}</td>`:`<td class="${k}">${esc(v||'·')}</td>`;}
+  for(let d=1;d<=days;d++){const v=r.source[d]||'',k=[v==='V'?'leave':cls(d),v==='X'?'off-x':v?'':'rest',/[ชบดXV]/.test(v)&&(data.locked||!r.mine||data.source[d]===v)?'locked':''].filter(Boolean).join(' ');html+=r.mine&&!data.preview&&!data.locked?`<td class="${k} pick" data-day="${d}" tabindex="0" role="button" aria-label="วันที่ ${d} ${esc(v||'ยังไม่กำหนด')}">${esc(v||'·')}${notes[d]?'<i class="note-mark" title="มีบันทึก"></i>':''}</td>`:`<td class="${k}">${esc(v||'·')}</td>`;}
   html+=`<td class="sum">${offHours(r)}</td></tr>`;
  });
  html+='</tbody><tfoot>';

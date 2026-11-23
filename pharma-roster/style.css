@@ -147,7 +147,7 @@ h1{margin:0 0 6px;font-size:28px;font-weight:650;letter-spacing:-.025em;line-hei
 .table-note{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px 14px;padding:11px 20px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--muted)}
 .table-note>span:last-child{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
 .legend-block{display:inline-block;width:10px;height:10px;margin:0 4px 0 12px;border-radius:3px;vertical-align:-1px}
-.legend-block.fixed{background:#dfe5e1;box-shadow:inset 0 0 0 1px #c9d2cd}
+.legend-block.fixed{background:var(--red)}
 .legend-block.holiday{background:#ffe9a8;box-shadow:inset 0 0 0 1px #edcf72}
 .legend-block.added{background:#c6ead9;box-shadow:inset 0 0 0 1px #94d2b6}
 .table-scroll{overflow:auto;max-height:560px;scrollbar-width:thin;scrollbar-color:#cfd7d2 transparent}
@@ -168,7 +168,7 @@ thead .weekend{background:#eff2f0}
 .holiday-cell,tbody tr:hover td.holiday-cell{background:#fff8e3}
 thead .holiday-cell{background:#fff1c9;color:#7a5a12}
 .assigned,tbody tr:hover td.assigned{background:#e6f6ee;color:#0d6b4c;font-weight:600}
-.locked{font-weight:700;color:var(--ink)}
+td.daycell.locked,tbody tr:hover td.daycell.locked{font-weight:700;color:var(--red)}
 .rest{color:#c2cac6}
 .leave,tbody tr:hover td.leave{background:var(--pink-50);color:var(--pink);font-weight:600}
 .off-x{color:var(--red);font-weight:600}

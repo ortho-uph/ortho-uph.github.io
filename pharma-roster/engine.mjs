@@ -118,6 +118,7 @@ export function readiness(s){
  const errors=check.errors.filter(error=>error.i!==null), missing=[];
  const {min:floor,max:ceiling,range}=monthlyQuota(c.total,s.people.length);
  const canTake=fixedShiftEligibility(s,c,base,check.counts,ceiling);
+ const capacity=s.people.map(()=>ceiling);
  const potential=s.people.map(()=>({mornings:0,overtimeDays:new Set()}));
  for(let d=1;d<=c.days;d++){
   const required=[[1,2,'บ่าย'],[2,1,'ดึก']];
@@ -152,17 +153,18 @@ export function readiness(s){
    if(!s.spacing||d>last+1){extraOvertime++;last=d;}
   }
   const maximum=total+mornings+extraOvertime;
+  capacity[i]=Math.min(ceiling,maximum);
   if(maximum<floor){
-   errors.push({message:`${name} ยังขาดอย่างน้อย ${floor-maximum} เวรเพื่อให้ถึงเป้า ${range} เวรต่อคนของเดือนนี้ เมื่อคงเวรเดิมและข้อจำกัด จะจัดได้ไม่เกิน ${maximum} เวร`,i});
+   errors.push({kind:'quota-shortfall',message:`${name} ยังขาดอย่างน้อย ${floor-maximum} เวรเพื่อให้ถึงเป้า ${range} เวรต่อคนของเดือนนี้ เมื่อคงเวรเดิมและข้อจำกัด จะจัดได้ไม่เกิน ${maximum} เวร`,i});
   }
  });
  const highCount=c.total-floor*s.people.length;
  if(floor!==ceiling&&check.counts.filter(({total})=>total>floor).length>highCount){
   errors.push({message:`มีบุคลากรล็อกไว้เกิน ${floor} เวรมากกว่า ${highCount} คน จึงกระจายยอดให้ต่างกันไม่เกิน 1 ครั้งไม่ได้`,i:null});
  }
- return {errors,missing,remaining:missing.reduce((sum,slot)=>sum+slot.count,0)};
+ return {errors,missing,capacity,remaining:missing.reduce((sum,slot)=>sum+slot.count,0)};
 }
-function searchRoster(s,base,missing,limits,{nightRange,deadline,progress}){
+function searchRoster(s,base,missing,limits,{nightRange,deadline,progress,vacancies=0}){
  const groups=[],choices=[],values=[],trail=[];
  const dayCount=base[0].length;
  const totals=limits.map(({min,max})=>addGroup(min,max));
@@ -173,6 +175,7 @@ function searchRoster(s,base,missing,limits,{nightRange,deadline,progress}){
  const overtime=s.people.map(()=>Array.from({length:dayCount},()=>[]));
  const afternoons=Array.from({length:dayCount},()=>new Map());
  const daily=new Set();
+ const vacancyGroup=vacancies?addGroup(0,vacancies):null;
  let filled=0;
 
  function addGroup(min,max){
@@ -197,6 +200,9 @@ function searchRoster(s,base,missing,limits,{nightRange,deadline,progress}){
  for(const {d,k,count,candidates} of missing){
   const dayGroup=addGroup(count,count);
   daily.add(dayGroup);
+  if(vacancies){
+   for(let n=0;n<count;n++)addChoice(null,d,-1,[dayGroup,vacancyGroup]);
+  }
   for(const i of candidates){
    const ids=[dayGroup,totals[i]];
    if(k===2&&nights[i]!==null)ids.push(nights[i]);
@@ -291,6 +297,10 @@ function searchRoster(s,base,missing,limits,{nightRange,deadline,progress}){
   let best=null,bestScore=-Infinity;
   for(const id of selected.choices){
    if(values[id])continue;
+   if(choices[id].i===null){
+    if(best===null)best=id;
+    continue;
+   }
    const {i,k,groups:members,conflicts}=choices[id],total=groups[totals[i]];
    const need=Math.max(0,total.min-total.assigned);
    const pressure=need/Math.max(1,total.open);
@@ -318,7 +328,7 @@ function searchRoster(s,base,missing,limits,{nightRange,deadline,progress}){
  if(!visit())return {shifts:null,complete:Date.now()<deadline};
  const shifts=clone(base);
  for(const [id,{i,d,k}] of choices.entries()){
-  if(values[id]===1)shifts[i][d][k]=true;
+  if(i!==null&&values[id]===1)shifts[i][d][k]=true;
  }
  return {shifts,complete:true};
 }
@@ -347,11 +357,70 @@ function checkSharedCapacity(missing,limits){
  if(sharedMinimum<minimum)throw Error('ช่องเวรที่ลงได้ทับกันระหว่างบุคลากร จึงเติมได้ '+sharedMinimum+' จาก '+minimum+' เวรที่ต้องใช้เพื่อให้ทุกคนถึงยอดขั้นต่ำ');
 }
 
-export function solve(s,{timeMs=22000,onProgress=()=>{}}={}){
+// A review copy may have vacancies or a short monthly total. All assignments still use the normal eligibility checks.
+function previewUnderQuota(s,ready,deadline){
+ const c=calendar(s),base=initial(s),fixed=counts(s,base);
+ const {min,max}=monthlyQuota(c.total,s.people.length);
+ let best=base,bestFilled=-1,bestDeficit=Infinity,bestNightSpread=Infinity;
+ for(let pass=0;pass<32;pass++){
+  const shifts=clone(base),loads=fixed.map(row=>({...row}));
+  const canTake=fixedShiftEligibility(s,c,shifts,loads,max);
+  const pending=ready.missing.map(slot=>({...slot}));
+  let filled=0;
+  while(pending.length){
+   let selected=-1,options=[],tightest=Infinity;
+   for(const [index,slot] of pending.entries()){
+    const available=slot.candidates.filter(i=>canTake(i,slot.d,slot.k));
+    const slack=available.length-slot.count;
+    if(slack<tightest){
+     selected=index;options=available;tightest=slack;
+    }
+   }
+   const slot=pending[selected];
+   if(options.length){
+    const weight=i=>loads[i].total+2*(ready.capacity[i]-max)+(slot.k===2?loads[i].n*0.35:0);
+    options.sort((a,b)=>weight(a)-weight(b));
+    const pool=options.filter(i=>weight(i)<=weight(options[0])+(pass%3)*0.5);
+    const i=pool[(pass*7+filled*13+slot.d)%pool.length];
+    shifts[i][slot.d][slot.k]=true;
+    loads[i].total++;
+    if(slot.k===2)loads[i].n++;
+    filled++;
+    slot.count--;
+   }
+   if(!options.length||!slot.count)pending.splice(selected,1);
+  }
+  const deficit=loads.reduce((n,l)=>n+Math.max(0,min-l.total),0);
+  const nightLoads=loads.filter((_,i)=>s.people[i].night).map(l=>l.n);
+  const spread=nightLoads.length?Math.max(...nightLoads)-Math.min(...nightLoads):0;
+  if(filled>bestFilled||(filled===bestFilled&&(deficit<bestDeficit||(deficit===bestDeficit&&spread<bestNightSpread)))){
+   best=shifts;bestFilled=filled;bestDeficit=deficit;bestNightSpread=spread;
+  }
+ }
+ // Try to cover more vacancies while bringing each person as close as possible to the monthly minimum.
+ const limits=fixed.map((r,i)=>({min:Math.max(0,Math.min(min,ready.capacity[i])-r.total),max:max-r.total}));
+ const unavoidable=Math.max(0,c.total-ready.capacity.reduce((n,v)=>n+v,0));
+ const holes=ready.remaining-bestFilled;
+ for(let vacancies=unavoidable;vacancies<=holes&&Date.now()<deadline;vacancies++){
+  const result=searchRoster(s,base,ready.missing,limits,{
+   vacancies,nightRange:null,deadline,progress:{step:()=>Date.now()<deadline}
+  });
+  if(result.shifts)return result.shifts;
+ }
+ return best;
+}
+
+export function solve(s,{timeMs=22000,onProgress=()=>{},allowQuotaPreview=false}={}){
  const began=Date.now(),deadline=began+timeMs;
  const {total,days}=calendar(s),people=s.people.length;
  if(people<2)throw Error('ต้องมีบุคลากรอย่างน้อย 2 คน');
  const ready=readiness(s);
+ if(allowQuotaPreview&&ready.errors.length&&ready.errors.every(e=>e.kind==='quota-shortfall')){
+  const shifts=previewUnderQuota(s,ready,Math.min(deadline,began+1800));
+  const invalid=validate(s,shifts).errors.find(e=>e.i!=null);
+  if(invalid)throw Error(invalid.message);
+  return shifts;
+ }
  if(ready.errors.length)throw Error('จัดเวรไม่ได้: '+ready.errors.slice(0,4).map(e=>e.message).join(' · '));
 
  const base=initial(s),fixed=counts(s,base);

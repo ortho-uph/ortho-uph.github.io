@@ -1,2 +1,2 @@
-import{solve}from'./engine.mjs?v=quota1';
-self.onmessage=e=>{try{const shifts=solve(e.data,{onProgress:p=>self.postMessage({type:'progress',...p})});self.postMessage({type:'done',shifts});}catch(error){self.postMessage({type:'error',message:error.message});}};
+import{solve}from'./engine.mjs?v=preview1';
+self.onmessage=e=>{try{const shifts=solve(e.data,{allowQuotaPreview:true,onProgress:p=>self.postMessage({type:'progress',...p})});self.postMessage({type:'done',shifts});}catch(error){self.postMessage({type:'error',message:error.message});}};
