@@ -10,7 +10,16 @@ export function parsePreferenceCSV(text,s){
  for(const r of rows.slice(h+1)){if(!r[0]?.trim()||r[0].trim()==='รวม')continue;const name=normalizeName(r[0]),i=s.people.findIndex(p=>p.name===name);if(i<0)throw Error(`ไม่พบรายชื่อ “${name}” กรุณาเพิ่มหรือแก้รายชื่อบุคลากรให้ตรงก่อน`);if(seen.has(i))throw Error(`ชื่อ ${name} ซ้ำในไฟล์`);seen.add(i);for(const[j,d]of mapping){let v=(r[j]||'').trim();if(['-','–','·'].includes(v))v='';v=v.replace(/\s/g,'').toUpperCase();if(!['X','V',''].includes(v)){const tokens=v.split('/');if(tokens.length!==new Set(tokens).size||tokens.some(t=>!['ช','บ','ด'].includes(t)))throw Error(`${name} วันที่ ${d}: รหัสเวร “${v}” ไม่ถูกต้อง`);v=['ด','ช','บ'].filter(t=>tokens.includes(t)).join('/');}if(!codes.includes(v))throw Error(`${name} วันที่ ${d}: ไม่รองรับ “${v}”`);if(v){source[i][d]=v;total++;}}if(manualSourceColumn>=0){let stored;try{stored=JSON.parse(r[manualSourceColumn]||'{}');}catch{throw Error(`${name}: ข้อมูลเวรที่กำหนดเองในไฟล์ไม่ถูกต้อง`);}if(!stored||typeof stored!=='object'||Array.isArray(stored))throw Error(`${name}: ข้อมูลเวรที่กำหนดเองในไฟล์ไม่ถูกต้อง`);const clean={};for(const[d,v]of Object.entries(stored)){if(!/^\d+$/.test(d)||+d<1||+d>days||!codes.includes(v))throw Error(`${name}: ข้อมูลเวรที่กำหนดเองวันที่ ${d} ไม่ถูกต้อง`);if(v)clean[d]=v;}source[i]=clean;}}
  if(!seen.size)throw Error('ไม่มีแถวข้อมูลบุคลากร');if(manualSourceColumn>=0)total=source.reduce((n,row)=>n+Object.values(row).filter(Boolean).length,0);const metadata=rows.find(r=>r[0]?.trim()==='ตารางเวร');return{source,total,people:seen.size,days:seenDays.size,monthLabel:metadata?.[1]?.trim()||null,yearLabel:metadata?.[2]?.trim()||null,isRenderedExport,hasManualSource:manualSourceColumn>=0};
 }
-export function calendar(s){const days=new Date(s.year,s.month,0).getDate(),dow=d=>new Date(s.year,s.month-1,d).getDay(),off=Array.from({length:days},(_,i)=>i+1).filter(d=>[0,6].includes(dow(d))||s.holidays.includes(d));return{days,dow,off,total:days*3+off.length*2};}
+export function staffing(s){
+ const values=s.staffing??[2,1,2,2,1];
+ if(!Array.isArray(values)||values.length!==5||!values.every(v=>Number.isInteger(v)&&v>=0&&v<=40))throw Error('จำนวนคนต่อเวรต้องเป็นจำนวนเต็ม 0–40');
+ return values;
+}
+export function requirements(s,holiday){
+ const [b,n,m,hb,hn]=staffing(s);
+ return holiday?[[1,hb,'บ่าย'],[2,hn,'ดึก'],[0,m,'เช้าวันหยุด']]:[[1,b,'บ่าย'],[2,n,'ดึก']];
+}
+export function calendar(s){const days=new Date(s.year,s.month,0).getDate(),dow=d=>new Date(s.year,s.month-1,d).getDay(),off=Array.from({length:days},(_,i)=>i+1).filter(d=>[0,6].includes(dow(d))||s.holidays.includes(d));const [b,n,m,hb,hn]=staffing(s),regular=days-off.length,mornings=m*off.length,afternoons=b*regular+hb*off.length,nights=n*regular+hn*off.length;return{days,dow,off,mornings,afternoons,nights,total:mornings+afternoons+nights};}
 export function monthlyQuota(total, people){
  const min=Math.floor(total/people),max=Math.ceil(total/people);
  return {min,max,range:min===max?String(min):min+'–'+max};
@@ -69,18 +78,14 @@ export function display(s,i,d,shifts=s.shifts){
  return [night&&'ด',morning&&'ช',afternoon&&'บ'].filter(Boolean).join('/')||'–';
 }
 export function counts(s,a=s.shifts||initial(s)){const c=calendar(s);return s.people.map((p,i)=>{const m=c.off.filter(d=>a[i][d][0]).length,b=a[i].slice(1).filter(v=>v[1]).length,n=a[i].slice(1).filter(v=>v[2]).length;return{m,b,n,regularMorning:a[i].slice(1).filter((v,d)=>!c.off.includes(d+1)&&v[0]).length,x:Object.values(s.source[i]||{}).filter(v=>v==='X').length,v:Object.values(s.source[i]||{}).filter(v=>v==='V').length,total:m+b+n};});}
-// Shift indexes are 1 for afternoon and 2 for night. The day is the first day of the pair.
 export function approvedPair(s,i,day,first,second){
- if(s.year!==2026||s.month!==12||second!==1)return false;
- const id=s.people[i].id;
- if(id===8)return first===1&&(day===2||day===17);
- return id===9&&((first===1&&day===8)||(first===2&&(day===14||day===28)));
+ return !s.strictSpacing && second===1 && (first===1||first===2);
 }
 export function validate(s,a=s.shifts||initial(s)){
  const{days,dow,off}=calendar(s),errors=[],warnings=[],exceptions=[];const add=(message,i,d)=>errors.push({message,i,d});
  const original=(i,d)=>s.source[i]?.[d]||'',oh=(i,d)=>/[บด]/.test(original(i,d));
  for(let d=1;d<=days;d++){
-  for(const[k,need,label]of [[1,2,'บ่าย'],[2,1,'ดึก'],...(off.includes(d)?[[0,2,'เช้าวันหยุด']]:[])]){const n=a.filter(row=>row[d]?.[k]).length;if(n!==need)add(`วันที่ ${d}: ${label} ${n}/${need} คน`,null,d);}
+  for(const[k,need,label]of requirements(s,off.includes(d))){const n=a.filter(row=>row[d]?.[k]).length;if(n!==need)add(`วันที่ ${d}: ${label} ${n}/${need} คน`,null,d);}
   for(const pair of s.apart||[]){const i=s.people.findIndex(p=>p.id===pair[0]),j=s.people.findIndex(p=>p.id===pair[1]);if(i>=0&&j>=0&&a[i][d][1]&&a[j][d][1])add(`${s.people[i].name} และ ${s.people[j].name} มีบ่ายร่วมกันวันที่ ${d}`,i,d);}
   s.people.forEach((p,i)=>{
    const v=original(i,d),r=a[i][d],name=p.name;
@@ -145,8 +150,7 @@ export function readiness(s){
  const capacity=s.people.map(()=>ceiling);
  const potential=s.people.map(()=>({mornings:0,overtimeDays:new Set()}));
  for(let d=1;d<=c.days;d++){
-  const required=[[1,2,'บ่าย'],[2,1,'ดึก']];
-  if(c.off.includes(d))required.push([0,2,'เช้าวันหยุด']);
+  const required=requirements(s,c.off.includes(d));
   for(const [k,need,label] of required){
    const have=base.filter(row=>row[d][k]).length;
    if(have>need)errors.push({message:`วันที่ ${d}: กำหนด${label}ไว้ ${have} คน เกินจำนวน ${need} คน`,d,i:null});

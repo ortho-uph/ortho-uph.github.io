@@ -1,5 +1,5 @@
 import{capacityConflict}from'./capacity.mjs?v=capacity4';
-import{applySourceRow,monthlyQuota,requestQuotaError,calendar,initial,counts,validate,readiness,display,codes,clone,parsePreferenceCSV}from'./engine.mjs?v=pairs1';
+import{requirements,staffing,applySourceRow,monthlyQuota,requestQuotaError,calendar,initial,counts,validate,readiness,display,codes,clone,parsePreferenceCSV}from'./engine.mjs?v=rules3';
 const apiBase=(window.ROSTER_API_BASE||'').replace(/\/$/,'');
 const authHeaders=()=>({authorization:'Bearer '+(sessionStorage.getItem('roster-session')||'')});
 async function apiFetch(path,options={}){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);try{return await fetch(apiBase+path,{...options,signal:controller.signal});}finally{clearTimeout(timer);}}
@@ -24,7 +24,7 @@ async function preset(name,ask=false){if(ask&&!confirm('โหลดตัวอ
 function visibleShifts(){
  return mode!=='source'&&state.shifts?state.shifts:initial(state,{regularMorning:false});
 }
-function render(){const c=calendar(state),check=validate(state),shifts=visibleShifts(),cs=counts(state,shifts),quota=monthlyQuota(c.total,state.people.length);$('title').textContent=`${months[state.month-1]} ${state.year+543}`;renderMonths();$('total').innerHTML=`${c.total} <small>ครั้ง</small>`;$('total-detail').textContent=`เช้าวันหยุด ${c.off.length*2} · บ่าย ${c.days*2} · ดึก ${c.days}`;$('target').innerHTML=`${quota.range} <small>เวรต่อคน</small>`;$('target-detail').textContent=`${c.total} เวร ÷ ${state.people.length} คน · วันปกติ ${c.days-c.off.length} · วันหยุด ${c.off.length}`;$('health').textContent=check.errors.length?`${check.errors.length} จุดต้องตรวจ`:'ผ่านเงื่อนไขหลัก';$('health').style.color=check.errors.length?'#ae695a':'';$('health-detail').textContent=check.errors.length?'ยังมีเวรไม่ครบหรือขัดกับเงื่อนไข':`ยอดรวม ${Math.min(...cs.map(c=>c.total))}–${Math.max(...cs.map(c=>c.total))} · ข้อสังเกต ${check.warnings.length}`;$('lock-count').textContent=state.source.reduce((n,row)=>n+Object.values(row).filter(Boolean).length,0);
+function render(){const c=calendar(state),check=validate(state),shifts=visibleShifts(),cs=counts(state,shifts),quota=monthlyQuota(c.total,state.people.length);$('title').textContent=`${months[state.month-1]} ${state.year+543}`;renderMonths();$('total').innerHTML=`${c.total} <small>ครั้ง</small>`;$('total-detail').textContent=`เช้าวันหยุด ${c.mornings} · บ่าย ${c.afternoons} · ดึก ${c.nights}`;$('target').innerHTML=`${quota.range} <small>เวรต่อคน</small>`;$('target-detail').textContent=`${c.total} เวร ÷ ${state.people.length} คน · วันปกติ ${c.days-c.off.length} · วันหยุด ${c.off.length}`;$('health').textContent=check.errors.length?`${check.errors.length} จุดต้องตรวจ`:'ผ่านเงื่อนไขหลัก';$('health').style.color=check.errors.length?'#ae695a':'';$('health-detail').textContent=check.errors.length?'ยังมีเวรไม่ครบหรือขัดกับเงื่อนไข':`ยอดรวม ${Math.min(...cs.map(c=>c.total))}–${Math.max(...cs.map(c=>c.total))} · ข้อสังเกต ${check.warnings.length}`;$('lock-count').textContent=state.source.reduce((n,row)=>n+Object.values(row).filter(Boolean).length,0);
  $('mode-note').textContent=mode==='source'?'แสดงเวรที่กำหนดไว้ รวมวันหยุด X และวันลา V':mode==='summary'?'นับเช้าวันหยุด + บ่าย + ดึก ไม่รวมเช้าวันปกติ':state.shifts?'แสดงผลจัดเวร รวมเวรเช้าประจำที่ระบบเติม':'แสดงเฉพาะเวรที่กำหนดไว้ กด “จัดเวรอัตโนมัติ” เพื่อเติมเวรในช่องว่าง';
  const preview=!!(state.shifts&&state.quotaPreview);
  if(preview&&mode==='result')$('mode-note').textContent='ตารางร่าง · จัดได้ '+check.counts.reduce((n,r)=>n+r.total,0)+' จาก '+c.total+' เวรนอกเวลา';
@@ -41,12 +41,17 @@ function render(){const c=calendar(state),check=validate(state),shifts=visibleSh
  }
  $('issues').innerHTML=[...(!hasResult?[`<p class="issue">ยังไม่ได้จัดเวรอัตโนมัติ · มีเวรที่ต้องเติม ${ready.remaining} ครั้ง</p><button class="button primary" id="generate-from-issues">✦ จัดเวรอัตโนมัติ</button>`]:[]),...(preview?shown:shown.slice(0,6)).map(v=>`<p class="issue error">${escape(v.message)}</p>`),...(!preview&&shown.length>6?[`<p class="muted">อีก ${shown.length-6} จุดที่ต้องตรวจ</p>`]:[]),...(hasResult?check.warnings.map(v=>`<p class="issue warning">${escape(v)}</p>`):[]),...(hasResult&&!check.errors.length?[`<p class="issue">บ่ายและดึกครบทุกวัน · คงเวรต้นฉบับและวันลา</p>`]:[]),...check.exceptions.map(v=>`<p class="issue">${escape(v)}</p>`)].join('');
  if($('generate-from-issues')){$('generate-from-issues').disabled=!!worker||preparing;$('generate-from-issues').onclick=()=>{$('generate').click();$('notice').scrollIntoView({behavior:'smooth',block:'center'});};}
+ const options=state.people.map((p,i)=>'<option value="'+i+'">'+escape(p.name)+'</option>').join('');
+ for(const id of ['rule-person','pair-first','pair-second'])$(id).innerHTML=options;
+ $('pair-second').selectedIndex=Math.min(1,state.people.length-1);
+ staffing(state).forEach((v,i)=>$('staff-'+i).value=v);
+ $('rule-inputs').disabled=!!(state.locked||worker||preparing);
  renderPeople();renderActions();$('spacing').checked=state.spacing;$('no-v').checked=state.noNightAfterV;$('spacing').disabled=!!state.locked;$('no-v').disabled=!!state.locked;$('apart-editor').innerHTML=(state.apart||[]).map((pair,i)=>({pair,i})).filter(({pair})=>pair.every(id=>state.people.some(p=>p.id===id))).map(({pair,i})=>`<p>${pair.map(id=>escape(state.people.find(p=>p.id===id)?.name||'?')).join(' + ')} <button class="text-button" data-remove-pair="${i}">ยกเลิก</button></p>`).join('')||'<p>ยังไม่ได้กำหนดคู่ที่ห้ามบ่ายร่วมกัน</p>';
 }
 function renderGrid(c,cs,a){let html='<table><thead><tr><th class="name-cell">บุคลากร</th>';for(let d=1;d<=c.days;d++){
  const gaps=[];
  if(state.shifts&&mode==='result'){
-  for(const [k,need,label] of [[1,2,'บ่าย'],[2,1,'ดึก'],...(c.off.includes(d)?[[0,2,'เช้าวันหยุด']]:[])]){
+  for(const [k,need,label] of requirements(state,c.off.includes(d))){
    const have=a.filter(row=>row[d][k]).length;
    if(have<need)gaps.push(label+' ขาด '+(need-have)+' คน');
   }
@@ -54,9 +59,10 @@ function renderGrid(c,cs,a){let html='<table><thead><tr><th class="name-cell">�
  html+=`<th title="${gaps.join(' · ')}" class="${gaps.length?'short-day ':''}${state.holidays.includes(d)?'holiday-cell':c.off.includes(d)?'weekend':''}"><small>${days[c.dow(d)]}</small>${d}${gaps.length?'<small>ขาดเวร</small>':''}</th>`;}html+='<th>เช้าหยุด</th><th>บ่าย</th><th>ดึก</th><th class="sum">รวม</th></tr></thead><tbody>';
  state.people.forEach((p,i)=>{html+=`<tr><td class="name-cell"><small>${i+1}</small>${escape(p.name)}</td>`;for(let d=1;d<=c.days;d++){const v=mode==='source'?(state.source[i]?.[d]||'·'):display(state,i,d,a),locked=!!state.source[i]?.[d]||(state.locked&&/[ชบดXV]/.test(v)),extra=!locked&&a[i][d].slice(1).some(Boolean);html+=`<td tabindex="0" role="button" data-cell="${i},${d}" aria-label="${escape(p.name)} วันที่ ${d} ${escape(v)}" class="daycell ${v==='V'?'leave':state.holidays.includes(d)?'holiday-cell':c.off.includes(d)?'weekend':''} ${locked?'locked':extra?'assigned':''} ${v==='X'?'off-x':v==='–'||v==='·'?'rest':''}">${escape(v)}</td>`;}html+=`<td class="number">${cs[i].m}</td><td class="number">${cs[i].b}</td><td class="number">${cs[i].n}</td><td class="number sum">${cs[i].total}</td></tr>`;});
  html+='</tbody><tfoot>';
- for(const [label,shift,required] of [['บ่ายที่เลือกแล้ว',1,2],['ดึกที่เลือกแล้ว',2,1]]){
+ for(const [label,shift] of [['บ่ายที่เลือกแล้ว',1,2],['ดึกที่เลือกแล้ว',2,1]]){
   html+=`<tr class="coverage"><th scope="row" class="name-cell">${label}</th>`;
   for(let d=1;d<=c.days;d++){
+   const required=requirements(state,c.off.includes(d)).find(([k])=>k===shift)[1];
    const selected=a.filter(row=>row[d][shift]).length;
    const status=selected===required?'coverage-full':selected>required?'coverage-over':'';
    html+=`<td class="${status}">${selected}/${required}</td>`;
@@ -234,6 +240,21 @@ $('delete-person').onclick=async()=>{
   renderActions();
  }
 };
+$('rule-person-edit').onclick=()=>openPerson(+$('rule-person').value);
+$('rule-save').onclick=()=>{
+ if(state.locked||worker||preparing)return;
+ const fields=Array.from({length:5},(_,i)=>$('staff-'+i));
+ if(fields.some(f=>!f.reportValidity()))return;
+ state.staffing=fields.map(f=>f.valueAsNumber);
+ save();render();notice('บันทึกจำนวนคนแล้ว กดจัดเวรอัตโนมัติเพื่อใช้กับตารางใหม่');
+};
+$('pair-add').onclick=()=>{
+ if(state.locked||worker||preparing)return;
+ const pair=['pair-first','pair-second'].map(id=>state.people[+$(id).value].id);
+ state.apart??=[];
+ if(pair[0]===pair[1]||state.apart.some(p=>pair.every(id=>p.includes(id))))return notice('กรุณาเลือกสองคนต่างกันและยังไม่ได้จับคู่',true);
+ state.apart.push(pair);save();render();
+};
 $('add-person').onclick=()=>openPerson(null);$('spacing').onchange=e=>{state.spacing=e.target.checked;invalidate();};$('no-v').onchange=e=>{state.noNightAfterV=e.target.checked;invalidate();};
 $('backup').onclick=()=>download(JSON.stringify(state,null,2),'application/json',`จัดเวร_${state.month}_${state.year+543}.json`);
 $('export').onclick=csv;
@@ -320,8 +341,8 @@ $('generate').onclick=async()=>{
   if(!await syncPreferences())throw Error('ยังเริ่มจัดเวรไม่ได้ เพราะโหลดความประสงค์ล่าสุดไม่สำเร็จ กรุณาเข้าสู่ระบบใหม่หากหมดเวลา');
   if(state.locked)throw Error('ตารางนี้บันทึกและล็อกแล้ว กรุณาปลดล็อกก่อนจัดใหม่');
   const {year,month,people,source,holidays,apart,spacing,noNightAfterV}=state;
-  const input=clone({year,month,people,source,holidays,apart,spacing,noNightAfterV});
-  worker=new Worker(new URL('./worker.mjs?v=pairs1',import.meta.url),{type:'module'});
+  const input=clone({staffing:staffing(state),year,month,people,source,holidays,apart,spacing,noNightAfterV});
+  worker=new Worker(new URL('./worker.mjs?v=rules3',import.meta.url),{type:'module'});
   $('generate').textContent='กำลังจัดเวร…';$('cancel').hidden=false;notice('กำลังจัดเวรให้ครบทุกวัน โดยคงเวรที่กำหนดไว้');
   const fail=message=>{finish();notice(message+(state.shifts?' · ยังแสดงผลจากรอบก่อน':''),true);$('notice').scrollIntoView({behavior:'smooth',block:'center'});};
   worker.onmessage=e=>{const r=e.data;if(r.type==='progress')notice(`กำลังจัดเวร · ตรวจแล้ว ${r.tries} ทางเลือก · เหลือ ${r.remaining} เวรในร่างที่ใกล้ที่สุด`);else if(r.type==='done'){
