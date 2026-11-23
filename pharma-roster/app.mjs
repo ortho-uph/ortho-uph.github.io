@@ -43,7 +43,15 @@ function render(){const c=calendar(state),check=validate(state),shifts=visibleSh
  if($('generate-from-issues')){$('generate-from-issues').disabled=!!worker||preparing;$('generate-from-issues').onclick=()=>{$('generate').click();$('notice').scrollIntoView({behavior:'smooth',block:'center'});};}
  renderPeople();renderActions();$('spacing').checked=state.spacing;$('no-v').checked=state.noNightAfterV;$('spacing').disabled=!!state.locked;$('no-v').disabled=!!state.locked;$('apart-editor').innerHTML=(state.apart||[]).map((pair,i)=>({pair,i})).filter(({pair})=>pair.every(id=>state.people.some(p=>p.id===id))).map(({pair,i})=>`<p>${pair.map(id=>escape(state.people.find(p=>p.id===id)?.name||'?')).join(' + ')} <button class="text-button" data-remove-pair="${i}">ยกเลิก</button></p>`).join('')||'<p>ยังไม่ได้กำหนดคู่ที่ห้ามบ่ายร่วมกัน</p>';
 }
-function renderGrid(c,cs,a){let html='<table><thead><tr><th class="name-cell">บุคลากร</th>';for(let d=1;d<=c.days;d++)html+=`<th class="${state.holidays.includes(d)?'holiday-cell':c.off.includes(d)?'weekend':''}"><small>${days[c.dow(d)]}</small>${d}</th>`;html+='<th>เช้าหยุด</th><th>บ่าย</th><th>ดึก</th><th class="sum">รวม</th></tr></thead><tbody>';
+function renderGrid(c,cs,a){let html='<table><thead><tr><th class="name-cell">บุคลากร</th>';for(let d=1;d<=c.days;d++){
+ const gaps=[];
+ if(state.shifts&&mode==='result'){
+  for(const [k,need,label] of [[1,2,'บ่าย'],[2,1,'ดึก'],...(c.off.includes(d)?[[0,2,'เช้าวันหยุด']]:[])]){
+   const have=a.filter(row=>row[d][k]).length;
+   if(have<need)gaps.push(label+' ขาด '+(need-have)+' คน');
+  }
+ }
+ html+=`<th title="${gaps.join(' · ')}" class="${gaps.length?'short-day ':''}${state.holidays.includes(d)?'holiday-cell':c.off.includes(d)?'weekend':''}"><small>${days[c.dow(d)]}</small>${d}${gaps.length?'<small>ขาดเวร</small>':''}</th>`;}html+='<th>เช้าหยุด</th><th>บ่าย</th><th>ดึก</th><th class="sum">รวม</th></tr></thead><tbody>';
  state.people.forEach((p,i)=>{html+=`<tr><td class="name-cell"><small>${i+1}</small>${escape(p.name)}</td>`;for(let d=1;d<=c.days;d++){const v=mode==='source'?(state.source[i]?.[d]||'·'):display(state,i,d,a),locked=!!state.source[i]?.[d]||(state.locked&&/[ชบดXV]/.test(v)),extra=!locked&&a[i][d].slice(1).some(Boolean);html+=`<td tabindex="0" role="button" data-cell="${i},${d}" aria-label="${escape(p.name)} วันที่ ${d} ${escape(v)}" class="daycell ${v==='V'?'leave':state.holidays.includes(d)?'holiday-cell':c.off.includes(d)?'weekend':''} ${locked?'locked':extra?'assigned':''} ${v==='X'?'off-x':v==='–'||v==='·'?'rest':''}">${escape(v)}</td>`;}html+=`<td class="number">${cs[i].m}</td><td class="number">${cs[i].b}</td><td class="number">${cs[i].n}</td><td class="number sum">${cs[i].total}</td></tr>`;});
  html+='</tbody><tfoot>';
  for(const [label,shift,required] of [['บ่ายที่เลือกแล้ว',1,2],['ดึกที่เลือกแล้ว',2,1]]){

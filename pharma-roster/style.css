@@ -318,3 +318,4 @@ dialog select,dialog input[type=text],#person-name{width:100%;margin:7px 0 14px}
   .table-scroll{max-height:none;overflow:visible}table{font-size:8px}.daycell{min-width:25px}.name-cell{min-width:90px;position:static}th,td{height:28px}
   .panel{border:none;box-shadow:none}
 }
+thead th.short-day,thead th.short-day small{background:#ad3026;color:white}
