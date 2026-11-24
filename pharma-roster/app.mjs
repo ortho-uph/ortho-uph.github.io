@@ -1,3 +1,4 @@
+import {personalCalendar} from './personal-summary.mjs';
 import{capacityConflict}from'./capacity.mjs?v=capacity4';
 import{requirements,staffing,applySourceRow,monthlyQuota,requestQuotaError,calendar,initial,counts,validate,readiness,display,codes,clone,parsePreferenceCSV}from'./engine.mjs?v=rules3';
 const apiBase=(window.ROSTER_API_BASE||'').replace(/\/$/,'');
@@ -70,7 +71,29 @@ function renderGrid(c,cs,a){let html='<table><thead><tr><th class="name-cell">�
   html+='<td></td><td></td><td></td><td class="sum"></td></tr>';
  }
  $('table').innerHTML=html+'</tfoot></table>';}
-function renderSummary(cs){const columns=[['regularMorning','เช้าปกติ'],['m','เช้าวันหยุด'],['b','บ่าย'],['n','ดึก'],['x','หยุด X'],['v','ลา V'],['total','รวมเวรนอกเวลา']];$('table').innerHTML='<table><thead><tr><th class="name-cell">บุคลากร</th>'+columns.map(([,label])=>'<th>'+label+'</th>').join('')+'</tr></thead><tbody>'+state.people.map((p,i)=>`<tr><td class="name-cell">${i+1}. ${escape(p.name)}</td>${columns.map(([k])=>`<td class="${k==='total'?'sum':''}">${cs[i][k]}</td>`).join('')}</tr>`).join('')+'<tr><td class="name-cell">รวม</td>'+columns.map(([k])=>`<td class="${k==='total'?'sum':''}">${cs.reduce((n,c)=>n+c[k],0)}</td>`).join('')+'</tr></tbody></table>';}
+
+function openPersonalRoster(index){
+ const member=state.people[index];
+ if(!member)return;
+ const {days:dayCount,dow,off}=calendar(state);
+ const shifts=visibleShifts();
+ const totals=counts(state,shifts)[index];
+ $('personal-roster-title').textContent=member.name;
+ $('personal-roster-month').textContent=months[state.month-1]+' พ.ศ. '+(state.year+543);
+ $('personal-roster-status').textContent=state.locked?'ล็อกตารางแล้ว':!state.shifts?'เวรที่กำหนดไว้':state.quotaPreview?'ตารางร่าง':'ผลจัดเวร';
+ $('personal-roster-totals').innerHTML=[
+  ['เช้าปกติ',totals.regularMorning],['เช้าวันหยุด',totals.m],['บ่าย',totals.b],['ดึก',totals.n],['เวรนอกเวลารวม',totals.total]
+ ].map(([label,value])=>'<div><dt>'+label+'</dt><dd>'+value+'</dd></div>').join('');
+ const codes=Array.from({length:dayCount+1},(_,day)=>day?display(state,index,day,shifts):'');
+ $('personal-roster-grid').innerHTML=personalCalendar({dayCount,dow,daysOff:off,holidays:state.holidays,shifts:codes,source:state.source[index]});
+ $('personal-roster').showModal();
+}
+$('table').addEventListener('click',event=>{
+ const button=event.target.closest('[data-personal-roster]');
+ if(button&&mode==='summary')openPersonalRoster(Number(button.dataset.personalRoster));
+});
+
+function renderSummary(cs){const columns=[['regularMorning','เช้าปกติ'],['m','เช้าวันหยุด'],['b','บ่าย'],['n','ดึก'],['x','หยุด X'],['v','ลา V'],['total','รวมเวรนอกเวลา']];$('table').innerHTML='<table><thead><tr><th class="name-cell">บุคลากร</th>'+columns.map(([,label])=>'<th>'+label+'</th>').join('')+'</tr></thead><tbody>'+state.people.map((p,i)=>`<tr><td class="name-cell"><button type="button" class="summary-person" data-personal-roster="${i}">${i+1}. ${escape(p.name)} <span aria-hidden="true">↗</span></button></td>${columns.map(([k])=>`<td class="${k==='total'?'sum':''}">${cs[i][k]}</td>`).join('')}</tr>`).join('')+'<tr><td class="name-cell">รวม</td>'+columns.map(([k])=>`<td class="${k==='total'?'sum':''}">${cs.reduce((n,c)=>n+c[k],0)}</td>`).join('')+'</tr></tbody></table>';}
 function renderActions(){renderHistory();document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));$('generate').disabled=!!worker||preparing||!!state.locked;$('publish-roster').disabled=!!worker||preparing||!!state.locked||!state.shifts||state.quotaPreview||validate(state).errors.length>0;$('publish-roster').hidden=!!state.locked;$('unlock-roster').hidden=!state.locked;$('unlock-roster').disabled=preparing;$('import-manual').hidden=mode!=='source'||!!state.locked;$('import-manual').disabled=!!worker||preparing;$('export').textContent=mode==='source'?'↓ แบบฟอร์ม CSV':'↓ ส่งออก CSV';$('export').onclick=mode==='source'?manualTemplateCSV:csv;if($('generate-from-issues'))$('generate-from-issues').disabled=!!worker||preparing;}
 function renderPeople(){$('people-list').innerHTML=state.people.map((p,i)=>`<div class="person-row" role="button" tabindex="0" data-person="${i}"><div><strong>${i+1}. ${escape(p.name)}</strong> <em>${p.night?'รับดึก':'ไม่รับดึก'}</em>${!p.addMorning?'<em>ไม่เพิ่มเช้าวันหยุด</em>':''}</div><span>${p.forbidNight.length?'งดดึก '+p.forbidNight.map(d=>days[d]).join(', ')+' · ':''}${p.forbidAfternoon.length?'งดบ่าย '+p.forbidAfternoon.map(d=>days[d]).join(', '):''} แก้ไข ↗</span></div>`).join('');}
 async function openCell(i,d){if(state.locked){notice('ตารางนี้บันทึกและล็อกแล้ว กดปลดล็อกตารางก่อนแก้ไข');return;}if(worker||preparing)return;const personId=state.people[i]?.id;if(!personId)return;cell={personId,d,month:cloudMonth()};const current=cell;cellCapacity=null;$('cell-title').textContent=`${state.people[i].name} · ${d} ${months[state.month-1]}`;const shown=mode==='result'&&state.shifts?display(state,i,d):'';$('cell-code').value=state.source[i]?.[d]||(codes.includes(shown)?shown:'');$('cell-save-error').hidden=true;$('save-cell').disabled=true;$('cell-dialog').showModal();
