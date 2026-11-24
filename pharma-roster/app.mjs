@@ -119,6 +119,7 @@ function renderGrid(c,cs,a){let html='<table><thead><tr><th class="name-cell">à¸
  }
  $('table').innerHTML=html+'</tfoot></table>';}
 
+$('print-personal-roster')?.addEventListener('click',()=>window.print());
 function openPersonalRoster(index){
  const member=state.people[index];
  if(!member)return;
