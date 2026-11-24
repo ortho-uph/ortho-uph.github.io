@@ -91,7 +91,7 @@ function render(){const c=calendar(state),check=validate(state),shifts=visibleSh
  $('pair-second').selectedIndex=Math.min(1,state.people.length-1);
  const ruleValues=editableRules();
  ruleValues.staffing.forEach((v,i)=>$('staff-'+i).value=v);
- $('rule-inputs').disabled=!rulesReady||!!worker||preparing;
+ $('rule-inputs').disabled=!rulesReady;
  renderIndividualRules();renderPeople();renderActions();$('spacing').checked=ruleValues.spacing;$('no-v').checked=ruleValues.noNightAfterV;$('spacing').disabled=!rulesReady;$('no-v').disabled=!rulesReady;$('apart-editor').innerHTML=ruleValues.apart.map((pair,i)=>({pair,i})).filter(({pair})=>pair.every(id=>state.people.some(p=>p.id===id))).map(({pair,i})=>`<p>${pair.map(id=>escape(state.people.find(p=>p.id===id)?.name||'?')).join(' + ')} · ห้ามขึ้นบ่ายร่วมกัน <button class="text-button" data-remove-pair="${i}">ยกเลิก</button></p>`).join('')||'<p>ยังไม่ได้กำหนดคู่ที่ห้ามบ่ายร่วมกัน</p>';
 }
 function renderGrid(c,cs,a){let html='<table><thead><tr><th class="name-cell">บุคลากร</th>';for(let d=1;d<=c.days;d++){
@@ -545,6 +545,7 @@ async function loadPreferences(){
     fresh.push(person.name);
    }
   });
+  const rulesChanged=applySharedRules();
   lastSync=Date.now();
   renderSync(status);
   if(useShared||removed||added){
@@ -555,6 +556,9 @@ async function loadPreferences(){
    if(fresh.length)notice(`อัปเดตเวรที่แก้ของ ${fresh.join(', ')} แล้ว`);
   }else{
    save();
+   $('rule-inputs').disabled=false;
+   $('spacing').disabled=false;
+   $('no-v').disabled=false;
   }
   return true;
  }catch(error){
