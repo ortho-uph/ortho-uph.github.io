@@ -346,3 +346,11 @@ thead th.short-day,thead th.short-day small{background:#ad3026;color:white}
 #personal-roster .morning{color:#111}
 .personal-day .empty-shift{color:var(--muted)}
 .personal-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:12px;font-size:12px}
+
+.person-rule-group{margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.person-rule-group h4{margin:0 0 8px;font-size:14px;font-weight:650;color:var(--ink)}
+.person-rule-group p+p{padding-top:8px;border-top:1px solid var(--line)}
+.person-rule-fields{display:grid;gap:8px;margin-top:12px}
+.person-rule-fields label{display:grid;gap:4px;color:var(--muted);font-size:12px}
+.person-rule-fields select{min-width:0;width:100%}
+.person-rule-fields .button{justify-self:start;white-space:normal;text-align:left}
