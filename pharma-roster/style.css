@@ -319,3 +319,5 @@ dialog select,dialog input[type=text],#person-name{width:100%;margin:7px 0 14px}
   .panel{border:none;box-shadow:none}
 }
 thead th.short-day,thead th.short-day small{background:#ad3026;color:white}
+
+.daycell.regular-morning{color:#111}

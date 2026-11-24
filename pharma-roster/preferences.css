@@ -258,4 +258,5 @@ dialog input{width:100%}
  .print-calendar .print-off{background:#f3f4f3}.print-legend{font-size:9pt;margin:3mm 0 0}
 }
 
-.pref-table td.generated{color:#111}
+.pref-table td.generated{color:#0d6b4c;font-weight:600}
+.pref-table td.regular-morning{color:#111}
