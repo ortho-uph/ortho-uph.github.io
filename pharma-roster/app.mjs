@@ -402,6 +402,29 @@ $('generate').onclick=async()=>{
 };$('cancel').onclick=()=>{finish();notice('หยุดค้นหาแล้ว ตารางเดิมยังคงอยู่');};
 try{const saved=localStorage.getItem(key);if(saved){state=checkImport(JSON.parse(saved));if(state.shifts)mode='result';render();}else await preset('january');}catch{await preset('january');notice('เริ่มด้วยตัวอย่างมกราคม 2570 คุณสามารถสำรองข้อมูลเป็น JSON ได้');}
 const cloudMonth=()=>`${state.year}-${String(state.month).padStart(2,'0')}`;
+function renderExcludedPeople(people,locked){
+ const box=$('excluded-people');
+ box.replaceChildren(...people.map(({id,name})=>{
+  const button=document.createElement('button');
+  button.type='button';
+  button.className='button';
+  button.textContent='คืนรายชื่อ '+name;
+  button.disabled=locked;
+  button.onclick=()=>restorePerson(id,name);
+  return button;
+ }));
+}
+async function restorePerson(personId,name){
+ if(preparing||worker||state.locked)return;
+ preparing=true;
+ const month=cloudMonth();
+ try{
+  await cloudRequest('/api/roster/person/restore',{method:'POST',body:JSON.stringify({month,personId,revision:state.bookingRevision})});
+  if(!await syncPreferences())throw Error('คืนรายชื่อแล้ว กรุณากดโหลดล่าสุด');
+  notice('คืนรายชื่อ '+name+' เข้าตารางเดือนนี้แล้ว');
+ }catch(error){notice(error.message,true);}
+ finally{preparing=false;renderActions();}
+}
 async function cloudRequest(path,options={}){const r=await apiFetch(path,{...options,headers:{...authHeaders(),...(options.body?{'content-type':'application/json'}:{})}});let j;try{j=await r.json();}catch{throw Error('บริการรับความประสงค์ยังไม่พร้อมใช้งาน');}if(!r.ok)throw Error(j.error||'เชื่อมต่อไม่ได้');return j;}
 $('admin-logout').onclick=async()=>{try{await cloudRequest('/api/logout',{method:'POST'});}catch{}sessionStorage.removeItem('roster-session');location.replace('./');};
 // Submitted preferences lock into the table on their own: a person's row is replaced only when they send a newer submission.
@@ -429,10 +452,12 @@ async function loadPreferences(){
  syncing=true;
  $('sync-now').disabled=true;
  const month=cloudMonth();
+ renderExcludedPeople([],false);
  try{
   const result=await cloudRequest('/api/aggregate?month='+month);
   if(month!==cloudMonth())return false;
-  const {people,source,status,published,bookingRevision,excludedPersonIds=[]}=result;
+  const {people,source,status,published,bookingRevision,excludedPersonIds=[],excludedPeople=[]}=result;
+  renderExcludedPeople(excludedPeople,!!published);
   syncedRoster={month,personIds:new Set(people.map(p=>p.id))};
   state.bookingRevision=bookingRevision;
   state.excludedPersonIds=excludedPersonIds;
@@ -465,8 +490,11 @@ async function loadPreferences(){
    const at=status[k]?.submittedAt;
    const row={...source[k]};
    if(i<0){
-    state.people.push({...freshPerson(person.name,person.id),...person});
-    state.source.push(row);
+    const followingIds=new Set(people.slice(k+1).map(p=>p.id));
+    const following=state.people.findIndex(p=>followingIds.has(p.id));
+    const position=following<0?state.people.length:following;
+    state.people.splice(position,0,{...freshPerson(person.name,person.id),...person});
+    state.source.splice(position,0,row);
     if(at)state.synced[person.id]=at;
     added=true;
     return;
