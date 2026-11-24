@@ -75,9 +75,9 @@ export function display(s,i,d,shifts=s.shifts){
  const v=s.source[i]?.[d];
  if(!shifts||v==='X'||v==='V')return v||'–';
  const [morning,afternoon,night]=shifts[i][d];
- return [night&&'ด',morning&&'ช',afternoon&&'บ'].filter(Boolean).join('/')||'–';
+ return [night&&'ด',morning&&'ช',afternoon&&'บ'].filter(Boolean).join('/')||(s.locked?'X':'–');
 }
-export function counts(s,a=s.shifts||initial(s)){const c=calendar(s);return s.people.map((p,i)=>{const m=c.off.filter(d=>a[i][d][0]).length,b=a[i].slice(1).filter(v=>v[1]).length,n=a[i].slice(1).filter(v=>v[2]).length;return{m,b,n,regularMorning:a[i].slice(1).filter((v,d)=>!c.off.includes(d+1)&&v[0]).length,x:Object.values(s.source[i]||{}).filter(v=>v==='X').length,v:Object.values(s.source[i]||{}).filter(v=>v==='V').length,total:m+b+n};});}
+export function counts(s,a=s.shifts||initial(s)){const c=calendar(s);return s.people.map((p,i)=>{const m=c.off.filter(d=>a[i][d][0]).length,b=a[i].slice(1).filter(v=>v[1]).length,n=a[i].slice(1).filter(v=>v[2]).length;return{m,b,n,regularMorning:a[i].slice(1).filter((v,d)=>!c.off.includes(d+1)&&v[0]).length,x:a[i].slice(1).filter((_,day)=>display(s,i,day+1,a)==='X').length,v:Object.values(s.source[i]||{}).filter(v=>v==='V').length,total:m+b+n};});}
 export function approvedPair(s,i,day,first,second){
  return !s.strictSpacing && second===1 && (first===1||first===2);
 }

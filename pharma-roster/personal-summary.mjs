@@ -8,7 +8,7 @@ export function personalCalendar({dayCount,dow,daysOff,holidays,shifts,source}){
   const day=index+1;
   const holiday=holidays.includes(day);
   const background=holiday?'holiday':daysOff.includes(day)?'weekend':'';
-  const color=source?.[day]?'fixed':code==='ช'&&!daysOff.includes(day)?'morning':/[ชบด]/.test(code)?'generated':'empty-shift';
+  const color=(source?.[day]||code==='X')?'fixed':code==='ช'&&!daysOff.includes(day)?'morning':/[ชบด]/.test(code)?'generated':'empty-shift';
   const label=code.split('/').map(part=>shiftLabels[part]).filter(Boolean).join(' / ')||'–';
   return '<div class="personal-day '+background+'"><b>'+day+'</b><span class="'+color+'">'+label+'</span></div>';
  }).join('');
