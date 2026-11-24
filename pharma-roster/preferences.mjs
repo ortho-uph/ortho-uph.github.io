@@ -1,6 +1,6 @@
 import{monthlyQuota,calendar,requestedOvertime,requestQuotaError}from'./engine.mjs?v=quota1';
 import{personalPrintHTML}from'./personal-print.mjs?v=roster5';
-import{capacityConflict}from'./capacity.mjs?v=capacity4';
+import{capacityConflict}from'./capacity.mjs?v=global-rules1';
 import{mergeRemoteDraft}from'./team-view.mjs?v=team2';
 const $=id=>document.getElementById(id),months=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'],dows=['อา','จ','อ','พ','พฤ','ศ','ส'],esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const NEED={'บ':2,'ด':1},MONTHS_SHOWN=6,MONTHS_MAX=12;
@@ -37,7 +37,7 @@ function renderTable(){
   html+=`<td class="sum">${offHours(r)}</td></tr>`;
  });
  html+='</tbody><tfoot>';
- if(!personalView)for(const[code,label]of[['บ','บ่ายที่เลือกแล้ว'],['ด','ดึกที่เลือกแล้ว']]){html+=`<tr><th class="name-cell" scope="row">${label}</th>`;for(let d=1;d<=days;d++){const n=rows.filter(r=>(r.source[d]||'').includes(code)).length,need=NEED[code];html+=`<td class="${n>need?'over':n===need?'full':''}">${n}/${need}</td>`;}html+='<td class="sum"></td></tr>';}
+ if(!personalView)for(const[code,label]of[['บ','บ่ายที่เลือกแล้ว'],['ด','ดึกที่เลือกแล้ว']]){html+=`<tr><th class="name-cell" scope="row">${label}</th>`;for(let d=1;d<=days;d++){const n=rows.filter(r=>(r.source[d]||'').includes(code)).length,need=data.staffing?.[(cls(d)?3:0)+(code==='ด'?1:0)]??NEED[code];html+=`<td class="${n>need?'over':n===need?'full':''}">${n}/${need}</td>`;}html+='<td class="sum"></td></tr>';}
  html+='</tfoot></table>';
  const left=box.scrollLeft,top=box.scrollTop;box.innerHTML=html;box.scrollLeft=left;box.scrollTop=top;
 }
@@ -61,7 +61,7 @@ function openDay(d){if(!data||data.preview||data.locked)return;selectedDay=d;sel
  $('day-capacity-error').hidden=true;renderShiftOptions();
  const others=team.filter(x=>x.id!==p.id&&x.source[d]);$('day-others').hidden=!teamShared;$('day-others').innerHTML=others.length?'<b>เพื่อนที่เลือกวันนี้แล้ว</b>'+others.map(x=>`<span class="code ${colorOf(x.source[d])}">${esc(x.source[d])}</span>${esc(x.name)}`).join(' &nbsp;·&nbsp; '):'<b>ยังไม่มีเพื่อนเลือกวันนี้</b>';
  $('staff-day-dialog').showModal();}
-function fullSelection(code,day=selectedDay){const daily=capacityConflict({...ym,holidays:data.holidays,team},data.person.id,{[day]:code},data.source);
+function fullSelection(code,day=selectedDay){const daily=capacityConflict({...ym,holidays:data.holidays,staffing:data.staffing,team},data.person.id,{[day]:code},data.source);
  if(daily)return `เวรที่ท่านเลือกเต็มแล้ว (วันที่ ${day} เวร${daily.label})`;
  return teamShared&&team.length?requestQuotaError(data,team,data.person.id,data.source,{...source,[day]:code}):'';}
 function showCapacityError(message){$('day-capacity-error').textContent=message;$('day-capacity-error').hidden=false;}

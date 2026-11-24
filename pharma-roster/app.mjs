@@ -1,5 +1,5 @@
 import {personalCalendar} from './personal-summary.mjs?v=locked-off1';
-import{capacityConflict}from'./capacity.mjs?v=capacity4';
+import{capacityConflict}from'./capacity.mjs?v=global-rules1';
 import{requirements,staffing,applySourceRow,monthlyQuota,requestQuotaError,calendar,initial,counts,validate,readiness,display,codes,clone,parsePreferenceCSV}from'./engine.mjs?v=locked-off1';
 const apiBase=(window.ROSTER_API_BASE||'').replace(/\/$/,'');
 const authHeaders=()=>({authorization:'Bearer '+(sessionStorage.getItem('roster-session')||'')});
@@ -29,12 +29,46 @@ function renderIndividualRules(){
  const weekdayLabels=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
  const describe=(enabled,banned,label)=>!enabled?'ไม่รับเวร'+label:banned?.length?'ไม่รับเวร'+label+'วัน'+weekdayLabels.filter((_,day)=>banned.includes(day)).join(' / '):'';
  const rows=state.people.map((p,index)=>{
-  const restrictions=[describe(p.afternoon,p.forbidAfternoon,'บ่าย'),describe(p.night,p.forbidNight,'ดึก'),p.addMorning?'':'ไม่รับเช้าวันหยุดเพิ่ม'].filter(Boolean);
+  const rule={...p,...editableRules().people[p.id]};
+  const restrictions=[describe(rule.afternoon,rule.forbidAfternoon,'บ่าย'),describe(rule.night,rule.forbidNight,'ดึก'),rule.addMorning?'':'ไม่รับเช้าวันหยุดเพิ่ม'].filter(Boolean);
   if(!restrictions.length)return '';
-  return '<p><strong>'+escape(p.name)+'</strong><br>'+restrictions.join(' · ')+' <button type="button" class="text-button" data-person="'+index+'" '+(state.locked?'disabled':'')+'>แก้ไข</button></p>';
+  return '<p><strong>'+escape(p.name)+'</strong><br>'+restrictions.join(' · ')+' <button type="button" class="text-button" data-shared-person="'+index+'">แก้ไข</button></p>';
  }).join('');
  $('individual-rules-list').innerHTML=rows||'<p>ยังไม่มีข้อจำกัดรายบุคคล</p>';
 }
+let sharedRules=null,rulesRevision=null,rulesReady=false,savingRules=false;
+function rosterRuleFields(p){
+ return {night:p.night,afternoon:p.afternoon,addMorning:p.addMorning,forbidAfternoon:p.forbidAfternoon,forbidNight:p.forbidNight};
+}
+function editableRules(){
+ return sharedRules||{staffing:staffing(state),spacing:!!state.spacing,noNightAfterV:!!state.noNightAfterV,apart:state.apart||[],people:Object.fromEntries(state.people.map(p=>[p.id,rosterRuleFields(p)]))};
+}
+function applySharedRules(){
+ if(!sharedRules||state.locked)return false;
+ const before=JSON.stringify([staffing(state),state.spacing,state.noNightAfterV,state.apart,state.people.map(rosterRuleFields)]);
+ const {staffing:limits,spacing,noNightAfterV,apart,people}=sharedRules;
+ Object.assign(state,{staffing:limits,spacing,noNightAfterV,apart:clone(apart)});
+ state.people=state.people.map(p=>({...p,...people[p.id]}));
+ return before!==JSON.stringify([limits,spacing,noNightAfterV,apart,state.people.map(rosterRuleFields)]);
+}
+async function saveSharedRules(changes){
+ if(!rulesReady||savingRules||worker||preparing)return false;
+ savingRules=true;
+ try{
+  const result=await cloudRequest('/api/roster/rules',{method:'PUT',body:JSON.stringify({rules:{...editableRules(),...changes},revision:rulesRevision})});
+  sharedRules=result.rules;
+  rulesRevision=result.revision;
+  if(applySharedRules()&&state.shifts)state.quotaPreview=validate(state).errors.length>0;
+  save();render();
+  $('rules-save-status').textContent='บันทึกแล้ว ใช้กับการจัดเวรทุกเดือน';
+  return true;
+ }catch(error){
+  render();
+  $('rules-save-status').textContent=error.message;
+  return false;
+ }finally{savingRules=false;}
+}
+
 function render(){const c=calendar(state),check=validate(state),shifts=visibleShifts(),cs=counts(state,shifts),quota=monthlyQuota(c.total,state.people.length);$('title').textContent=`${months[state.month-1]} ${state.year+543}`;renderMonths();$('total').innerHTML=`${c.total} <small>ครั้ง</small>`;$('total-detail').textContent=`เช้าวันหยุด ${c.mornings} · บ่าย ${c.afternoons} · ดึก ${c.nights}`;$('target').innerHTML=`${quota.range} <small>เวรต่อคน</small>`;$('target-detail').textContent=`${c.total} เวร ÷ ${state.people.length} คน · วันปกติ ${c.days-c.off.length} · วันหยุด ${c.off.length}`;$('health').textContent=check.errors.length?`${check.errors.length} จุดต้องตรวจ`:'ผ่านเงื่อนไขหลัก';$('health').style.color=check.errors.length?'#ae695a':'';$('health-detail').textContent=check.errors.length?'ยังมีเวรไม่ครบหรือขัดกับเงื่อนไข':`ยอดรวม ${Math.min(...cs.map(c=>c.total))}–${Math.max(...cs.map(c=>c.total))} · ข้อสังเกต ${check.warnings.length}`;$('lock-count').textContent=state.source.reduce((n,row)=>n+Object.values(row).filter(Boolean).length,0);
  $('mode-note').textContent=mode==='source'?'แสดงเวรที่กำหนดไว้ รวมวันหยุด X และวันลา V':mode==='summary'?'นับเช้าวันหยุด + บ่าย + ดึก ไม่รวมเช้าวันปกติ':state.shifts?'แสดงผลจัดเวร รวมเวรเช้าประจำที่ระบบเติม':'แสดงเฉพาะเวรที่กำหนดไว้ กด “จัดเวรอัตโนมัติ” เพื่อเติมเวรในช่องว่าง';
  const preview=!!(state.shifts&&state.quotaPreview);
@@ -55,9 +89,10 @@ function render(){const c=calendar(state),check=validate(state),shifts=visibleSh
  const options=state.people.map((p,i)=>'<option value="'+i+'">'+escape(p.name)+'</option>').join('');
  for(const id of ['rule-person','pair-first','pair-second'])$(id).innerHTML=options;
  $('pair-second').selectedIndex=Math.min(1,state.people.length-1);
- staffing(state).forEach((v,i)=>$('staff-'+i).value=v);
- $('rule-inputs').disabled=!!(state.locked||worker||preparing);
- renderIndividualRules();renderPeople();renderActions();$('spacing').checked=state.spacing;$('no-v').checked=state.noNightAfterV;$('spacing').disabled=!!state.locked;$('no-v').disabled=!!state.locked;$('apart-editor').innerHTML=(state.apart||[]).map((pair,i)=>({pair,i})).filter(({pair})=>pair.every(id=>state.people.some(p=>p.id===id))).map(({pair,i})=>`<p>${pair.map(id=>escape(state.people.find(p=>p.id===id)?.name||'?')).join(' + ')} · ห้ามขึ้นบ่ายร่วมกัน <button class="text-button" data-remove-pair="${i}">ยกเลิก</button></p>`).join('')||'<p>ยังไม่ได้กำหนดคู่ที่ห้ามบ่ายร่วมกัน</p>';
+ const ruleValues=editableRules();
+ ruleValues.staffing.forEach((v,i)=>$('staff-'+i).value=v);
+ $('rule-inputs').disabled=!rulesReady||!!worker||preparing;
+ renderIndividualRules();renderPeople();renderActions();$('spacing').checked=ruleValues.spacing;$('no-v').checked=ruleValues.noNightAfterV;$('spacing').disabled=!rulesReady;$('no-v').disabled=!rulesReady;$('apart-editor').innerHTML=ruleValues.apart.map((pair,i)=>({pair,i})).filter(({pair})=>pair.every(id=>state.people.some(p=>p.id===id))).map(({pair,i})=>`<p>${pair.map(id=>escape(state.people.find(p=>p.id===id)?.name||'?')).join(' + ')} · ห้ามขึ้นบ่ายร่วมกัน <button class="text-button" data-remove-pair="${i}">ยกเลิก</button></p>`).join('')||'<p>ยังไม่ได้กำหนดคู่ที่ห้ามบ่ายร่วมกัน</p>';
 }
 function renderGrid(c,cs,a){let html='<table><thead><tr><th class="name-cell">บุคลากร</th>';for(let d=1;d<=c.days;d++){
  const gaps=[];
@@ -122,21 +157,25 @@ function freshDraftPerson(){
  const ids=[...state.people.map(p=>p.id),...(state.excludedPersonIds||[])];
  return freshPerson('',Math.max(0,...ids)+1);
 }
-function openPerson(i){
+let editingSharedPerson=false;
+function openPerson(i,shared=false){
  if(preparing||worker)return;
- if(state.locked)return notice('กรุณาปลดล็อกตารางก่อนแก้ไขบุคลากร');
- const p=i===null?freshDraftPerson():state.people[i];
+ if(state.locked&&!shared)return notice('กรุณาปลดล็อกตารางก่อนแก้ไขบุคลากร');
+ const row=state.people[i];
+ const p=i===null?freshDraftPerson():shared&&row?{...row,...editableRules().people[row.id]}:row;
+ editingSharedPerson=shared;
  if(!p)return;
  person=i===null?null:p.id;
  $('person-save-error').hidden=true;
  $('person-name').value=p.name;
+ $('person-name').readOnly=shared;
  $('p-night').checked=p.night;
  $('p-afternoon').checked=p.afternoon;
  $('p-morning').checked=p.addMorning;
  for(const[key,ban] of [['p-ban-b',p.forbidAfternoon],['p-ban-n',p.forbidNight]]){
   $(key).innerHTML=days.map((v,d)=>`<label><input type="checkbox" value="${d}" ${ban.includes(d)?'checked':''}>${v}</label>`).join('');
  }
- $('delete-person').hidden=person===null;
+ $('delete-person').hidden=person===null||shared;
  $('person-dialog').showModal();
 }
 function removePersonRows(ids){
@@ -195,7 +234,7 @@ function planManualCSV(imported){
   }
   return{id:person.id,source};
  });
- const cfg={year:state.year,month:state.month,holidays:state.holidays,team};
+ const cfg={year:state.year,month:state.month,holidays:state.holidays,staffing:staffing(state),team};
  for(const [i,person] of team.entries()){
   const quotaError=requestQuotaError(cfg,team,person.id,state.source[i]||{},person.source);
   if(quotaError)throw Error(state.people[i].name+' · '+quotaError);
@@ -207,7 +246,7 @@ function planManualCSV(imported){
 async function applyImportedManualCSV(imported){const removals=[],additions=[];for(let i=0;i<state.people.length;i++){const old=state.source[i]||{},next=imported.source[i]||{};for(const[d,value]of Object.entries(old))if(value&&next[d]!==value)removals.push({personId:state.people[i].id,day:+d,code:''});for(const[d,value]of Object.entries(next))if(value&&old[d]!==value)additions.push({personId:state.people[i].id,day:+d,code:value});}const changes=[...removals,...additions];for(let i=0;i<changes.length;i++){const item=changes[i];try{await cloudRequest('/api/overrides',{method:'POST',body:JSON.stringify({month:cloudMonth(),...item})});notice(`กำลังบันทึกเวรจากไฟล์ส่วนกลาง ${i+1}/${changes.length} ช่อง`);}catch(error){throw Error(`บันทึกเวรจากไฟล์ได้ ${i}/${changes.length} ช่องแล้ว · ${error.message}`);}}state.source=imported.source;state.shifts=null;mode='source';state.synced??={};save();render();if(!await syncPreferences())throw Error('บันทึกไฟล์แล้ว แต่โหลดสถานะส่วนกลางกลับมาไม่สำเร็จ กรุณากด “โหลดล่าสุด”');}
 function checkImport(s){if(!s||!Array.isArray(s.people)||s.people.length<2||s.people.length>40||!Array.isArray(s.source)||s.source.length!==s.people.length||!Number.isInteger(s.year)||s.year<1900||s.year>2100||!Number.isInteger(s.month)||s.month<1||s.month>12||!Array.isArray(s.holidays))throw Error('JSON ไม่ตรงรูปแบบโปรแกรมนี้');const ids=new Set();s.people.forEach(p=>{if(!p||typeof p.name!=='string'||!p.name.trim()||ids.has(p.id)||![p.forbidNight,p.forbidAfternoon].every(Array.isArray)||![p.night,p.afternoon,p.addMorning].every(v=>typeof v==='boolean'))throw Error('ข้อมูลบุคลากรไม่ถูกต้อง');ids.add(p.id);});s.source.forEach(row=>{if(!row||typeof row!=='object'||Array.isArray(row)||Object.values(row).some(v=>!codes.includes(v)))throw Error('รหัสเวรใน JSON ไม่ถูกต้อง');});const c=calendar(s);if(s.holidays.some(d=>!Number.isInteger(d)||d<1||d>c.days))throw Error('วันหยุดไม่ถูกต้อง');if(s.shifts&&(!Array.isArray(s.shifts)||s.shifts.length!==s.people.length||s.shifts.some(row=>!Array.isArray(row)||row.length!==c.days+1||row.some(v=>!Array.isArray(v)||v.length!==3||v.some(b=>typeof b!=='boolean')))))throw Error('ตารางผลลัพธ์ใน JSON ไม่ถูกต้อง');return s;}
 $('cell-code').innerHTML=codes.map(c=>`<option value="${c}">${c||'ช่องว่าง — ให้โปรแกรมจัด'}</option>`).join('');
-document.addEventListener('click',e=>{const t=e.target.closest('[data-cell],[data-person],[data-holiday],[data-mode],[data-page],[data-preset],[data-remove-pair]');if(!t)return;if(t.dataset.cell){const[i,d]=t.dataset.cell.split(',').map(Number);openCell(i,d);}else if(t.dataset.person!==undefined)openPerson(+t.dataset.person);else if(t.dataset.holiday){const d=+t.dataset.holiday;saveHolidays(state.holidays.includes(d)?state.holidays.filter(v=>v!==d):[...state.holidays,d]);}else if(t.dataset.mode){mode=t.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b===t));render();}else if(t.dataset.page){const page=t.dataset.page;['schedule','people','rules'].forEach(p=>$(p+'-page').hidden=p!==page);document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b===t));$('breadcrumb').textContent=t.textContent.trim();}else if(t.dataset.preset)preset(t.dataset.preset,true).catch(e=>notice(e.message,true));else if(t.dataset.removePair!==undefined){if(state.locked)return;state.apart.splice(+t.dataset.removePair,1);invalidate();}});
+document.addEventListener('click',e=>{const rule=e.target.closest('[data-shared-person]');if(rule){openPerson(+rule.dataset.sharedPerson,true);return;}const t=e.target.closest('[data-cell],[data-person],[data-holiday],[data-mode],[data-page],[data-preset],[data-remove-pair]');if(!t)return;if(t.dataset.cell){const[i,d]=t.dataset.cell.split(',').map(Number);openCell(i,d);}else if(t.dataset.person!==undefined)openPerson(+t.dataset.person);else if(t.dataset.holiday){const d=+t.dataset.holiday;saveHolidays(state.holidays.includes(d)?state.holidays.filter(v=>v!==d):[...state.holidays,d]);}else if(t.dataset.mode){mode=t.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b===t));render();}else if(t.dataset.page){const page=t.dataset.page;['schedule','people','rules'].forEach(p=>$(p+'-page').hidden=p!==page);document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b===t));$('breadcrumb').textContent=t.textContent.trim();}else if(t.dataset.preset)preset(t.dataset.preset,true).catch(e=>notice(e.message,true));else if(t.dataset.removePair!==undefined){saveSharedRules({apart:editableRules().apart.filter((_,i)=>i!==+t.dataset.removePair)});}});
 document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-cell],[data-person]')){e.preventDefault();e.target.click();}});
 $('save-cell').onclick=async e=>{
  e.preventDefault();
@@ -229,7 +268,7 @@ $('save-cell').onclick=async e=>{
  }catch(error){$('cell-save-error').textContent=error.message;$('cell-save-error').hidden=false;}
  finally{$('save-cell').disabled=false;}
 };
-$('save-person').onclick=e=>{e.preventDefault();if(preparing||state.locked||!$('person-dialog').querySelector('form').reportValidity())return;const p=person===null?freshDraftPerson():state.people.find(p=>p.id===person);if(!p)return;p.name=$('person-name').value.trim();if(!p.name){notice('กรุณาระบุชื่อ',true);return;}p.night=$('p-night').checked;p.afternoon=$('p-afternoon').checked;p.addMorning=$('p-morning').checked;p.forbidAfternoon=[...$('p-ban-b').querySelectorAll('input:checked')].map(n=>+n.value);p.forbidNight=[...$('p-ban-n').querySelectorAll('input:checked')].map(n=>+n.value);if(person===null){state.people.push(p);state.source.push({});}$('person-dialog').close();invalidate();};
+$('save-person').onclick=async e=>{e.preventDefault();if(preparing||(state.locked&&!editingSharedPerson)||!$('person-dialog').querySelector('form').reportValidity())return;const row=state.people.find(p=>p.id===person);const p=person===null?freshDraftPerson():editingSharedPerson&&row?{...row}:row;if(!p)return;p.name=$('person-name').value.trim();if(!p.name){notice('กรุณาระบุชื่อ',true);return;}p.night=$('p-night').checked;p.afternoon=$('p-afternoon').checked;p.addMorning=$('p-morning').checked;p.forbidAfternoon=[...$('p-ban-b').querySelectorAll('input:checked')].map(n=>+n.value);p.forbidNight=[...$('p-ban-n').querySelectorAll('input:checked')].map(n=>+n.value);if(editingSharedPerson){if(await saveSharedRules({people:{...editableRules().people,[p.id]:rosterRuleFields(p)}}))$('person-dialog').close();else{$('person-save-error').textContent=$('rules-save-status').textContent||'กรุณารอโหลดเงื่อนไข';$('person-save-error').hidden=false;}return;}if(person===null){state.people.push(p);state.source.push({});}$('person-dialog').close();invalidate();};
 $('delete-person').onclick=async()=>{
  if(preparing||worker||state.locked||person===null)return;
  const selected=state.people.find(p=>p.id===person);
@@ -273,22 +312,19 @@ $('delete-person').onclick=async()=>{
   renderActions();
  }
 };
-$('rule-person-edit').onclick=()=>openPerson(+$('rule-person').value);
+$('rule-person-edit').onclick=()=>openPerson(+$('rule-person').value,true);
 $('rule-save').onclick=()=>{
- if(state.locked||worker||preparing)return;
  const fields=Array.from({length:5},(_,i)=>$('staff-'+i));
  if(fields.some(f=>!f.reportValidity()))return;
- state.staffing=fields.map(f=>f.valueAsNumber);
- save();render();notice('บันทึกจำนวนคนแล้ว กดจัดเวรอัตโนมัติเพื่อใช้กับตารางใหม่');
+ saveSharedRules({staffing:fields.map(f=>f.valueAsNumber)});
 };
 $('pair-add').onclick=()=>{
- if(state.locked||worker||preparing)return;
  const pair=['pair-first','pair-second'].map(id=>state.people[+$(id).value].id);
- state.apart??=[];
- if(pair[0]===pair[1]||state.apart.some(p=>pair.every(id=>p.includes(id))))return notice('กรุณาเลือกสองคนต่างกันและยังไม่ได้จับคู่',true);
- state.apart.push(pair);save();render();
+ const apart=editableRules().apart;
+ if(pair[0]===pair[1]||apart.some(p=>pair.every(id=>p.includes(id))))return notice('กรุณาเลือกสองคนต่างกันและยังไม่ได้จับคู่',true);
+ saveSharedRules({apart:[...apart,pair]});
 };
-$('add-person').onclick=()=>openPerson(null);$('spacing').onchange=e=>{state.spacing=e.target.checked;invalidate();};$('no-v').onchange=e=>{state.noNightAfterV=e.target.checked;invalidate();};
+$('add-person').onclick=()=>openPerson(null);$('spacing').onchange=e=>{saveSharedRules({spacing:e.target.checked});};$('no-v').onchange=e=>{saveSharedRules({noNightAfterV:e.target.checked});};
 $('backup').onclick=()=>download(JSON.stringify(state,null,2),'application/json',`จัดเวร_${state.month}_${state.year+543}.json`);
 $('export').onclick=csv;
 $('import-manual').onclick=()=>$('manual-file').click();
@@ -456,6 +492,9 @@ async function loadPreferences(){
  try{
   const result=await cloudRequest('/api/aggregate?month='+month);
   if(month!==cloudMonth())return false;
+  rulesReady=true;
+  sharedRules=result.sharedRules??null;
+  rulesRevision=result.rulesRevision??null;
   const {people,source,status,published,bookingRevision,excludedPersonIds=[],excludedPeople=[]}=result;
   renderExcludedPeople(excludedPeople,!!published);
   syncedRoster={month,personIds:new Set(people.map(p=>p.id))};
@@ -511,7 +550,7 @@ async function loadPreferences(){
   if(useShared||removed||added){
    invalidate();
    if(removed)notice('อัปเดตรายชื่อบุคลากรของเดือนนี้แล้ว');
-  }else if(fresh.length||wasLocked){
+  }else if(fresh.length||wasLocked||rulesChanged){
    saveEditedRoster();
    if(fresh.length)notice(`อัปเดตเวรที่แก้ของ ${fresh.join(', ')} แล้ว`);
   }else{
@@ -531,5 +570,5 @@ async function loadPreferences(){
 $('month-prev').onclick=()=>stepMonth(-1);$('month-next').onclick=()=>stepMonth(1);$('month-tabs').onclick=e=>{const b=e.target.closest('[data-ym]');if(b){const[y,m]=b.dataset.ym.split('-').map(Number);switchMonth(y,m);}};
 $('sync-now').onclick=syncPreferences;document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!preparing&&Date.now()-lastSync>60000)syncPreferences();});syncPreferences();
 
-$('publish-roster').onclick=async()=>{if(preparing||worker||state.locked)return;preparing=true;renderActions();try{if(!await syncPreferences())throw Error('โหลดความประสงค์ล่าสุดไม่สำเร็จ');if(state.locked)return;if(state.shifts&&validate(state).errors.length)throw Error('กรุณาตรวจจุดที่ยังขาดหรือขัดเงื่อนไขก่อนล็อกตาราง');if(!state.shifts)throw Error('มีความประสงค์เปลี่ยนแปลง กรุณาจัดเวรใหม่ก่อนบันทึก');await cloudRequest('/api/roster',{method:'POST',body:JSON.stringify({month:cloudMonth(),state:clone(state),revision:state.bookingRevision})});await syncPreferences();notice('บันทึกและล็อกตารางแล้ว เภสัชกรทุกคนเห็นตารางเดียวกันและแก้เวรไม่ได้');}catch(error){notice(error.message,true);}finally{preparing=false;renderActions();}};
+$('publish-roster').onclick=async()=>{if(preparing||worker||state.locked)return;preparing=true;renderActions();try{if(!await syncPreferences())throw Error('โหลดความประสงค์ล่าสุดไม่สำเร็จ');if(state.locked)return;if(state.shifts&&validate(state).errors.length)throw Error('กรุณาตรวจจุดที่ยังขาดหรือขัดเงื่อนไขก่อนล็อกตาราง');if(!state.shifts)throw Error('มีความประสงค์เปลี่ยนแปลง กรุณาจัดเวรใหม่ก่อนบันทึก');await cloudRequest('/api/roster',{method:'POST',body:JSON.stringify({month:cloudMonth(),state:clone(state),revision:state.bookingRevision,rulesRevision})});await syncPreferences();notice('บันทึกและล็อกตารางแล้ว เภสัชกรทุกคนเห็นตารางเดียวกันและแก้เวรไม่ได้');}catch(error){notice(error.message,true);}finally{preparing=false;renderActions();}};
 $('unlock-roster').onclick=async()=>{if(preparing||!state.locked)return;preparing=true;renderActions();try{await cloudRequest('/api/roster/unlock',{method:'POST',body:JSON.stringify({month:cloudMonth(),revision:state.bookingRevision})});if(!await syncPreferences())throw Error('ปลดล็อกแล้ว กรุณาโหลดล่าสุดเพื่อตรวจสถานะ');notice('ปลดล็อกแล้ว แก้ไขตารางที่จัดไว้ได้ เมื่อเสร็จให้บันทึกและล็อกอีกครั้ง');}catch(error){notice(error.message,true);}finally{preparing=false;renderActions();}};
