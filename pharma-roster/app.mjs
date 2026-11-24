@@ -70,7 +70,8 @@ async function saveSharedRules(changes){
 }
 
 function render(){
- if(syncedRoster?.month===cloudMonth()&&!state.locked&&!$('sync-bar').classList.contains('error'))renderSync(syncedRoster.status);const c=calendar(state),check=validate(state),shifts=visibleShifts(),cs=counts(state,shifts),quota=monthlyQuota(c.total,state.people.length);$('title').textContent=`${months[state.month-1]} ${state.year+543}`;renderMonths();$('total').innerHTML=`${c.total} <small>ครั้ง</small>`;$('total-detail').textContent=`เช้าวันหยุด ${c.mornings} · บ่าย ${c.afternoons} · ดึก ${c.nights}`;$('target').innerHTML=`${quota.range} <small>เวรต่อคน</small>`;$('target-detail').textContent=`${c.total} เวร ÷ ${state.people.length} คน · วันปกติ ${c.days-c.off.length} · วันหยุด ${c.off.length}`;$('health').textContent=check.errors.length?`${check.errors.length} จุดต้องตรวจ`:'ผ่านเงื่อนไขหลัก';$('health').style.color=check.errors.length?'#ae695a':'';$('health-detail').textContent=check.errors.length?'ยังมีเวรไม่ครบหรือขัดกับเงื่อนไข':`ยอดรวม ${Math.min(...cs.map(c=>c.total))}–${Math.max(...cs.map(c=>c.total))} · ข้อสังเกต ${check.warnings.length}`;$('lock-count').textContent=state.source.reduce((n,row)=>n+Object.values(row).filter(Boolean).length,0);
+ if(syncedRoster&&syncedRoster.month===cloudMonth()&&!state.locked&&!$('sync-bar').classList.contains('error'))renderSync(syncedRoster.status);
+ const c=calendar(state),check=validate(state),shifts=visibleShifts(),cs=counts(state,shifts),quota=monthlyQuota(c.total,state.people.length);$('title').textContent=`${months[state.month-1]} ${state.year+543}`;renderMonths();$('total').innerHTML=`${c.total} <small>ครั้ง</small>`;$('total-detail').textContent=`เช้าวันหยุด ${c.mornings} · บ่าย ${c.afternoons} · ดึก ${c.nights}`;$('target').innerHTML=`${quota.range} <small>เวรต่อคน</small>`;$('target-detail').textContent=`${c.total} เวร ÷ ${state.people.length} คน · วันปกติ ${c.days-c.off.length} · วันหยุด ${c.off.length}`;$('health').textContent=check.errors.length?`${check.errors.length} จุดต้องตรวจ`:'ผ่านเงื่อนไขหลัก';$('health').style.color=check.errors.length?'#ae695a':'';$('health-detail').textContent=check.errors.length?'ยังมีเวรไม่ครบหรือขัดกับเงื่อนไข':`ยอดรวม ${Math.min(...cs.map(c=>c.total))}–${Math.max(...cs.map(c=>c.total))} · ข้อสังเกต ${check.warnings.length}`;$('lock-count').textContent=state.source.reduce((n,row)=>n+Object.values(row).filter(Boolean).length,0);
  $('mode-note').textContent=mode==='source'?'แสดงเวรที่กำหนดไว้ รวมวันหยุด X และวันลา V':mode==='summary'?'นับเช้าวันหยุด + บ่าย + ดึก ไม่รวมเช้าวันปกติ':state.shifts?'แสดงผลจัดเวร รวมเวรเช้าประจำที่ระบบเติม':'แสดงเฉพาะเวรที่กำหนดไว้ กด “จัดเวรอัตโนมัติ” เพื่อเติมเวรในช่องว่าง';
  const preview=!!(state.shifts&&state.quotaPreview);
  if(preview&&mode==='result')$('mode-note').textContent='ตารางร่าง · จัดได้ '+check.counts.reduce((n,r)=>n+r.total,0)+' จาก '+c.total+' เวรนอกเวลา';
@@ -461,7 +462,6 @@ $('generate').onclick=async()=>{
  }catch(error){finish();notice(error.message,true);$('notice').scrollIntoView({behavior:'smooth',block:'center'});}
  finally{preparing=false;renderActions();if($('generate-from-issues'))$('generate-from-issues').disabled=!!worker;}
 };$('cancel').onclick=()=>{finish();notice('หยุดค้นหาแล้ว ตารางเดิมยังคงอยู่');};
-try{const saved=localStorage.getItem(key);if(saved){state=checkImport(JSON.parse(saved));if(state.shifts)mode='result';render();}else await preset('january');}catch{await preset('january');notice('เริ่มด้วยตัวอย่างมกราคม 2570 คุณสามารถสำรองข้อมูลเป็น JSON ได้');}
 const cloudMonth=()=>`${state.year}-${String(state.month).padStart(2,'0')}`;
 function renderExcludedPeople(people,locked){
  const box=$('excluded-people');
@@ -616,7 +616,35 @@ async function loadPreferences(){
  }
 }
 $('month-prev').onclick=()=>stepMonth(-1);$('month-next').onclick=()=>stepMonth(1);$('month-tabs').onclick=e=>{const b=e.target.closest('[data-ym]');if(b){const[y,m]=b.dataset.ym.split('-').map(Number);switchMonth(y,m);}};
-$('sync-now').onclick=syncPreferences;document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!preparing&&Date.now()-lastSync>60000)syncPreferences();});syncPreferences();
+$('sync-now').onclick=syncPreferences;document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!preparing&&Date.now()-lastSync>60000)syncPreferences();});
 
 $('publish-roster').onclick=async()=>{if(preparing||worker||state.locked)return;preparing=true;renderActions();try{if(!await syncPreferences())throw Error('โหลดความประสงค์ล่าสุดไม่สำเร็จ');if(state.locked)return;if(state.shifts&&validate(state).errors.length)throw Error('กรุณาตรวจจุดที่ยังขาดหรือขัดเงื่อนไขก่อนล็อกตาราง');if(!state.shifts)throw Error('มีความประสงค์เปลี่ยนแปลง กรุณาจัดเวรใหม่ก่อนบันทึก');await cloudRequest('/api/roster',{method:'POST',body:JSON.stringify({month:cloudMonth(),state:clone(state),revision:state.bookingRevision,rulesRevision})});await syncPreferences();notice('บันทึกและล็อกตารางแล้ว เภสัชกรทุกคนเห็นตารางเดียวกันและแก้เวรไม่ได้');}catch(error){notice(error.message,true);}finally{preparing=false;renderActions();}};
 $('unlock-roster').onclick=async()=>{if(preparing||!state.locked)return;preparing=true;renderActions();try{await cloudRequest('/api/roster/unlock',{method:'POST',body:JSON.stringify({month:cloudMonth(),revision:state.bookingRevision})});if(!await syncPreferences())throw Error('ปลดล็อกแล้ว กรุณาโหลดล่าสุดเพื่อตรวจสถานะ');notice('ปลดล็อกแล้ว แก้ไขตารางที่จัดไว้ได้ เมื่อเสร็จให้บันทึกและล็อกอีกครั้ง');}catch(error){notice(error.message,true);}finally{preparing=false;renderActions();}};
+
+async function startPlanner(){
+ let restored=null;
+ try{
+  const saved=localStorage.getItem(key);
+  if(saved)restored=checkImport(JSON.parse(saved));
+ }catch(error){
+  console.warn('Could not restore roster from local storage',error);
+ }
+ if(restored){
+  state=restored;
+  if(state.shifts)mode='result';
+  render();
+ }else{
+  await preset('january');
+ }
+ await syncPreferences();
+}
+startPlanner().catch(error=>{
+ console.error('Roster initialization failed',error);
+ $('sync-bar').classList.add('error');
+ $('sync-title').textContent='เปิดตารางเวรไม่สำเร็จ';
+ $('sync-detail').textContent='กดลองโหลดหน้าใหม่ หากยังเปิดไม่ได้ กรุณาแจ้งผู้ดูแลระบบ';
+ const retry=$('sync-now');
+ retry.disabled=false;
+ retry.textContent='↻ ลองโหลดหน้าใหม่';
+ retry.onclick=()=>location.reload();
+});
