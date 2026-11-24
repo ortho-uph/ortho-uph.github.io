@@ -363,10 +363,9 @@ thead th.short-day,thead th.short-day small{background:#ad3026;color:white}
 
 @page personal-roster-sheet{size:A4 landscape;margin:10mm}
 @media print{
- body:has(> #personal-roster[open]){margin:0;background:white}
+ body:has(> #personal-roster[open]){page:personal-roster-sheet;margin:0;background:white}
  body:has(> #personal-roster[open]) > :not(#personal-roster){display:none!important}
  body:has(> #personal-roster[open]) #personal-roster{
-  page:personal-roster-sheet;
   position:static;
   inset:auto;
   box-sizing:border-box;
