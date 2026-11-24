@@ -354,3 +354,7 @@ thead th.short-day,thead th.short-day small{background:#ad3026;color:white}
 .person-rule-fields label{display:grid;gap:4px;color:var(--muted);font-size:12px}
 .person-rule-fields select{min-width:0;width:100%}
 .person-rule-fields .button{justify-self:start;white-space:normal;text-align:left}
+
+.sync-roster-group{display:flex;align-items:center;gap:5px;flex-wrap:wrap;width:100%}
+.sync-roster-group.has-roster-entries span{color:var(--brand)}
+.sync-roster-group.has-roster-entries em{color:var(--brand);border-color:var(--brand-100);background:var(--brand-50)}

@@ -69,7 +69,8 @@ async function saveSharedRules(changes){
  }finally{savingRules=false;}
 }
 
-function render(){const c=calendar(state),check=validate(state),shifts=visibleShifts(),cs=counts(state,shifts),quota=monthlyQuota(c.total,state.people.length);$('title').textContent=`${months[state.month-1]} ${state.year+543}`;renderMonths();$('total').innerHTML=`${c.total} <small>ครั้ง</small>`;$('total-detail').textContent=`เช้าวันหยุด ${c.mornings} · บ่าย ${c.afternoons} · ดึก ${c.nights}`;$('target').innerHTML=`${quota.range} <small>เวรต่อคน</small>`;$('target-detail').textContent=`${c.total} เวร ÷ ${state.people.length} คน · วันปกติ ${c.days-c.off.length} · วันหยุด ${c.off.length}`;$('health').textContent=check.errors.length?`${check.errors.length} จุดต้องตรวจ`:'ผ่านเงื่อนไขหลัก';$('health').style.color=check.errors.length?'#ae695a':'';$('health-detail').textContent=check.errors.length?'ยังมีเวรไม่ครบหรือขัดกับเงื่อนไข':`ยอดรวม ${Math.min(...cs.map(c=>c.total))}–${Math.max(...cs.map(c=>c.total))} · ข้อสังเกต ${check.warnings.length}`;$('lock-count').textContent=state.source.reduce((n,row)=>n+Object.values(row).filter(Boolean).length,0);
+function render(){
+ if(syncedRoster?.month===cloudMonth()&&!state.locked&&!$('sync-bar').classList.contains('error'))renderSync(syncedRoster.status);const c=calendar(state),check=validate(state),shifts=visibleShifts(),cs=counts(state,shifts),quota=monthlyQuota(c.total,state.people.length);$('title').textContent=`${months[state.month-1]} ${state.year+543}`;renderMonths();$('total').innerHTML=`${c.total} <small>ครั้ง</small>`;$('total-detail').textContent=`เช้าวันหยุด ${c.mornings} · บ่าย ${c.afternoons} · ดึก ${c.nights}`;$('target').innerHTML=`${quota.range} <small>เวรต่อคน</small>`;$('target-detail').textContent=`${c.total} เวร ÷ ${state.people.length} คน · วันปกติ ${c.days-c.off.length} · วันหยุด ${c.off.length}`;$('health').textContent=check.errors.length?`${check.errors.length} จุดต้องตรวจ`:'ผ่านเงื่อนไขหลัก';$('health').style.color=check.errors.length?'#ae695a':'';$('health-detail').textContent=check.errors.length?'ยังมีเวรไม่ครบหรือขัดกับเงื่อนไข':`ยอดรวม ${Math.min(...cs.map(c=>c.total))}–${Math.max(...cs.map(c=>c.total))} · ข้อสังเกต ${check.warnings.length}`;$('lock-count').textContent=state.source.reduce((n,row)=>n+Object.values(row).filter(Boolean).length,0);
  $('mode-note').textContent=mode==='source'?'แสดงเวรที่กำหนดไว้ รวมวันหยุด X และวันลา V':mode==='summary'?'นับเช้าวันหยุด + บ่าย + ดึก ไม่รวมเช้าวันปกติ':state.shifts?'แสดงผลจัดเวร รวมเวรเช้าประจำที่ระบบเติม':'แสดงเฉพาะเวรที่กำหนดไว้ กด “จัดเวรอัตโนมัติ” เพื่อเติมเวรในช่องว่าง';
  const preview=!!(state.shifts&&state.quotaPreview);
  if(preview&&mode==='result')$('mode-note').textContent='ตารางร่าง · จัดได้ '+check.counts.reduce((n,r)=>n+r.total,0)+' จาก '+c.total+' เวรนอกเวลา';
@@ -489,7 +490,23 @@ async function cloudRequest(path,options={}){const r=await apiFetch(path,{...opt
 $('admin-logout').onclick=async()=>{try{await cloudRequest('/api/logout',{method:'POST'});}catch{}sessionStorage.removeItem('roster-session');location.replace('./');};
 // Submitted preferences lock into the table on their own: a person's row is replaced only when they send a newer submission.
 const sameRow=(a,b)=>{const x=Object.entries(a).filter(([,v])=>v);return x.length===Object.values(b).filter(Boolean).length&&x.every(([d,v])=>b[d]===v);};
-function renderSync(status){const sent=status.filter(p=>p.submittedAt),wait=status.filter(p=>!p.submittedAt),last=sent.map(p=>p.submittedAt).sort().at(-1);$('sync-bar').classList.remove('error');$('sync-bar').classList.toggle('complete',!wait.length);$('sync-title').textContent=`ส่งความประสงค์แล้ว ${sent.length}/${status.length} คน`;$('sync-detail').textContent=(last?`ส่งล่าสุด ${new Date(last).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})} · `:'')+'เวรที่ส่งมาจะล็อกในตารางให้อัตโนมัติ';$('sync-pending').innerHTML=wait.length?'<span>ยังไม่ส่ง</span>'+wait.map(p=>`<em>${escape(p.name)}</em>`).join(''):'<span class="done">✓ ครบทุกคนแล้ว</span>';}
+function renderSync(status){
+ const submitted=status.filter(person=>person.submittedAt);
+ const latest=submitted.map(person=>person.submittedAt).sort().at(-1);
+ const withEntries=[],withoutEntries=[];
+ state.people.forEach((person,index)=>{
+  const count=Object.values(state.source[index]||{}).filter(Boolean).length;
+  (count?withEntries:withoutEntries).push({name:person.name,count});
+ });
+ const group=(label,people,kind)=>people.length
+  ? '<div class="sync-roster-group '+kind+'"><span>'+label+'</span>'+people.map(({name,count})=>'<em>'+escape(name)+(count?' · '+count+' ช่อง':'')+'</em>').join('')+'</div>'
+  : '';
+ $('sync-bar').classList.remove('error');
+ $('sync-bar').classList.toggle('complete',withoutEntries.length===0);
+ $('sync-title').textContent='มีเวรหรือวันหยุดที่กำหนดไว้ '+withEntries.length+'/'+state.people.length+' คน';
+ $('sync-detail').textContent='ส่งความประสงค์แล้ว '+submitted.length+'/'+status.length+' คน'+(latest?' · ส่งล่าสุด '+new Date(latest).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}):'');
+ $('sync-pending').innerHTML=group('มีรายการแล้ว',withEntries,'has-roster-entries')+group('ยังไม่มีรายการ',withoutEntries,'no-roster-entries');
+}
 function syncPreferences(){if(syncPromise)return syncPromise;if(worker)return Promise.resolve(false);syncPromise=loadPreferences().finally(()=>syncPromise=null);return syncPromise;}
 async function saveHolidays(holidays){
  if(preparing||worker||state.locked)return;
@@ -521,7 +538,7 @@ async function loadPreferences(){
   rulesRevision=result.rulesRevision??null;
   const {people,source,status,published,bookingRevision,excludedPersonIds=[],excludedPeople=[]}=result;
   renderExcludedPeople(excludedPeople,!!published);
-  syncedRoster={month,personIds:new Set(people.map(p=>p.id))};
+  syncedRoster={month,status,personIds:new Set(people.map(p=>p.id))};
   state.bookingRevision=bookingRevision;
   const permanentlyRemoved=result.removedPersonIds||[];
   state.removedPersonIds=permanentlyRemoved;
