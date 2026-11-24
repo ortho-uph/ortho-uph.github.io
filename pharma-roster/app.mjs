@@ -25,6 +25,16 @@ async function preset(name,ask=false){if(ask&&!confirm('โหลดตัวอ
 function visibleShifts(){
  return mode!=='source'&&state.shifts?state.shifts:initial(state,{regularMorning:false});
 }
+function renderIndividualRules(){
+ const weekdayLabels=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+ const describe=(enabled,banned,label)=>!enabled?'ไม่รับเวร'+label:banned?.length?'ไม่รับเวร'+label+'วัน'+weekdayLabels.filter((_,day)=>banned.includes(day)).join(' / '):'';
+ const rows=state.people.map((p,index)=>{
+  const restrictions=[describe(p.afternoon,p.forbidAfternoon,'บ่าย'),describe(p.night,p.forbidNight,'ดึก'),p.addMorning?'':'ไม่รับเช้าวันหยุดเพิ่ม'].filter(Boolean);
+  if(!restrictions.length)return '';
+  return '<p><strong>'+escape(p.name)+'</strong><br>'+restrictions.join(' · ')+' <button type="button" class="text-button" data-person="'+index+'" '+(state.locked?'disabled':'')+'>แก้ไข</button></p>';
+ }).join('');
+ $('individual-rules-list').innerHTML=rows||'<p>ยังไม่มีข้อจำกัดรายบุคคล</p>';
+}
 function render(){const c=calendar(state),check=validate(state),shifts=visibleShifts(),cs=counts(state,shifts),quota=monthlyQuota(c.total,state.people.length);$('title').textContent=`${months[state.month-1]} ${state.year+543}`;renderMonths();$('total').innerHTML=`${c.total} <small>ครั้ง</small>`;$('total-detail').textContent=`เช้าวันหยุด ${c.mornings} · บ่าย ${c.afternoons} · ดึก ${c.nights}`;$('target').innerHTML=`${quota.range} <small>เวรต่อคน</small>`;$('target-detail').textContent=`${c.total} เวร ÷ ${state.people.length} คน · วันปกติ ${c.days-c.off.length} · วันหยุด ${c.off.length}`;$('health').textContent=check.errors.length?`${check.errors.length} จุดต้องตรวจ`:'ผ่านเงื่อนไขหลัก';$('health').style.color=check.errors.length?'#ae695a':'';$('health-detail').textContent=check.errors.length?'ยังมีเวรไม่ครบหรือขัดกับเงื่อนไข':`ยอดรวม ${Math.min(...cs.map(c=>c.total))}–${Math.max(...cs.map(c=>c.total))} · ข้อสังเกต ${check.warnings.length}`;$('lock-count').textContent=state.source.reduce((n,row)=>n+Object.values(row).filter(Boolean).length,0);
  $('mode-note').textContent=mode==='source'?'แสดงเวรที่กำหนดไว้ รวมวันหยุด X และวันลา V':mode==='summary'?'นับเช้าวันหยุด + บ่าย + ดึก ไม่รวมเช้าวันปกติ':state.shifts?'แสดงผลจัดเวร รวมเวรเช้าประจำที่ระบบเติม':'แสดงเฉพาะเวรที่กำหนดไว้ กด “จัดเวรอัตโนมัติ” เพื่อเติมเวรในช่องว่าง';
  const preview=!!(state.shifts&&state.quotaPreview);
@@ -47,7 +57,7 @@ function render(){const c=calendar(state),check=validate(state),shifts=visibleSh
  $('pair-second').selectedIndex=Math.min(1,state.people.length-1);
  staffing(state).forEach((v,i)=>$('staff-'+i).value=v);
  $('rule-inputs').disabled=!!(state.locked||worker||preparing);
- renderPeople();renderActions();$('spacing').checked=state.spacing;$('no-v').checked=state.noNightAfterV;$('spacing').disabled=!!state.locked;$('no-v').disabled=!!state.locked;$('apart-editor').innerHTML=(state.apart||[]).map((pair,i)=>({pair,i})).filter(({pair})=>pair.every(id=>state.people.some(p=>p.id===id))).map(({pair,i})=>`<p>${pair.map(id=>escape(state.people.find(p=>p.id===id)?.name||'?')).join(' + ')} <button class="text-button" data-remove-pair="${i}">ยกเลิก</button></p>`).join('')||'<p>ยังไม่ได้กำหนดคู่ที่ห้ามบ่ายร่วมกัน</p>';
+ renderIndividualRules();renderPeople();renderActions();$('spacing').checked=state.spacing;$('no-v').checked=state.noNightAfterV;$('spacing').disabled=!!state.locked;$('no-v').disabled=!!state.locked;$('apart-editor').innerHTML=(state.apart||[]).map((pair,i)=>({pair,i})).filter(({pair})=>pair.every(id=>state.people.some(p=>p.id===id))).map(({pair,i})=>`<p>${pair.map(id=>escape(state.people.find(p=>p.id===id)?.name||'?')).join(' + ')} · ห้ามขึ้นบ่ายร่วมกัน <button class="text-button" data-remove-pair="${i}">ยกเลิก</button></p>`).join('')||'<p>ยังไม่ได้กำหนดคู่ที่ห้ามบ่ายร่วมกัน</p>';
 }
 function renderGrid(c,cs,a){let html='<table><thead><tr><th class="name-cell">บุคลากร</th>';for(let d=1;d<=c.days;d++){
  const gaps=[];
