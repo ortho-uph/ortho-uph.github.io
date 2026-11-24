@@ -13,15 +13,18 @@ function bangkokToday(){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'A
 const monthAt=o=>{const t=bangkokToday(),d=new Date(t.year,t.month-1+o,1);return{year:d.getFullYear(),month:d.getMonth()+1};};
 const offsetOf=m=>{const t=bangkokToday();return(m.year-t.year)*12+m.month-t.month;};
 function monthWindow(){return Array.from({length:MONTHS_SHOWN},(_,i)=>monthAt(winStart+i));}
-function status(text,error=false){$('staff-status').hidden=false;$('staff-status').textContent=text;$('staff-status').className=error?'error':'';}
+function status(text,error=false){const loginError=$('login-error');if(error&&!session&&loginError){loginError.hidden=false;loginError.textContent=text;return;}$('staff-status').hidden=false;$('staff-status').textContent=text;$('staff-status').className=error?'error':'';}
 async function api(path,options={}){const response=await fetch(base+path,{...options,credentials:base?'omit':'same-origin',headers:{...(token?{authorization:'Bearer '+token}:{}),...(options.body?{'content-type':'application/json'}:{}),...options.headers}});const json=await response.json();if(!response.ok)throw Object.assign(new Error(json.error||'เชื่อมต่อไม่ได้'),{status:response.status,code:json.code});return json;}
 function renderMonths(){const t=bangkokToday(),o=ym?offsetOf(ym):0;$('month-prev').disabled=saving||o<=0;$('month-next').disabled=saving||o>=MONTHS_MAX-1;$('month-tabs').innerHTML=monthWindow().map(m=>{const active=ym&&m.year===ym.year&&m.month===ym.month,now=m.year===t.year&&m.month===t.month;return`<button class="month-tab${active?' active':''}${now?' now':''}" data-ym="${m.year}-${m.month}" aria-pressed="${active}"><b>${months[m.month-1]}</b><small>พ.ศ. ${m.year+543}${now?' · เดือนนี้':''}</small></button>`;}).join('');const active=$('month-tabs').querySelector('.active'),box=$('month-tabs');if(active&&(active.offsetLeft<box.scrollLeft||active.offsetLeft+active.offsetWidth>box.scrollLeft+box.clientWidth))box.scrollLeft=active.offsetLeft-box.offsetLeft-8;}
 let personalView=false;
-$('view-mine').onclick=()=>{personalView=!personalView;render();};
+const viewMine=$('view-mine');
+viewMine?.addEventListener('click',()=>{personalView=!personalView;render();});
 function renderTable(){
- $('view-mine').disabled=!data;
- $('view-mine').textContent=personalView?'ดูตารางทั้งทีม':'ดูเฉพาะเวรของฉัน';
- $('view-mine').setAttribute('aria-pressed',String(personalView));
+ if(viewMine){
+  viewMine.disabled=!data;
+  viewMine.textContent=personalView?'ดูตารางทั้งทีม':'ดูเฉพาะเวรของฉัน';
+  viewMine.setAttribute('aria-pressed',String(personalView));
+ }
  const box=$('staff-table');if(!data){box.innerHTML=`<p class="table-empty">${session?'กำลังโหลดตาราง…':''}</p>`;return;}
  const{year,month}=ym,days=new Date(year,month,0).getDate(),holidays=data.holidays||[],t=bangkokToday(),thisMonth=t.year===year&&t.month===month,me=data.person.id;
  const cls=d=>{const dow=new Date(year,month-1,d).getDay();return holidays.includes(d)?'holiday-cell':[0,6].includes(dow)?'weekend':'';};
@@ -87,7 +90,7 @@ $('submit-preferences').onclick=async()=>{if(!data||data.preview||data.locked||s
 async function backgroundSync(){if(document.hidden||!data||saving||$('staff-day-dialog').open)return;try{await syncLatest();}catch(error){if(error.status===401)status('หมดเวลาเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่',true);}}
 setInterval(backgroundSync,15000);window.addEventListener('focus',backgroundSync);document.addEventListener('visibilitychange',()=>{if(!document.hidden)backgroundSync();});
 async function initialize(){try{session=await api('/api/session');if(session.owner){location.replace('./admin.html?v=roster5');return;}$('access-box').hidden=true;$('logout').hidden=false;$('organizer-link').hidden=!session.owner;const t=bangkokToday();ym={year:t.year,month:t.month};await loadMonth();}catch(error){session=null;$('logout').hidden=true;$('access-box').hidden=false;status(error.message,true);$('staff-person').innerHTML='<option value="">รอเลือกผู้ใช้งาน</option>';$('staff-person').disabled=true;data=null;render();}}
-$('login-form').onsubmit=async e=>{e.preventDefault();$('use-code').disabled=true;try{const result=await api('/api/login',{method:'POST',headers:{authorization:''},body:JSON.stringify({username:$('login-username').value,password:$('login-password').value})});token=result.token;sessionStorage.setItem('roster-session',token);$('login-password').value='';await initialize();}catch(error){status(error.message,true);}finally{$('use-code').disabled=false;}};
+$('login-form').onsubmit=async e=>{e.preventDefault();const loginError=$('login-error');if(loginError)loginError.hidden=true;$('use-code').disabled=true;try{const result=await api('/api/login',{method:'POST',headers:{authorization:''},body:JSON.stringify({username:$('login-username').value,password:$('login-password').value})});token=result.token;sessionStorage.setItem('roster-session',token);$('login-password').value='';await initialize();}catch(error){status(error.message,true);}finally{$('use-code').disabled=false;}};
 $('logout').onclick=async()=>{try{await api('/api/logout',{method:'POST'});}catch{}sessionStorage.removeItem('roster-session');location.reload();};
 render();if(token)initialize();
 
