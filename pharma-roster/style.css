@@ -150,7 +150,7 @@ h1{margin:0 0 6px;font-size:28px;font-weight:650;letter-spacing:-.025em;line-hei
 .legend-block.fixed{background:var(--red)}
 .legend-block.holiday{background:#ffe9a8;box-shadow:inset 0 0 0 1px #edcf72}
 .legend-block.added{background:#c6ead9;box-shadow:inset 0 0 0 1px #94d2b6}
-.table-scroll{overflow:auto;max-height:560px;scrollbar-width:thin;scrollbar-color:#cfd7d2 transparent}
+.table-scroll{overflow-x:auto;scrollbar-width:thin;scrollbar-color:#cfd7d2 transparent}
 table{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;font-variant-numeric:tabular-nums}
 th,td{height:42px;padding:0;text-align:center;white-space:nowrap;border-right:1px solid #eef1ef;border-bottom:1px solid #eef1ef}
 th{background:var(--surface-2);color:var(--muted);font-weight:500}
