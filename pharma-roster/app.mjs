@@ -21,7 +21,7 @@ function stepMonth(delta){const o=Math.min(Math.max(offsetOf(state.year,state.mo
 function notice(text,error=false){$('notice').hidden=false;$('notice').textContent=text;$('notice').className=error?'error':'';}
 function save(){try{localStorage.setItem(key,JSON.stringify(state));$('saved').textContent='บันทึกแล้วในเครื่องนี้';}catch{notice('พื้นที่บันทึกในเครื่องไม่พร้อมใช้งาน กรุณาสำรอง JSON',true);}}
 function freshPerson(name,id){return{id,name,night:![6,8].includes(id),afternoon:true,addMorning:![6,8,12].includes(id),forbidNight:id===1?[1]:id===7?[4,5]:[],forbidAfternoon:id===1?[5]:[]};}
-async function preset(name,ask=false){if(ask&&!confirm('โหลดตัวอย่างนี้แทนข้อมูลปัจจุบัน? แนะนำให้สำรอง JSON ก่อน'))return;if(worker)finish();const r=await fetch(apiBase+`/${name}.json`,{headers:authHeaders()});if(!r.ok)throw Error('โหลดตัวอย่างไม่ได้');const data=await r.json();state={version:1,year:name==='january'?2027:2026,month:name==='january'?1:12,people:data.names.map((n,i)=>freshPerson(n,i+1)),source:data.source,shifts:null,holidays:data.holidays,apart:[[6,8]],spacing:true,noNightAfterV:true,synced:{}};mode='source';save();render();if(ask)await syncPreferences();}
+async function preset(name,ask=false){if(ask&&!confirm('โหลดตัวอย่างนี้แทนข้อมูลปัจจุบัน? แนะนำให้สำรอง JSON ก่อน'))return;if(worker)finish();const r=await fetch(apiBase+`/${name}.json`,{headers:authHeaders()});if(!r.ok)throw Error('โหลดตัวอย่างไม่ได้');const data=await r.json();state={version:1,year:name==='january'?2027:2026,month:name==='january'?1:12,people:data.names.map((name,index)=>freshPerson(name,data.ids?.[index]??index+1)),source:data.source,shifts:null,holidays:data.holidays,apart:[[6,8]],spacing:true,noNightAfterV:true,synced:{}};mode='source';save();render();if(ask)await syncPreferences();}
 function visibleShifts(){
  return mode!=='source'&&state.shifts?state.shifts:initial(state,{regularMorning:false});
 }
@@ -154,7 +154,7 @@ function saveEditedRoster(){
 }
 function invalidate(){if(worker)finish();state.shifts=null;mode='source';save();render();notice('ปรับข้อมูลแล้ว กด “จัดเวรอัตโนมัติ” เพื่อจัดช่องที่เหลือ');}
 function freshDraftPerson(){
- const ids=[...state.people.map(p=>p.id),...(state.excludedPersonIds||[])];
+ const ids=[...state.people.map(p=>p.id),...(state.excludedPersonIds||[]),...(state.removedPersonIds||[])];
  return freshPerson('',Math.max(0,...ids)+1);
 }
 let editingSharedPerson=false;
@@ -177,6 +177,30 @@ function openPerson(i,shared=false){
  }
  $('delete-person').hidden=person===null||shared;
  $('person-dialog').showModal();
+}
+function purgeLocalRosterCopies(ids){
+ if(!ids.length)return;
+ try{
+  const filter=(row,key)=>row[key].map((_,i)=>i).filter(i=>!ids.includes(key==='ids'?row.ids[i]:row.people[i].id));
+  const scrub=(row,key)=>{
+   const keep=filter(row,key);
+   if(keep.length===row[key].length)return false;
+   for(const field of [key,'source','shifts'])if(Array.isArray(row[field]))row[field]=keep.map(i=>row[field][i]);
+   if(row.apart)row.apart=row.apart.filter(pair=>!pair.some(id=>ids.includes(id)));
+   for(const id of ids)delete row.synced?.[id];
+   return true;
+  };
+  const archive=JSON.parse(localStorage.getItem(archiveKey)||'{}');
+  let changed=false;
+  for(const row of Object.values(archive))if(scrub(row,'people'))changed=true;
+  if(changed)localStorage.setItem(archiveKey,JSON.stringify(archive));
+  for(const key of Object.keys(localStorage).filter(key=>key.startsWith('roster-history-'))){
+   const rows=JSON.parse(localStorage.getItem(key)||'[]');
+   let changed=false;
+   for(const row of rows)if(scrub(row,'ids'))changed=true;
+   if(changed)localStorage.setItem(key,JSON.stringify(rows));
+  }
+ }catch(error){console.warn('Cannot clean local roster copies',error);}
 }
 function removePersonRows(ids){
  const people=[],source=[];
@@ -499,10 +523,13 @@ async function loadPreferences(){
   renderExcludedPeople(excludedPeople,!!published);
   syncedRoster={month,personIds:new Set(people.map(p=>p.id))};
   state.bookingRevision=bookingRevision;
+  const permanentlyRemoved=result.removedPersonIds||[];
+  state.removedPersonIds=permanentlyRemoved;
+  purgeLocalRosterCopies(permanentlyRemoved);
   state.excludedPersonIds=excludedPersonIds;
   if(published){
    $('share-holidays').hidden=true;
-   state={...published.state,excludedPersonIds,synced:Object.fromEntries(status.map(p=>[p.id,p.submittedAt])),locked:true,bookingRevision,rosterRevision:published.revision,publishedAt:published.publishedAt};
+   state={...published.state,removedPersonIds:permanentlyRemoved,excludedPersonIds,synced:Object.fromEntries(status.map(p=>[p.id,p.submittedAt])),locked:true,bookingRevision,rosterRevision:published.revision,publishedAt:published.publishedAt};
    mode='result';
    save();
    render();
@@ -517,7 +544,7 @@ async function loadPreferences(){
   const useShared=differentHolidays&&(result.sharedHolidays||!state.holidays.length);
   if(useShared)state.holidays=result.holidays;
   $('share-holidays').hidden=useShared||!differentHolidays;
-  const removed=removePersonRows(excludedPersonIds);
+  const removed=removePersonRows([...excludedPersonIds,...permanentlyRemoved]);
   if(removed)state.shifts=null;
   const wasLocked=state.locked;
   if(wasLocked){state.locked=false;mode='result';}
