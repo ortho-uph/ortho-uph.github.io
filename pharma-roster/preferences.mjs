@@ -1,5 +1,6 @@
+import{personalCalendar}from'./personal-summary.mjs?v=staff-calendar1';
 import{monthlyQuota,calendar,requestedOvertime,requestQuotaError}from'./engine.mjs?v=quota1';
-import{personalPrintHTML}from'./personal-print.mjs?v=roster5';
+import{personalPrintHTML,personalSummary}from'./personal-print.mjs?v=roster5';
 import{capacityConflict}from'./capacity.mjs?v=global-rules1';
 import{mergeRemoteDraft}from'./team-view.mjs?v=team2';
 const $=id=>document.getElementById(id),months=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'],dows=['อา','จ','อ','พ','พฤ','ศ','ส'],esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -16,20 +17,40 @@ function monthWindow(){return Array.from({length:MONTHS_SHOWN},(_,i)=>monthAt(wi
 function status(text,error=false){const loginError=$('login-error');if(error&&!session&&loginError){loginError.hidden=false;loginError.textContent=text;return;}$('staff-status').hidden=false;$('staff-status').textContent=text;$('staff-status').className=error?'error':'';}
 async function api(path,options={}){const response=await fetch(base+path,{...options,credentials:base?'omit':'same-origin',headers:{...(token?{authorization:'Bearer '+token}:{}),...(options.body?{'content-type':'application/json'}:{}),...options.headers}});const json=await response.json();if(!response.ok)throw Object.assign(new Error(json.error||'เชื่อมต่อไม่ได้'),{status:response.status,code:json.code});return json;}
 function renderMonths(){const t=bangkokToday(),o=ym?offsetOf(ym):0;$('month-prev').disabled=saving||o<=0;$('month-next').disabled=saving||o>=MONTHS_MAX-1;$('month-tabs').innerHTML=monthWindow().map(m=>{const active=ym&&m.year===ym.year&&m.month===ym.month,now=m.year===t.year&&m.month===t.month;return`<button class="month-tab${active?' active':''}${now?' now':''}" data-ym="${m.year}-${m.month}" aria-pressed="${active}"><b>${months[m.month-1]}</b><small>พ.ศ. ${m.year+543}${now?' · เดือนนี้':''}</small></button>`;}).join('');const active=$('month-tabs').querySelector('.active'),box=$('month-tabs');if(active&&(active.offsetLeft<box.scrollLeft||active.offsetLeft+active.offsetWidth>box.scrollLeft+box.clientWidth))box.scrollLeft=active.offsetLeft-box.offsetLeft-8;}
-let personalView=false;
 const viewMine=$('view-mine');
-viewMine?.addEventListener('click',()=>{personalView=!personalView;render();});
+const myRoster=$('personal-roster');
+viewMine?.addEventListener('click',()=>{
+ if(!data||saving||!myRoster)return;
+ renderMyRoster();
+ myRoster.showModal();
+});
+myRoster?.addEventListener('click',event=>{
+ const day=event.target.closest('[data-personal-day]');
+ if(day)openDay(Number(day.dataset.personalDay));
+});
+function renderMyRoster(){
+ if(!myRoster||!data)return;
+ const {days:dayCount,dow,off}=calendar(data);
+ const placed=Array.from({length:dayCount+1},(_,day)=>source[day]||'');
+ const requested=data.locked?team.find(person=>person.id===data.person.id)?.requested:source;
+ const totals=personalSummary({...ym,source,holidays:data.holidays});
+ $('personal-roster-title').textContent=data.person.name;
+ $('personal-roster-month').textContent=months[ym.month-1]+' พ.ศ. '+(ym.year+543);
+ $('personal-roster-status').textContent=data.locked?'ล็อกตารางแล้ว':'ความประสงค์ของฉัน';
+ $('personal-roster-totals').innerHTML=[
+  ['เช้าปกติ',totals.regularMorning],['เช้าวันหยุด',totals.m],['บ่าย',totals.b],['ดึก',totals.n],['เวรนอกเวลารวม',totals.total]
+ ].map(([label,value])=>'<div><dt>'+label+'</dt><dd>'+value+'</dd></div>').join('');
+ $('personal-roster-grid').innerHTML=personalCalendar({dayCount,dow,daysOff:off,holidays:data.holidays||[],shifts:placed,source:requested,editable:!data.locked&&!data.preview&&!saving});
+ $('print-my-calendar').disabled=saving;
+}
 function renderTable(){
- if(viewMine){
-  viewMine.disabled=!data;
-  viewMine.textContent=personalView?'ดูตารางทั้งทีม':'ดูเฉพาะเวรของฉัน';
-  viewMine.setAttribute('aria-pressed',String(personalView));
- }
+ if(viewMine)viewMine.disabled=!data||saving;
+ if(myRoster?.open&&data)renderMyRoster();
  const box=$('staff-table');if(!data){box.innerHTML=`<p class="table-empty">${session?'กำลังโหลดตาราง…':''}</p>`;return;}
  const{year,month}=ym,days=new Date(year,month,0).getDate(),holidays=data.holidays||[],t=bangkokToday(),thisMonth=t.year===year&&t.month===month,me=data.person.id;
  const cls=d=>{const dow=new Date(year,month-1,d).getDay();return holidays.includes(d)?'holiday-cell':[0,6].includes(dow)?'weekend':'';};
  // Same row order as the organiser's roster; the signed-in pharmacist's row is the only editable one.
- const mine={id:me,name:data.person.name,source,requested:team.find(p=>p.id===me)?.requested,submittedAt:dirty?null:data.submittedAt,mine:true},rows=!personalView&&teamShared?team.map(p=>p.id===me?mine:p):[mine];if(!rows.includes(mine))rows.unshift(mine);
+ const mine={id:me,name:data.person.name,source,requested:team.find(p=>p.id===me)?.requested,submittedAt:dirty?null:data.submittedAt,mine:true},rows=teamShared?team.map(p=>p.id===me?mine:p):[mine];if(!rows.includes(mine))rows.unshift(mine);
  const offHours=r=>Object.entries(r.source).reduce((n,[d,v])=>!v||v==='X'||v==='V'?n:n+v.includes('บ')+v.includes('ด')+(v.includes('ช')&&!!cls(+d)),0);
  let html='<table class="pref-table"><thead><tr><th class="name-cell">บุคลากร</th>';
  for(let d=1;d<=days;d++)html+=`<th class="${cls(d)}${thisMonth&&d===t.day?' today':''}"><small>${dows[new Date(year,month-1,d).getDay()]}</small>${d}</th>`;
@@ -40,7 +61,7 @@ function renderTable(){
   html+=`<td class="sum">${offHours(r)}</td></tr>`;
  });
  html+='</tbody><tfoot>';
- if(!personalView)for(const[code,label]of[['บ','บ่ายที่เลือกแล้ว'],['ด','ดึกที่เลือกแล้ว']]){html+=`<tr><th class="name-cell" scope="row">${label}</th>`;for(let d=1;d<=days;d++){const n=rows.filter(r=>(r.source[d]||'').includes(code)).length,need=data.staffing?.[(cls(d)?3:0)+(code==='ด'?1:0)]??NEED[code];html+=`<td class="${n>need?'over':n===need?'full':''}">${n}/${need}</td>`;}html+='<td class="sum"></td></tr>';}
+ for(const[code,label]of[['บ','บ่ายที่เลือกแล้ว'],['ด','ดึกที่เลือกแล้ว']]){html+=`<tr><th class="name-cell" scope="row">${label}</th>`;for(let d=1;d<=days;d++){const n=rows.filter(r=>(r.source[d]||'').includes(code)).length,need=data.staffing?.[(cls(d)?3:0)+(code==='ด'?1:0)]??NEED[code];html+=`<td class="${n>need?'over':n===need?'full':''}">${n}/${need}</td>`;}html+='<td class="sum"></td></tr>';}
  html+='</tfoot></table>';
  const left=box.scrollLeft,top=box.scrollTop;box.innerHTML=html;box.scrollLeft=left;box.scrollTop=top;
 }
@@ -94,4 +115,6 @@ $('login-form').onsubmit=async e=>{e.preventDefault();const loginError=$('login-
 $('logout').onclick=async()=>{try{await api('/api/logout',{method:'POST'});}catch{}sessionStorage.removeItem('roster-session');location.reload();};
 render();if(token)initialize();
 
-$('print-personal').onclick=async()=>{if(!data||saving)return;try{await syncLatest();$('personal-print').innerHTML=personalPrintHTML({...ym,name:data.person.name,source,holidays:data.holidays,locked:data.locked,publishedAt:data.publishedAt});window.print();}catch(error){status(error.message,true);}};
+async function printMyRoster(){if(!data||saving)return;try{await syncLatest();$('personal-print').innerHTML=personalPrintHTML({...ym,name:data.person.name,source,holidays:data.holidays,locked:data.locked,publishedAt:data.publishedAt});window.print();}catch(error){status(error.message,true);}}
+$('print-personal').onclick=printMyRoster;
+$('print-my-calendar')?.addEventListener('click',printMyRoster);

@@ -260,3 +260,36 @@ dialog input{width:100%}
 
 .pref-table td.generated{color:#0d6b4c;font-weight:600}
 .pref-table td.regular-morning{color:#111}
+
+#personal-roster{max-width:860px;max-height:calc(100dvh - 30px);padding:clamp(12px,3vw,28px)}
+#personal-roster .dialog-header{margin-bottom:8px}
+#personal-roster-title{font-size:clamp(22px,4vw,32px)}
+#personal-roster-month{margin:0 0 4px;color:var(--muted)}
+#personal-roster-status{display:inline-block;margin:0;color:var(--brand);background:#e6f6ee;padding:3px 10px;border-radius:12px}
+#personal-roster-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,92px),1fr));gap:6px;margin:14px 0}
+#personal-roster-totals div{padding:7px 10px;border-radius:10px;background:var(--surface-2)}
+#personal-roster-totals div:last-child{background:#e6f6ee;color:var(--brand)}
+#personal-roster-totals dt{font-size:12px}
+#personal-roster-totals dd{margin:0;font-size:20px;font-weight:700}
+#personal-roster-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.personal-weekday{text-align:center;color:var(--muted);font-size:13px;padding:4px 0}
+.personal-day{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-height:56px;padding:clamp(3px,1vw,9px);border:1px solid var(--line);border-radius:7px}
+.personal-day.weekend{background:var(--surface-2)}
+.personal-day.holiday{background:#fff5d9}
+.personal-day b{font-size:12px}
+.personal-day span{font-size:clamp(9px,1.9vw,13px);font-weight:650}
+#personal-roster .fixed{color:#aa3226}
+#personal-roster .generated{color:#0d6b4c}
+#personal-roster .morning{color:#111}
+.personal-day .empty-shift{color:var(--muted)}
+.personal-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:12px;font-size:12px}
+.personal-roster-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}
+.personal-roster-actions form{margin:0}
+#personal-roster .dialog-header{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+#personal-roster-title{margin:0 0 8px}
+#personal-roster .personal-roster-close{width:34px;height:34px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--muted);font-size:20px;cursor:pointer}
+#personal-roster button.personal-day{text-align:left;font:inherit;color:inherit;cursor:pointer;background:var(--surface)}
+#personal-roster button.personal-day.weekend{background:var(--surface-2)}
+#personal-roster button.personal-day.holiday{background:#fff5d9}
+#personal-roster button.personal-day:hover{border-color:var(--brand)}
+@media print{#personal-roster,#personal-roster::backdrop{display:none!important}}
