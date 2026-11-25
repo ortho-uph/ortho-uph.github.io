@@ -1,4 +1,4 @@
-import{personalCalendar}from'./personal-summary.mjs?v=staff-calendar1';
+import{personalCalendar}from'./personal-summary.mjs?v=shift-codes1';
 import{monthlyQuota,calendar,requestedOvertime,requestQuotaError}from'./engine.mjs?v=quota1';
 import{personalPrintHTML,personalSummary}from'./personal-print.mjs?v=roster5';
 import{capacityConflict}from'./capacity.mjs?v=global-rules1';

@@ -1,4 +1,4 @@
-import {personalCalendar} from './personal-summary.mjs?v=locked-off1';
+import {personalCalendar} from './personal-summary.mjs?v=shift-codes1';
 import{capacityConflict}from'./capacity.mjs?v=global-rules1';
 import{requirements,staffing,applySourceRow,monthlyQuota,requestQuotaError,calendar,initial,counts,validate,readiness,display,codes,clone,parsePreferenceCSV}from'./engine.mjs?v=locked-off1';
 const apiBase=(window.ROSTER_API_BASE||'').replace(/\/$/,'');
